@@ -44,33 +44,67 @@
 ## 📅 Project Roadmap & Backlog
 ### 📌 EPIC별 Product Backlog
 
-| EPIC | 주요 기능 (Stories) | 담당자 | Story Point |
-| :--- | :--- | :---: | :---: |
-| **Core Scanning** | • SAST(암호패턴), SCA(라이브러리), Config(설정) 스캐너 구현 | 최진혁, 경건웅 | **13** |
-| **AI & Risk** | • OpenAI 프롬프트 엔지니어링<br>• 위험도/비용 산출 알고리즘 | 허준영 | **8** |
-| **Backend** | • FastAPI 설계 및 비동기 큐(Celery) 연동<br>• DB 스키마 설계 | 허준영, 최진혁 | **8** |
-| **Dashboard** | • 히트맵 시각화 및 리포트 PDF 다운로드 구현 | 경건웅 | **5** |
+| EPIC | 주요 기능 (Stories) | 담당자 |
+| :--- | :--- | :---: |
+| **Core Scanning** | • SAST(암호패턴), SCA(라이브러리), Config(설정) 스캐너 구현 | 최진혁, 허준영 |
+| **AI & Risk** | • OpenAI 프롬프트 엔지니어링<br>• 위험도/비용 산출 알고리즘 | 경건웅 |
+| **Backend** | • FastAPI 설계 및 비동기 큐(Celery) 연동<br>• DB 스키마 설계 | 허준영, 최진혁 |
+| **Dashboard** | • 히트맵 시각화 및 리포트 PDF 다운로드 구현 | 경건웅 |
 
 <br>
 ### 🚀 수행 로드맵 (Project Roadmap)
 
 ```mermaid
 graph TD
-    %% 노드 정의
-    P1[Phase 1: 기획 및 설계<br/>📅 10월 ~ 12월]
-    P2[Phase 2: 핵심 엔진 구현<br/>📅 1월 <br/>]
-    P3[Phase 3: 플랫폼 통합<br/>📅 1월 말 ~ 2월 초]
-    P4[Phase 4: 안정화 및 문서화<br/>📅 2월 ~ 3월]
+    %% 스타일 정의 (이미지의 색상 테마 반영)
+    classDef m1 fill:#dbeafe,stroke:#1e40af,stroke-width:2px,color:#1e3a8a;
+    classDef m2 fill:#ffedd5,stroke:#c2410c,stroke-width:2px,color:#9a3412;
+    classDef m3 fill:#fef9c3,stroke:#a16207,stroke-width:2px,color:#854d0e;
+    classDef m4 fill:#dcfce7,stroke:#15803d,stroke-width:2px,color:#14532d;
+    classDef m5 fill:#e0f2fe,stroke:#0369a1,stroke-width:2px,color:#075985;
+    classDef m6 fill:#f3e8ff,stroke:#7e22ce,stroke-width:2px,color:#6b21a8;
 
-    %% 연결
-    P1 --> P2 --> P3 --> P4
+    %% 노드 정의 및 연결
+    subgraph M1 [10월~12월: 기획 및 설계 Total: 13 SP]
+        direction TB
+        T1-01(E1-01. PQC 가이드라인 분석<br/>NIST/NSA 표준 정립 <br/>- 5 SP):::m1
+        T1-02(E1-02. 아키텍처 설계<br/>MSA 구조 및 DB ERD <br/>- 5 SP):::m1
+        T1-03(E1-03. API 명세서 작성<br/>Swagger/OpenAPI <br/>- 3 SP):::m1
+    end
 
-    %% 스타일링 (완료: 초록, 진행중: 빨강, 예정: 회색)
-    classDef done fill:#dcfce7,stroke:#166534,stroke-width:2px,color:#166534;
-    classDef active fill:#fee2e2,stroke:#ef4444,stroke-width:4px,color:#b91c1c;
-    classDef future fill:#f3f4f6,stroke:#9ca3af,stroke-width:2px,color:#4b5563;
+    subgraph M2 [1월 중~1월 말: 스캔 엔진 구현 Total: 21 SP]
+        direction TB
+        T2-01(E2-01. SAST 파서 개발<br/>AST 기반 코드 분석 <br/>- 8 SP):::m2
+        T2-02(E2-02. SCA 종속성 분석<br/>라이브러리 취약점 탐지 <br/>- 8 SP):::m2
+        T2-03(E2-03. Config 진단<br/>인증서/설정 파일 스캔 <br/>- 5 SP):::m2
+    end
 
-    %% 클래스 적용
-    class P1 done;
-    class P2 active;
-    class P3,P4 future;
+    subgraph M3 [1월 말~2월 초: AI 분석 및 위험도 Total: 18 SP]
+        direction TB
+        T3-01(E3-01. OpenAI 연동<br/>GPT-4o API 통합<br/> - 5 SP):::m3
+        T3-02(E3-02. 프롬프트 엔지니어링<br/>문맥 기반 리팩토링 제안<br/> - 8 SP):::m3
+        T3-03(E3-03. 위험도 산출 로직<br/>우선순위 스코어링<br/> - 5 SP):::m3
+    end
+
+    subgraph M4 [2월 초~2월 중: 백엔드 & 비동기 Total: 15 SP]
+        direction TB
+        T4-01(E4-01. 비동기 큐 구축<br/>Celery & Redis <br/>- 5 SP):::m4
+        T4-02(E4-02. FastAPI 보안 <br/>- 5 SP):::m4
+        T4-03(E4-03. 대용량 처리 최적화 <br/>- 5 SP):::m4
+    end
+
+    subgraph M5 [2월 중~2월 말: 프론트엔드 & 시각화 <br/>Total: 13 SP]
+        direction TB
+        T5-01(E5-01. PQC 히트맵<br/>Recharts 시각화 <br/>- 5 SP):::m5
+        T5-02(E5-02. 리포트 생성<br/>PDF Export <br/>- 5 SP):::m5
+        T5-03(E5-03. 대시보드 UX<br/>반응형 웹 구현 <br/>- 3 SP):::m5
+    end
+
+    subgraph M6 [2월 말: 인프라 & 배포 <br/>Total: 8 SP]
+        direction TB
+        T6-01(E6-01. AWS 배포<br/>EC2 & S3 연동 <br/>- 5 SP):::m6
+        T6-02(E6-02. CI/CD 파이프라인<br/>GitHub Actions <br/>- 3 SP):::m6
+    end
+
+    %% 프로세스 흐름 화살표
+    M1 ==> M2 ==> M3 ==> M4 ==> M5 ==> M6
