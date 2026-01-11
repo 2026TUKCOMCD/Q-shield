@@ -6,6 +6,34 @@
 
 <br>
 
-## 🏗️ Software Architecture
+## 🏗️ 소프트웨어 구조도
 
 ![AI PQC Platform Architecture](software_architecture.png)
+
+1.  **Presentation Layer (Next.js)**
+    - 사용자가 GitHub URL을 입력하고 분석 결과를 확인하는 대시보드입니다
+    - 서버로부터 받은 JSON 데이터를 기반으로 **PQC 준비도 히트맵**과 **전환 로드맵**을 시각적으로 렌더링합니다
+
+2.  **Application Layer (FastAPI & Scanners)**
+    - **API Gateway**: 요청을 받아 인증을 처리하고, 대규모 작업을 처리하기 위해 **Celery & Redis** 비동기 큐로 작업을 넘깁니다.
+    - **3-Way Scanners**:
+        - `SAST`: 소스코드 내부의 암호 함수 호출 패턴을 분석합니다.
+        - `SCA`: 프로젝트의 종속성(라이브러리)을 분석하여 PQC 미지원 버전을 탐지합니다.
+        - `Config`: 설정 파일 및 인증서의 취약점을 진단합니다.
+
+3.  **AI Analysis Layer (OpenAI)**
+    - 스캐너가 수집한 '기술적 취약점(Fact)'과 사용자의 '비즈니스 문맥(Context)'을 결합합니다.
+    - LLM을 활용해 단순 탐지를 넘어 **리팩토링 비용**과 **전환 우선순위**를 산출합니다.
+
+4.  **Data Layer (PostgreSQL & S3)**
+    - 분석 결과와 사용자 로그 등 구조화된 데이터는 **PostgreSQL**에 저장합니다.
+    - 생성된 PDF 리포트나 시각화용 이미지 파일은 **Amazon S3**에 저장하여 성능을 최적화합니다.
+
+  
+## 🌍 System Environment
+
+| 환경 (Environment) | 목적 (Purpose) | 구성 요소 (Components) |
+| :--- | :--- | :--- |
+| **💻 개발 (Dev)** | 기능 구현 및 단위 테스트 | • **OS:** Local PC (Win/Mac)<br>• **Infra:** Docker Desktop (Local DB/Redis)<br>• **Tool:** VS Code |
+| **🚀 운용 (Prod)** | 실제 사용자 진단 서비스 | • **Cloud:** AWS EC2<br>• **CI/CD:** GitHub Actions<br>• **Monitoring:** Sentry, CloudWatch |
+| **🎤 데모 (Demo)** | 발표 및 기능 시연 | • **Data:** Pre-set Sample Project (취약점 포함)<br>• **Feature:** PQC Readiness Dashboard 시연 최적화 |
