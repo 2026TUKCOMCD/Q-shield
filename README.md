@@ -8,4 +8,4 @@
 
 ## 🏗️ Software Architecture
 
-![AI PQC Platform Architecture](./소프트웨어 구조도.png)
+![AI PQC Platform Architecture](software_architecture.png)
