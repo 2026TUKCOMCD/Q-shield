@@ -29,6 +29,7 @@
     - 분석 결과와 사용자 로그 등 구조화된 데이터는 **PostgreSQL**에 저장합니다.
     - 생성된 PDF 리포트나 시각화용 이미지 파일은 **Amazon S3**에 저장하여 성능을 최적화합니다.
 
+<br>
   
 ## 🌍 System Environment
 
@@ -37,3 +38,39 @@
 | **💻 개발 (Dev)** | 기능 구현 및 단위 테스트 | • **OS:** Local PC (Win/Mac)<br>• **Infra:** Docker Desktop (Local DB/Redis)<br>• **Tool:** VS Code |
 | **🚀 운용 (Prod)** | 실제 사용자 진단 서비스 | • **Cloud:** AWS EC2<br>• **CI/CD:** GitHub Actions<br>• **Monitoring:** Sentry, CloudWatch |
 | **🎤 데모 (Demo)** | 발표 및 기능 시연 | • **Data:** Pre-set Sample Project (취약점 포함)<br>• **Feature:** PQC Readiness Dashboard 시연 최적화 |
+
+<br>
+
+## 📅 Project Roadmap & Backlog
+### 📌 EPIC별 Product Backlog
+
+| EPIC | 주요 기능 (Stories) | 담당자 | Story Point |
+| :--- | :--- | :---: | :---: |
+| **Core Scanning** | • SAST(암호패턴), SCA(라이브러리), Config(설정) 스캐너 구현 | 최진혁, 경건웅 | **13** |
+| **AI & Risk** | • OpenAI 프롬프트 엔지니어링<br>• 위험도/비용 산출 알고리즘 | 허준영 | **8** |
+| **Backend** | • FastAPI 설계 및 비동기 큐(Celery) 연동<br>• DB 스키마 설계 | 허준영, 최진혁 | **8** |
+| **Dashboard** | • 히트맵 시각화 및 리포트 PDF 다운로드 구현 | 경건웅 | **5** |
+
+<br>
+### 🚀 수행 로드맵 (Project Roadmap)
+
+```mermaid
+graph TD
+    %% 노드 정의
+    P1[Phase 1: 기획 및 설계<br/>📅 10월 ~ 12월]
+    P2[Phase 2: 핵심 엔진 구현<br/>📅 1월 <br/>]
+    P3[Phase 3: 플랫폼 통합<br/>📅 1월 말 ~ 2월 초]
+    P4[Phase 4: 안정화 및 문서화<br/>📅 2월 ~ 3월]
+
+    %% 연결
+    P1 --> P2 --> P3 --> P4
+
+    %% 스타일링 (완료: 초록, 진행중: 빨강, 예정: 회색)
+    classDef done fill:#dcfce7,stroke:#166534,stroke-width:2px,color:#166534;
+    classDef active fill:#fee2e2,stroke:#ef4444,stroke-width:4px,color:#b91c1c;
+    classDef future fill:#f3f4f6,stroke:#9ca3af,stroke-width:2px,color:#4b5563;
+
+    %% 클래스 적용
+    class P1 done;
+    class P2 active;
+    class P3,P4 future;
