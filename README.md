@@ -65,42 +65,42 @@ graph TD
     classDef m6 fill:#f3e8ff,stroke:#7e22ce,stroke-width:2px,color:#6b21a8;
 
     %% 노드 정의 및 연결
-    subgraph M1 [10월~12월: 기획 및 설계 Total: 13 SP]
+    subgraph M1 [10월~12월:기획 및 설계]
         direction TB
         T1-01(E1-01. PQC 가이드라인 분석<br/>NIST/NSA 표준 정립 <br/>- 5 SP):::m1
         T1-02(E1-02. 아키텍처 설계<br/>MSA 구조 및 DB ERD <br/>- 5 SP):::m1
         T1-03(E1-03. API 명세서 작성<br/>Swagger/OpenAPI <br/>- 3 SP):::m1
     end
 
-    subgraph M2 [1월 중~1월 말: 스캔 엔진 구현 Total: 21 SP]
+    subgraph M2 [1월 중~1월 말:스캔 엔진]
         direction TB
         T2-01(E2-01. SAST 파서 개발<br/>AST 기반 코드 분석 <br/>- 8 SP):::m2
         T2-02(E2-02. SCA 종속성 분석<br/>라이브러리 취약점 탐지 <br/>- 8 SP):::m2
         T2-03(E2-03. Config 진단<br/>인증서/설정 파일 스캔 <br/>- 5 SP):::m2
     end
 
-    subgraph M3 [1월 말~2월 초: AI 분석 및 위험도 Total: 18 SP]
+    subgraph M3 [1월 말~2월 초:AI 분석]
         direction TB
         T3-01(E3-01. OpenAI 연동<br/>GPT-4o API 통합<br/> - 5 SP):::m3
         T3-02(E3-02. 프롬프트 엔지니어링<br/>문맥 기반 리팩토링 제안<br/> - 8 SP):::m3
         T3-03(E3-03. 위험도 산출 로직<br/>우선순위 스코어링<br/> - 5 SP):::m3
     end
 
-    subgraph M4 [2월 초~2월 중: 백엔드 & 비동기 Total: 15 SP]
+    subgraph M4 [2월 초~2월 중:백엔드]
         direction TB
         T4-01(E4-01. 비동기 큐 구축<br/>Celery & Redis <br/>- 5 SP):::m4
         T4-02(E4-02. FastAPI 보안 <br/>- 5 SP):::m4
         T4-03(E4-03. 대용량 처리 최적화 <br/>- 5 SP):::m4
     end
 
-    subgraph M5 [2월 중~2월 말: 프론트엔드 & 시각화 <br/>Total: 13 SP]
+    subgraph M5 [2월 중~2월 말:프론트엔드]
         direction TB
         T5-01(E5-01. PQC 히트맵<br/>Recharts 시각화 <br/>- 5 SP):::m5
         T5-02(E5-02. 리포트 생성<br/>PDF Export <br/>- 5 SP):::m5
         T5-03(E5-03. 대시보드 UX<br/>반응형 웹 구현 <br/>- 3 SP):::m5
     end
 
-    subgraph M6 [2월 말: 인프라 & 배포 <br/>Total: 8 SP]
+    subgraph M6 [2월 말:인프라 & 배포]
         direction TB
         T6-01(E6-01. AWS 배포<br/>EC2 & S3 연동 <br/>- 5 SP):::m6
         T6-02(E6-02. CI/CD 파이프라인<br/>GitHub Actions <br/>- 3 SP):::m6
