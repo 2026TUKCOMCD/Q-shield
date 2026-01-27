@@ -1,0 +1,269 @@
+openapi: 3.0.0
+info:
+  title: AI-PQC Scanner Backend API
+  version: 1.0.0
+  description: API for the AI-PQC Scanner Frontend to interact with the backend scanner engine.
+
+servers:
+  - url: /api
+    description: Base URL for the API
+
+paths:
+  /scans:
+    post:
+      summary: Initiate a new PQC scan
+      operationId: initiateScan
+      requestBody:
+        description: GitHub repository URL to scan
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                githubUrl:
+                  type: string
+                  format: url
+                  description: The GitHub repository URL to be scanned.
+              required:
+                - githubUrl
+      responses:
+        '202':
+          description: Scan initiation accepted. Returns the UUID of the new scan.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  uuid:
+                    type: string
+                    format: uuid
+                    description: Unique identifier for the initiated scan.
+        '400':
+          description: Invalid GitHub URL provided.
+        '500':
+          description: Internal server error.
+
+  /scans/{uuid}/status:
+    get:
+      summary: Get the current status of a PQC scan
+      operationId: getScanStatus
+      parameters:
+        - in: path
+          name: uuid
+          schema:
+            type: string
+            format: uuid
+          required: true
+          description: UUID of the scan to retrieve status for.
+      responses:
+        '200':
+          description: Current scan status.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  uuid:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    enum: [PENDING, IN_PROGRESS, COMPLETED, FAILED]
+                    description: Current status of the scan.
+                  progress:
+                    type: integer
+                    format: int32
+                    minimum: 0
+                    maximum: 100
+                    description: Percentage of scan completion.
+        '404':
+          description: Scan not found.
+        '500':
+          description: Internal server error.
+
+  /scans/{uuid}/inventory:
+    get:
+      summary: Get cryptographic asset inventory for a scan
+      operationId: getScanInventory
+      parameters:
+        - in: path
+          name: uuid
+          schema:
+            type: string
+            format: uuid
+          required: true
+          description: UUID of the scan to retrieve inventory for.
+      responses:
+        '200':
+          description: List of cryptographic assets.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  uuid:
+                    type: string
+                    format: uuid
+                  pqcReadinessScore:
+                    type: number
+                    format: float
+                    description: Overall PQC readiness score (0.0-10.0).
+                  algorithmRatios:
+                    type: object
+                    additionalProperties:
+                      type: number
+                      format: float
+                    description: Ratios of different cryptographic algorithms (e.g., ECC, AES).
+                  inventory:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CryptographicAsset'
+        '404':
+          description: Scan not found.
+        '500':
+          description: Internal server error.
+
+  /scans/{uuid}/heatmap:
+    get:
+      summary: Get repository heatmap data for a scan
+      operationId: getScanHeatmap
+      parameters:
+        - in: path
+          name: uuid
+          schema:
+            type: string
+            format: uuid
+          required: true
+          description: UUID of the scan to retrieve heatmap for.
+      responses:
+        '200':
+          description: File system risk heatmap data.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RepositoryFileTree'
+        '404':
+          description: Scan not found.
+        '500':
+          description: Internal server error.
+
+  /scans/{uuid}/recommendations:
+    get:
+      summary: Get PQC recommendations for a scan
+      operationId: getPQCRecommendations
+      parameters:
+        - in: path
+          name: uuid
+          schema:
+            type: string
+            format: uuid
+          required: true
+          description: UUID of the scan to retrieve recommendations for.
+        - in: query
+          name: algorithmType
+          schema:
+            type: string
+          description: Optional filter for cryptographic algorithm type (e.g., RSA, ECC).
+        - in: query
+          name: context
+          schema:
+            type: string
+          description: Optional filter for contextual information (e.g., payment logic).
+      responses:
+        '200':
+          description: List of PQC recommendations.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  uuid:
+                    type: string
+                    format: uuid
+                  recommendations:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Recommendation'
+        '404':
+          description: Scan not found.
+        '500':
+          description: Internal server error.
+
+components:
+  schemas:
+    CryptographicAsset:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the asset.
+        algorithmType:
+          type: string
+          description: Type of cryptographic algorithm (e.g., ECC, AES, RSA).
+        filePath:
+          type: string
+          description: File path where the asset was found.
+        lineNumbers:
+          type: array
+          items:
+            type: integer
+          description: Line numbers where the asset appears.
+        riskScore:
+          type: number
+          format: float
+          description: Aggregated risk score for the asset (0.0-10.0).
+
+    Recommendation:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the recommendation.
+        priorityRank:
+          type: integer
+          description: Priority ranking of the recommendation.
+        issueName:
+          type: string
+          description: Descriptive name of the issue.
+        estimatedEffort:
+          type: string
+          description: Estimated effort to resolve (e.g., "3 M/D").
+        aiRecommendation:
+          type: string
+          description: AI-generated refactoring guidance (Markdown formatted).
+        recommendedPQCAlgorithm:
+          type: string
+          description: Name of the recommended PQC algorithm.
+        context:
+          type: string
+          description: Contextual information for filtering (e.g., payment logic).
+
+    RepositoryFile:
+      type: object
+      properties:
+        filePath:
+          type: string
+          description: Absolute or relative path to the file.
+        fileName:
+          type: string
+          description: Name of the file.
+        fileType:
+          type: string
+          enum: [file, folder]
+          description: Type of the entry (file or folder).
+        aggregatedRiskScore:
+          type: number
+          format: float
+          description: Aggregated risk score for the file/folder.
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/RepositoryFile'
+          description: List of child files/folders (if `fileType` is 'folder').
+
+    RepositoryFileTree:
+      type: array
+      items:
+        $ref: '#/components/schemas/RepositoryFile'
+      description: Root level of the file system tree.
