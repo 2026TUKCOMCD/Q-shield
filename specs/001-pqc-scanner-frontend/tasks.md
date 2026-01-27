@@ -38,9 +38,9 @@ description: "Task list for AI-PQC Scanner Frontend feature implementation"
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T004 Setup API routing and middleware structure (`frontend/src/api/`)
-- [ ] T005 Configure global error handling and logging infrastructure (`frontend/src/utils/errorHandler.ts`, `frontend/src/utils/logger.ts`)
-- [ ] T006 Setup environment configuration management (e.g., `.env` files, config loading utilities).
+- [x] T004 Setup API routing and middleware structure (`frontend/src/api/`)
+- [x] T005 Configure global error handling and logging infrastructure (`frontend/src/utils/errorHandler.ts`, `frontend/src/utils/logger.ts`)
+- [x] T006 Setup environment configuration management (e.g., `.env` files, config loading utilities).
 
 **Checkpoint**: Foundation ready - user story implementation can now begin.
 
