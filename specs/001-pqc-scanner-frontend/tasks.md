@@ -72,10 +72,10 @@ description: "Task list for AI-PQC Scanner Frontend feature implementation"
 
 ### Implementation for User Story 1
 
-- [ ] T012 [US1] Create Dashboard page component in `frontend/src/pages/Dashboard.tsx`.
-- [ ] T013 [US1] Implement PQC readiness gauge visualization component (`frontend/src/components/PqcReadinessGauge.tsx`).
-- [ ] T014 [US1] Implement inventory table display component (`frontend/src/components/InventoryTable.tsx`).
-- [ ] T015 [US1] Integrate API polling for scan status (`/scans/{uuid}/status`) and data fetching for inventory (`/scans/{uuid}/inventory`) using `scanService.ts` and `inventoryService.ts`. (`frontend/src/services/scanService.ts`, `frontend/src/services/inventoryService.ts`)
+- [x] T012 [US1] Create Dashboard page component in `frontend/src/pages/Dashboard.tsx`.
+- [x] T013 [US1] Implement PQC readiness gauge visualization component (`frontend/src/components/PqcReadinessGauge.tsx`).
+- [x] T014 [US1] Implement inventory table display component (`frontend/src/components/InventoryTable.tsx`).
+- [x] T015 [US1] Integrate API polling for scan status (`/scans/{uuid}/status`) and data fetching for inventory (`/scans/{uuid}/inventory`) using `scanService.ts` and `inventoryService.ts`. (`frontend/src/services/scanService.ts`, `frontend/src/services/inventoryService.ts`)
 
 **Checkpoint**: User Story 1 is fully functional and testable independently.
 

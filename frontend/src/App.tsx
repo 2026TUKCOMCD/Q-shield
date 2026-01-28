@@ -3,6 +3,7 @@ import { Sidebar } from './components/Sidebar'
 import { MobileNav } from './components/MobileNav'
 import { ScanInput } from './pages/ScanInput'
 import { ScanHistory } from './pages/ScanHistory'
+import { Dashboard } from './pages/Dashboard'
 
 function App() {
   return (
@@ -14,6 +15,7 @@ function App() {
           <Route path="/" element={<Navigate to="/scans/new" replace />} />
           <Route path="/scans/new" element={<ScanInput />} />
           <Route path="/scans/history" element={<ScanHistory />} />
+          <Route path="/dashboard/:uuid" element={<Dashboard />} />
           <Route path="*" element={<Navigate to="/scans/new" replace />} />
         </Routes>
       </main>

@@ -10,7 +10,9 @@ import {
   Loader2,
   Copy,
   Check,
+  Eye,
 } from 'lucide-react'
+import { Link } from 'react-router-dom'
 
 interface ScanHistoryListProps {
   scans: ScanHistoryItem[]
@@ -253,6 +255,15 @@ export const ScanHistoryList = ({ scans, onRefresh }: ScanHistoryListProps) => {
 
               {/* Right Section - Actions */}
               <div className="flex items-center gap-2">
+                {scan.status === 'COMPLETED' && (
+                  <Link
+                    to={`/dashboard/${scan.uuid}`}
+                    className="px-4 py-2 bg-gradient-to-r from-indigo-500/20 to-purple-600/20 hover:from-indigo-500/30 hover:to-purple-600/30 border border-indigo-500/30 rounded-lg transition-all duration-300 flex items-center gap-2 text-sm text-white"
+                  >
+                    <Eye className="w-4 h-4" />
+                    <span>View Dashboard</span>
+                  </Link>
+                )}
                 <button
                   onClick={() => refreshScanStatus(scan.uuid)}
                   disabled={isRefreshing}
