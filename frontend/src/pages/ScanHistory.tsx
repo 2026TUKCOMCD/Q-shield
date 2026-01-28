@@ -67,10 +67,10 @@ export const ScanHistory = () => {
       <div className="fixed inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(99,102,241,0.1),transparent_50%)] pointer-events-none" />
 
       {/* Main Content */}
-      <div className="relative z-10 ml-64 p-8">
+      <div className="relative z-10 ml-0 md:ml-64 p-4 md:p-8">
         <div className="max-w-6xl mx-auto space-y-8">
           {/* Header */}
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
               <div className="p-3 bg-gradient-to-br from-indigo-500/20 to-purple-600/20 rounded-xl border border-indigo-500/30">
                 <History className="w-6 h-6 text-indigo-400" />

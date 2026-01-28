@@ -21,7 +21,7 @@ export const Sidebar = () => {
   ]
 
   return (
-    <div className="fixed left-0 top-0 h-full w-64 bg-slate-900/80 backdrop-blur-md border-r border-white/10 z-50">
+    <div className="fixed left-0 top-0 h-full w-64 bg-slate-900/80 backdrop-blur-md border-r border-white/10 z-50 hidden md:block">
       <div className="flex flex-col h-full">
         {/* Logo/Brand */}
         <div className="p-6 border-b border-white/10">

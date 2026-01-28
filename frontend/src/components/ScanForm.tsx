@@ -50,7 +50,7 @@ export const ScanForm = ({ onScanInitiated, onError, onUrlChange }: ScanFormProp
     }
 
     if (!isValidGitHubUrl(githubUrl)) {
-      const errorMsg = '유효한 GitHub 저장소 URL을 입력해주세요. (예: https://github.com/owner/repo)'
+      const errorMsg = '올바른 GitHub URL이 아닙니다. GitHub 저장소 URL을 입력해주세요. (예: https://github.com/owner/repo)'
       setLocalError(errorMsg)
       onError?.(errorMsg)
       return
@@ -75,7 +75,7 @@ export const ScanForm = ({ onScanInitiated, onError, onUrlChange }: ScanFormProp
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} noValidate className="space-y-6">
       {/* Error Message */}
       {localError && (
         <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-lg flex items-center gap-3 text-red-400 animate-in fade-in duration-200">
@@ -113,7 +113,6 @@ export const ScanForm = ({ onScanInitiated, onError, onUrlChange }: ScanFormProp
               placeholder="https://github.com/owner/repository"
               disabled={isSubmitting}
               className="w-full pl-12 pr-4 py-4 bg-white/5 border border-white/10 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:bg-white/10 focus:border-indigo-500/50 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed backdrop-blur-sm"
-              required
             />
           </div>
         </div>

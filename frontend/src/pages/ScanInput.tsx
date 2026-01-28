@@ -22,10 +22,10 @@ export const ScanInput = () => {
     setSuccess(true)
     setSuccessUuid(response.uuid)
 
-    // 3초 후 히스토리 페이지로 이동
+    // 2-3초 후 히스토리 페이지로 이동
     setTimeout(() => {
       navigate('/scans/history')
-    }, 3000)
+    }, 2500)
   }
 
   /**
@@ -43,7 +43,7 @@ export const ScanInput = () => {
       <div className="fixed inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(99,102,241,0.1),transparent_50%)] pointer-events-none" />
 
       {/* Main Content */}
-      <div className="relative z-10 ml-64 p-8">
+      <div className="relative z-10 ml-0 md:ml-64 p-4 md:p-8">
         <div className="max-w-6xl mx-auto space-y-12">
           {/* Header Section */}
           <div className="space-y-4 animate-in fade-in duration-700">
