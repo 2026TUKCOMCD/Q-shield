@@ -54,11 +54,11 @@ description: "Task list for AI-PQC Scanner Frontend feature implementation"
 
 ### Implementation for User Story 4
 
-- [ ] T007 [US4] Create ScanInput page component in `frontend/src/pages/ScanInput.tsx`.
-- [ ] T008 [US4] Implement GitHub URL input form and submission logic in `frontend/src/components/ScanForm.tsx`.
-- [ ] T009 [US4] Integrate API call to initiate scan (`/scans`) using `scanService.ts`. (`frontend/src/services/scanService.ts`)
-- [ ] T010 [US4] Create ScanHistory page component in `frontend/src/pages/ScanHistory.tsx`.
-- [ ] T011 [US4] Implement logic to display list of past scans (UUID, status, date) using `scanService.ts`. (`frontend/src/components/ScanHistoryList.tsx`)
+- [x] T007 [US4] Create ScanInput page component in `frontend/src/pages/ScanInput.tsx`.
+- [x] T008 [US4] Implement GitHub URL input form and submission logic in `frontend/src/components/ScanForm.tsx`.
+- [x] T009 [US4] Integrate API call to initiate scan (`/scans`) using `scanService.ts`. (`frontend/src/services/scanService.ts`)
+- [x] T010 [US4] Create ScanHistory page component in `frontend/src/pages/ScanHistory.tsx`.
+- [x] T011 [US4] Implement logic to display list of past scans (UUID, status, date) using `scanService.ts`. (`frontend/src/components/ScanHistoryList.tsx`)
 
 **Checkpoint**: User Story 4 is fully functional and testable independently.
 
