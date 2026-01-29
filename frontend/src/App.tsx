@@ -6,6 +6,7 @@ import { ScanHistory } from './pages/ScanHistory'
 import { Dashboard } from './pages/Dashboard'
 import { Recommendations } from './pages/Recommendations'
 import { RepositoryHeatmap } from './pages/RepositoryHeatmap'
+import { InventoryDetail } from './pages/InventoryDetail'
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
           <Route path="/dashboard/:uuid" element={<Dashboard />} />
           <Route path="/scans/:uuid/recommendations" element={<Recommendations />} />
           <Route path="/scans/:uuid/heatmap" element={<RepositoryHeatmap />} />
+          <Route path="/scans/:uuid/inventory/:assetId" element={<InventoryDetail />} />
           <Route path="*" element={<Navigate to="/scans/new" replace />} />
         </Routes>
       </main>

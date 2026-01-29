@@ -124,9 +124,9 @@ description: "Task list for AI-PQC Scanner Frontend feature implementation"
 
 ### Implementation for User Story 5
 
-- [ ] T025 [US5] Create InventoryDetail page component (`frontend/src/pages/InventoryDetail.tsx`).
-- [ ] T026 [US5] Integrate API call for inventory data (`/scans/{uuid}/inventory`) using `inventoryService.ts`. (`frontend/src/services/inventoryService.ts`)
-- [ ] T027 [US5] Display detailed cryptographic asset information component (`frontend/src/components/AssetDetailList.tsx`).
+- [x] T025 [US5] Create InventoryDetail page component (`frontend/src/pages/InventoryDetail.tsx`).
+- [x] T026 [US5] Integrate API call for inventory data (`/scans/{uuid}/inventory`) using `inventoryService.ts`. (`frontend/src/services/inventoryService.ts`)
+- [x] T027 [US5] Display detailed cryptographic asset information component (`frontend/src/components/AssetDetailList.tsx`).
 
 **Checkpoint**: User Story 5 is fully functional and testable independently.
 

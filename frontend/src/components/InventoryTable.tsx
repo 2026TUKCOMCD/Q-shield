@@ -1,8 +1,10 @@
+import { useNavigate } from 'react-router-dom'
 import { type CryptographicAsset } from '../services/inventoryService'
 import { FileCode, AlertCircle, CheckCircle2, AlertTriangle } from 'lucide-react'
 
 interface InventoryTableProps {
   inventory: CryptographicAsset[]
+  scanUuid?: string // 스캔 UUID (상세 페이지 링크용)
 }
 
 /**
@@ -27,7 +29,15 @@ const getRiskIcon = (riskScore: number) => {
  * Inventory Table 컴포넌트
  * T014: 암호화 자산 목록 테이블
  */
-export const InventoryTable = ({ inventory }: InventoryTableProps) => {
+export const InventoryTable = ({ inventory, scanUuid }: InventoryTableProps) => {
+  const navigate = useNavigate()
+
+  const handleRowClick = (assetId: string) => {
+    if (scanUuid) {
+      navigate(`/scans/${scanUuid}/inventory/${assetId}`)
+    }
+  }
+
   if (inventory.length === 0) {
     return (
       <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-xl p-12 text-center">
@@ -66,7 +76,10 @@ export const InventoryTable = ({ inventory }: InventoryTableProps) => {
               return (
                 <tr
                   key={asset.id}
-                  className="hover:bg-white/5 transition-colors duration-200"
+                  onClick={() => scanUuid && handleRowClick(asset.id)}
+                  className={`hover:bg-white/5 transition-colors duration-200 ${
+                    scanUuid ? 'cursor-pointer' : ''
+                  }`}
                 >
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center gap-2">

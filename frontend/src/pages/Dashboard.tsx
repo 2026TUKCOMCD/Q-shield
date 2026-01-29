@@ -268,7 +268,7 @@ export const Dashboard = () => {
                     {inventory.inventory.length} items
                   </span>
                 </div>
-                <InventoryTable inventory={inventory.inventory} />
+                <InventoryTable inventory={inventory.inventory} scanUuid={uuid} />
               </div>
 
               {/* Quick Actions */}
