@@ -1,43 +1,31 @@
-# ===== Python =====
+# Python
 __pycache__/
-*.py[cod]
+*.pyc
+*.pyo
 *.pyd
-*.so
-*.egg-info/
-dist/
-build/
+
+# Virtual env
 .venv/
 venv/
-ENV/
 
-# Environment variables
+# Env files
 .env
 .env.*
-!.env.example
 
-# ===== Logs / Temp =====
-*.log
-*.tmp
-*.temp
-
-# ===== OS =====
+# OS
 .DS_Store
 Thumbs.db
 
-# ===== VSCode / Cursor =====
+# Logs
+*.log
+
+# Alembic cache (ok to ignore)
+alembic/__pycache__/
+
+# Editor
 .vscode/
-.cursor/
-*.code-workspace
+.idea/
 
-# ===== Jupyter =====
-.ipynb_checkpoints/
-
-# ===== Node (frontend) =====
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-
-# ===== Docker =====
-*.tar
+# Secrets
+*.pem
+*.key
