@@ -14,6 +14,7 @@ import {
   Activity,
   Shield,
   Sparkles,
+  Map,
 } from 'lucide-react'
 
 /**
@@ -270,27 +271,54 @@ export const Dashboard = () => {
                 <InventoryTable inventory={inventory.inventory} />
               </div>
 
-              {/* Recommendations Link */}
-              <div className="bg-gradient-to-r from-indigo-500/10 to-purple-600/10 border border-indigo-500/30 rounded-xl p-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="p-3 bg-gradient-to-br from-indigo-500/20 to-purple-600/20 rounded-xl border border-indigo-500/30">
-                      <Sparkles className="w-6 h-6 text-indigo-400" />
+              {/* Quick Actions */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Recommendations Link */}
+                <div className="bg-gradient-to-r from-indigo-500/10 to-purple-600/10 border border-indigo-500/30 rounded-xl p-6">
+                  <div className="flex flex-col gap-4">
+                    <div className="flex items-center gap-4">
+                      <div className="p-3 bg-gradient-to-br from-indigo-500/20 to-purple-600/20 rounded-xl border border-indigo-500/30">
+                        <Sparkles className="w-6 h-6 text-indigo-400" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="text-xl font-semibold text-white mb-1">PQC Recommendations</h3>
+                        <p className="text-sm text-slate-400">
+                          AI-powered migration guides
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="text-xl font-semibold text-white mb-1">View PQC Recommendations</h3>
-                      <p className="text-sm text-slate-400">
-                        Get AI-powered migration guides for post-quantum cryptography
-                      </p>
-                    </div>
+                    <Link
+                      to={`/scans/${uuid}/recommendations`}
+                      className="w-full px-6 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl hover:shadow-purple-500/25 transition-all duration-300 flex items-center justify-center gap-2"
+                    >
+                      <Sparkles className="w-4 h-4" />
+                      View Recommendations
+                    </Link>
                   </div>
-                  <Link
-                    to={`/scans/${uuid}/recommendations`}
-                    className="px-6 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl hover:shadow-purple-500/25 transition-all duration-300 flex items-center gap-2"
-                  >
-                    <Sparkles className="w-4 h-4" />
-                    View Recommendations
-                  </Link>
+                </div>
+
+                {/* Heatmap Link */}
+                <div className="bg-gradient-to-r from-indigo-500/10 to-purple-600/10 border border-indigo-500/30 rounded-xl p-6">
+                  <div className="flex flex-col gap-4">
+                    <div className="flex items-center gap-4">
+                      <div className="p-3 bg-gradient-to-br from-indigo-500/20 to-purple-600/20 rounded-xl border border-indigo-500/30">
+                        <Map className="w-6 h-6 text-indigo-400" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="text-xl font-semibold text-white mb-1">Repository Heatmap</h3>
+                        <p className="text-sm text-slate-400">
+                          Visualize risk distribution
+                        </p>
+                      </div>
+                    </div>
+                    <Link
+                      to={`/scans/${uuid}/heatmap`}
+                      className="w-full px-6 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl hover:shadow-purple-500/25 transition-all duration-300 flex items-center justify-center gap-2"
+                    >
+                      <Map className="w-4 h-4" />
+                      View Heatmap
+                    </Link>
+                  </div>
                 </div>
               </div>
             </div>

@@ -4,6 +4,10 @@ import {
   FileCode,
   ChevronRight,
   ChevronDown,
+  AlertCircle,
+  AlertTriangle,
+  Info,
+  CheckCircle2,
 } from 'lucide-react'
 import {
   type RepositoryFile,
@@ -11,7 +15,6 @@ import {
   getRiskColor,
   calculateVulnerabilityCount,
 } from '../services/heatmapService'
-import { AlertCircle, AlertTriangle, Info, CheckCircle2 } from 'lucide-react'
 
 interface FileNodeProps {
   node: RepositoryFile

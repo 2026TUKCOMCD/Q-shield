@@ -107,10 +107,10 @@ description: "Task list for AI-PQC Scanner Frontend feature implementation"
 
 ### Implementation for User Story 3
 
-- [ ] T021 [US3] Create RepositoryHeatmap page component (`frontend/src/pages/RepositoryHeatmap.tsx`).
-- [ ] T022 [US3] Integrate API call for heatmap data (`/scans/{uuid}/heatmap`) using `heatmapService.ts`. (`frontend/src/services/heatmapService.ts`)
-- [ ] T023 [US3] Implement file tree layout display component (`frontend/src/components/FileTree.tsx`).
-- [ ] T024 [US3] Implement risk coloring logic for files/folders within `FileNode.tsx`. (`frontend/src/components/FileNode.tsx`)
+- [x] T021 [US3] Create RepositoryHeatmap page component (`frontend/src/pages/RepositoryHeatmap.tsx`).
+- [x] T022 [US3] Integrate API call for heatmap data (`/scans/{uuid}/heatmap`) using `heatmapService.ts`. (`frontend/src/services/heatmapService.ts`)
+- [x] T023 [US3] Implement file tree layout display component (`frontend/src/components/FileTree.tsx`).
+- [x] T024 [US3] Implement risk coloring logic for files/folders within `FileNode.tsx`. (`frontend/src/components/FileNode.tsx`)
 
 **Checkpoint**: User Story 3 is fully functional and testable independently.
 
