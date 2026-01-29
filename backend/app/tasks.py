@@ -27,6 +27,75 @@ engine = create_engine(DATABASE_URL_SYNC, echo=False, pool_pre_ping=True)
 SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 
 
+def _mock_inventory():
+    return {
+        "pqc_readiness_score": 6.8,
+        "algorithm_ratios": [
+            {"name": "RSA", "ratio": 0.55},
+            {"name": "ECC", "ratio": 0.25},
+            {"name": "AES", "ratio": 0.20},
+        ],
+        "inventory_table": [
+            {"algorithm": "RSA", "count": 12, "locations": ["src/auth.py:42", "src/crypto/rsa.py:10"]},
+            {"algorithm": "ECC", "count": 5, "locations": ["src/tls.py:88"]},
+        ],
+    }
+
+
+def _mock_heatmap():
+    # 프론트에서 원하는 재귀 트리 형태를 그대로 tree에 저장
+    return {
+        "name": "Q-shield",
+        "path": "",
+        "type": "dir",
+        "risk_score": 0.62,
+        "children": [
+            {
+                "name": "backend",
+                "path": "backend",
+                "type": "dir",
+                "risk_score": 0.70,
+                "children": [
+                    {
+                        "name": "app",
+                        "path": "backend/app",
+                        "type": "dir",
+                        "risk_score": 0.75,
+                        "children": [
+                            {
+                                "name": "main.py",
+                                "path": "backend/app/main.py",
+                                "type": "file",
+                                "risk_score": 0.80,
+                            }
+                        ],
+                    }
+                ],
+            },
+            {"name": "frontend", "path": "frontend", "type": "dir", "risk_score": 0.35, "children": []},
+        ],
+    }
+
+
+def _mock_recommendations():
+    return [
+        {
+            "priority_rank": 1,
+            "estimated_effort": "2 M/D",
+            "ai_recommendation": "## 1) 인증 구간 RSA 사용 감지\n- Kyber로 키교환 전환을 권장합니다.\n- TLS 설정에서 PFS를 강화하세요.\n",
+            "algorithm": "RSA",
+            "context": "auth",
+        },
+        {
+            "priority_rank": 2,
+            "estimated_effort": "1 M/D",
+            "ai_recommendation": "## 2) ECC 서명 사용 감지\n- Dilithium 기반 서명으로 전환을 검토하세요.\n",
+            "algorithm": "ECC",
+            "context": "sign",
+        },
+    ]
+
+
 @celery_app.task(name="run_scan_pipeline")
 def run_scan_pipeline(scan_uuid: str):
     db = SessionLocal()
@@ -92,6 +161,7 @@ def run_scan_pipeline(scan_uuid: str):
         scan.message = "Processing results..."
         db.commit()
 
+<<<<<<< ours
         # InventorySnapshot 생성
         inv_data = {
             "pqc_readiness_score": _calculate_pqc_score(sast_report, sca_report),
@@ -122,6 +192,7 @@ def run_scan_pipeline(scan_uuid: str):
         for rec in recommendations:
             db.add(Recommendation(scan_uuid=scan_uuid_obj, **rec))
 
+<<<<<<< ours
         scan.progress = 0.95
         scan.message = "Finalizing..."
         db.commit()
@@ -131,6 +202,151 @@ def run_scan_pipeline(scan_uuid: str):
         scan.progress = 1.0
         scan.message = "Scan completed successfully"
         db.commit()
+=======
+        # 3) 결과 저장 (Adapter)
+        adapter_result = scanner_adapter.run_scan(scan.github_url)
+        if isinstance(adapter_result, (list, tuple)) and len(adapter_result) == 3:
+            inventory_payload, heatmap_payload, recommendations_payload = adapter_result
+        else:
+            inventory_payload = (
+                adapter_result.get("inventory")
+                or adapter_result.get("inventory_payload")
+                or adapter_result.get("inventory_snapshot")
+                or {}
+            )
+            heatmap_payload = (
+                adapter_result.get("heatmap")
+                or adapter_result.get("heatmap_payload")
+                or adapter_result.get("heatmap_snapshot")
+                or {}
+            )
+            recommendations_payload = (
+                adapter_result.get("recommendations")
+                or adapter_result.get("recommendation_list")
+                or []
+            )
+
+        if isinstance(inventory_payload, dict):
+            pqc_readiness_score = inventory_payload.get(
+                "pqc_readiness_score",
+                inventory_payload.get("score", 0),
+            )
+            algorithm_ratios = inventory_payload.get(
+                "algorithm_ratios",
+                inventory_payload.get("ratios", []),
+            )
+            inventory_table = inventory_payload.get(
+                "inventory_table",
+                inventory_payload.get("items", []),
+            )
+        else:
+            pqc_readiness_score = getattr(inventory_payload, "pqc_readiness_score", 0)
+            algorithm_ratios = getattr(inventory_payload, "algorithm_ratios", [])
+            inventory_table = getattr(inventory_payload, "inventory_table", [])
+
+        if isinstance(heatmap_payload, dict):
+            heatmap_tree = heatmap_payload.get("tree", heatmap_payload)
+        else:
+            heatmap_tree = getattr(heatmap_payload, "tree", heatmap_payload)
+
+        with db.begin():
+            # InventorySnapshot: data 컬럼이 없음. 3개 필드로 저장해야 함.
+            inv = InventorySnapshot(
+                scan_uuid=scan_uuid_obj,
+                pqc_readiness_score=int(pqc_readiness_score or 0),
+                algorithm_ratios=algorithm_ratios or [],
+                inventory_table=inventory_table or [],
+            )
+
+            # HeatmapSnapshot: tree 컬럼에 저장
+            heat = HeatmapSnapshot(
+                scan_uuid=scan_uuid_obj,
+                tree=heatmap_tree or {},
+            )
+
+            # 기존 데이터가 있으면 교체(같은 scan_uuid가 PK라 중복 insert 시 에러 가능)
+            db.merge(inv)
+            db.merge(heat)
+
+            # Recommendation: 여러 개 insert (기존 것 삭제하고 새로 넣는 방식 추천)
+            db.query(Recommendation).filter(Recommendation.scan_uuid == scan_uuid_obj).delete()
+            for rec in recommendations_payload or []:
+                if isinstance(rec, dict):
+                    priority_rank = rec.get("priority_rank", rec.get("priority"))
+                    estimated_effort = rec.get("estimated_effort", rec.get("effort", ""))
+                    ai_recommendation = rec.get(
+                        "ai_recommendation",
+                        rec.get("recommendation", rec.get("message", "")),
+                    )
+                    algorithm = rec.get("algorithm")
+                    context = rec.get("context")
+                else:
+                    priority_rank = getattr(rec, "priority_rank", getattr(rec, "priority", None))
+                    estimated_effort = getattr(rec, "estimated_effort", getattr(rec, "effort", ""))
+                    ai_recommendation = getattr(
+                        rec,
+                        "ai_recommendation",
+                        getattr(rec, "recommendation", getattr(rec, "message", "")),
+                    )
+                    algorithm = getattr(rec, "algorithm", None)
+                    context = getattr(rec, "context", None)
+
+                db.add(
+                    Recommendation(
+                        scan_uuid=scan_uuid_obj,
+                        priority_rank=priority_rank or 0,
+                        estimated_effort=estimated_effort,
+                        ai_recommendation=ai_recommendation,
+                        algorithm=algorithm,
+                        context=context,
+                    )
+                )
+
+            # 4) 완료
+            scan.status = "COMPLETED"
+            scan.progress = 1.0
+            scan.message = "Completed"
+>>>>>>> theirs
+=======
+        # 3) 결과 저장 (Mock)
+        inv_payload = _mock_inventory()
+        heat_payload = _mock_heatmap()
+
+        # InventorySnapshot: data 컬럼이 없음. 3개 필드로 저장해야 함.
+        inv = InventorySnapshot(
+            scan_uuid=scan_uuid_obj,
+            pqc_readiness_score=int(inv_payload.get("pqc_readiness_score", 0)),
+            algorithm_ratios=inv_payload.get("algorithm_ratios", []),
+            inventory_table=inv_payload.get("inventory_table", []),
+        )
+
+        # HeatmapSnapshot: tree 컬럼에 저장
+        heat = HeatmapSnapshot(
+            scan_uuid=scan_uuid_obj,
+            tree=heat_payload,
+        )
+
+        # 기존 데이터가 있으면 교체(같은 scan_uuid가 PK라 중복 insert 시 에러 가능)
+        db.merge(inv)
+        db.merge(heat)
+
+        # Recommendation: 여러 개 insert (기존 것 삭제하고 새로 넣는 방식 추천)
+        db.query(Recommendation).filter(Recommendation.scan_uuid == scan_uuid_obj).delete()
+        for rec in _mock_recommendations():
+            db.add(Recommendation(scan_uuid=scan_uuid_obj, **rec))
+
+        scan.progress = 0.90
+        scan.message = "Generating recommendations..."
+        db.commit()
+
+        time.sleep(0.8)
+
+        # 4) 완료
+        scan.status = "COMPLETED"
+        scan.progress = 1.0
+        scan.message = "Completed"
+        db.commit()
+>>>>>>> theirs
 
     except Exception as e:
         # 실패 처리
