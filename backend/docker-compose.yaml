@@ -7,15 +7,10 @@ services:
       POSTGRES_PASSWORD: qshield
       POSTGRES_DB: qshield
     ports:
-      - "5432:5432"
-    volumes:
-      - qshield_pgdata:/var/lib/postgresql/data
+      - "15432:5432"
 
   redis:
     image: redis:7
     container_name: qshield-redis
     ports:
       - "6379:6379"
-
-volumes:
-  qshield_pgdata:
