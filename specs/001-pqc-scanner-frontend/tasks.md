@@ -89,11 +89,11 @@ description: "Task list for AI-PQC Scanner Frontend feature implementation"
 
 ### Implementation for User Story 2
 
-- [ ] T016 [US2] Create Recommendations page component (`frontend/src/pages/Recommendations.tsx`).
-- [ ] T017 [US2] Implement filtering UI for algorithm and context (`frontend/src/components/RecommendationFilters.tsx`).
-- [ ] T018 [US2] Integrate API call for recommendations (`/scans/{uuid}/recommendations`) using `recommendationService.ts`. (`frontend/src/services/recommendationService.ts`)
-- [ ] T019 [US2] Display prioritized table of recommendations (`frontend/src/components/RecommendationTable.tsx`).
-- [ ] T020 [US2] Implement AI Detail View modal/component (`frontend/src/components/AIDetailView.tsx`).
+- [x] T016 [US2] Create Recommendations page component (`frontend/src/pages/Recommendations.tsx`).
+- [x] T017 [US2] Implement filtering UI for algorithm and context (`frontend/src/components/RecommendationFilters.tsx`).
+- [x] T018 [US2] Integrate API call for recommendations (`/scans/{uuid}/recommendations`) using `recommendationService.ts`. (`frontend/src/services/recommendationService.ts`)
+- [x] T019 [US2] Display prioritized table of recommendations (`frontend/src/components/RecommendationTable.tsx`).
+- [x] T020 [US2] Implement AI Detail View modal/component (`frontend/src/components/AIDetailView.tsx`).
 
 **Checkpoint**: User Story 2 is fully functional and testable independently.
 

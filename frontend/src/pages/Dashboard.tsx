@@ -13,6 +13,7 @@ import {
   ArrowLeft,
   Activity,
   Shield,
+  Sparkles,
 } from 'lucide-react'
 
 /**
@@ -267,6 +268,30 @@ export const Dashboard = () => {
                   </span>
                 </div>
                 <InventoryTable inventory={inventory.inventory} />
+              </div>
+
+              {/* Recommendations Link */}
+              <div className="bg-gradient-to-r from-indigo-500/10 to-purple-600/10 border border-indigo-500/30 rounded-xl p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 bg-gradient-to-br from-indigo-500/20 to-purple-600/20 rounded-xl border border-indigo-500/30">
+                      <Sparkles className="w-6 h-6 text-indigo-400" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-semibold text-white mb-1">View PQC Recommendations</h3>
+                      <p className="text-sm text-slate-400">
+                        Get AI-powered migration guides for post-quantum cryptography
+                      </p>
+                    </div>
+                  </div>
+                  <Link
+                    to={`/scans/${uuid}/recommendations`}
+                    className="px-6 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl hover:shadow-purple-500/25 transition-all duration-300 flex items-center gap-2"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    View Recommendations
+                  </Link>
+                </div>
               </div>
             </div>
           )}
