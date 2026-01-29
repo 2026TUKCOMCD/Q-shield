@@ -1,24 +1,30 @@
 from pydantic import BaseModel, Field
-from typing import Optional, List, Dict, Any, Literal
+from typing import Optional, List
+from datetime import datetime
+from uuid import UUID
 
-ScanStatus = Literal["PENDING", "RUNNING", "DONE", "FAILED"]
-
+# 1) POST /api/scans
 class ScanCreateRequest(BaseModel):
-    repo_url: str = Field(..., min_length=5)
+    github_url: str
 
-class Finding(BaseModel):
-    type: Literal["SAST", "SCA", "CONFIG"]
-    severity: Literal["LOW", "MEDIUM", "HIGH", "CRITICAL"]
-    file_path: Optional[str] = None
-    line_start: Optional[int] = None
-    line_end: Optional[int] = None
-    algorithm: Optional[str] = None
-    evidence: Optional[str] = None
-    metadata: Optional[Dict[str, Any]] = None
+class ScanCreateResponse(BaseModel):
+    uuid: str
+    status: str  # QUEUED | IN_PROGRESS ...
 
-class ScanResponse(BaseModel):
-    id: int
-    repo_url: str
-    status: ScanStatus
-    error_log: Optional[str] = None
-    findings: List[Finding] = []
+
+# 2) GET /api/scans/{uuid}/status
+class ScanStatusResponse(BaseModel):
+    status: str
+    progress: float = Field(ge=0.0, le=1.0)
+    message: str
+
+
+# 3) GET /api/scans (이력)
+class ScanListItem(BaseModel):
+    uuid: str
+    repo_name: str
+    status: str
+    created_at: datetime
+
+class ScanListResponse(BaseModel):
+    items: List[ScanListItem]

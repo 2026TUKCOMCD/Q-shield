@@ -1,0 +1,21 @@
+services:
+  db:
+    image: postgres:16
+    container_name: qshield-postgres
+    environment:
+      POSTGRES_USER: qshield
+      POSTGRES_PASSWORD: qshield
+      POSTGRES_DB: qshield
+    ports:
+      - "5432:5432"
+    volumes:
+      - qshield_pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7
+    container_name: qshield-redis
+    ports:
+      - "6379:6379"
+
+volumes:
+  qshield_pgdata:

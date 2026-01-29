@@ -1,15 +1,22 @@
+import os
 from celery import Celery
+from app.config import REDIS_URL
 
-REDIS_URL = "redis://localhost:6379/0"
+BROKER_URL = os.getenv("CELERY_BROKER_URL", REDIS_URL)
+RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", REDIS_URL)
 
 celery_app = Celery(
     "qshield",
-    broker=REDIS_URL,
-    backend=REDIS_URL,
+    broker=BROKER_URL,
+    backend=RESULT_BACKEND,
+    include=["app.tasks"],  # ✅ tasks 자동 로드
 )
 
-# ✅ tasks 모듈을 강제로 로드 (가장 확실)
-celery_app.conf.include = ["app.tasks"]
-
-# ✅ 추가로 autodiscover도 켜두기 (나중에 앱 커져도 안전)
-celery_app.autodiscover_tasks(["app"])
+celery_app.conf.update(
+    task_track_started=True,
+    task_serializer="json",
+    result_serializer="json",
+    accept_content=["json"],
+    timezone="Asia/Seoul",
+    enable_utc=True,
+)
