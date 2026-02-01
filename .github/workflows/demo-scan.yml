@@ -22,20 +22,25 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
 
-      # [추가된 부분] 일반 폴더를 Git 저장소(Repo)로 변환
+      # [✅ 추가됨] 테스트 폴더를 Git 저장소로 강제 변환하는 단계
       - name: Initialize local test repo
         run: |
-          # 테스트용 폴더가 있는지 확인하고 git 초기화를 수행합니다.
+          # 테스트 폴더가 존재하는지 확인
           if [ -d "test_vulnerable_repo" ]; then
+            echo "📂 test_vulnerable_repo 폴더 발견. Git 저장소로 초기화합니다..."
             cd test_vulnerable_repo
+            
+            # Git 초기화 및 커밋 (git clone이 가능하도록 만듦)
             git init
             git config user.email "action@github.com"
             git config user.name "GitHub Action"
             git add .
-            git commit -m "Initialize for testing"
-            echo "✅ test_vulnerable_repo 폴더를 Git 저장소로 초기화 완료"
+            git commit -m "Initialize local repo for testing"
+            
+            echo "✅ Git 초기화 완료."
           else
-            echo "❌ test_vulnerable_repo 폴더를 찾을 수 없습니다."
+            echo "❌ test_vulnerable_repo 폴더가 없습니다. 경로를 확인해주세요."
+            ls -R
             exit 1
           fi
 
