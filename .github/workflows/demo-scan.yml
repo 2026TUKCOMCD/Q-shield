@@ -22,24 +22,21 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
 
-      # [✅ 추가됨] 테스트 폴더를 Git 저장소로 강제 변환하는 단계
+      # [✅ 추가된 부분] 테스트 폴더를 Git 저장소로 초기화
+      # 이 단계가 있어야 파이썬 스크립트의 'git clone' 명령어가 성공합니다.
       - name: Initialize local test repo
         run: |
-          # 테스트 폴더가 존재하는지 확인
           if [ -d "test_vulnerable_repo" ]; then
-            echo "📂 test_vulnerable_repo 폴더 발견. Git 저장소로 초기화합니다..."
+            echo "📂 Found test_vulnerable_repo. Initializing as git repo..."
             cd test_vulnerable_repo
-            
-            # Git 초기화 및 커밋 (git clone이 가능하도록 만듦)
             git init
             git config user.email "action@github.com"
             git config user.name "GitHub Action"
             git add .
-            git commit -m "Initialize local repo for testing"
-            
-            echo "✅ Git 초기화 완료."
+            git commit -m "Initialize for local scan"
+            echo "✅ Git repo initialization complete."
           else
-            echo "❌ test_vulnerable_repo 폴더가 없습니다. 경로를 확인해주세요."
+            echo "❌ test_vulnerable_repo directory not found at root."
             ls -R
             exit 1
           fi
