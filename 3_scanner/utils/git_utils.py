@@ -11,13 +11,30 @@ def clone_repository(github_url: str) -> str:
     Returns:
         str: 클론된 Repository 경로 또는 로컬 경로
     """
-    # 로컬 디렉토리인 경우 처리
-    if os.path.isdir(github_url):
-        return os.path.abspath(github_url)
-    
-        print(f"[DEBUG] github_url={github_url}")
-        print(f"[DEBUG] isdir={os.path.isdir(github_url)}")
-        print(f"[DEBUG] exists={os.path.exists(github_url)}")
+    # 디버그 출력
+    print(f"[DEBUG] clone_repository input: {github_url}")
+
+    # file:// URI 처리
+    try:
+        parsed = urlparse(github_url)
+    except Exception:
+        parsed = None
+
+    # 로컬 경로 후보들
+    local_candidates = []
+    if parsed and parsed.scheme == 'file':
+        # file:///absolute/path -> parsed.path
+        local_candidates.append(parsed.path)
+    # 원시 문자열이 로컬 경로일 수 있음
+    local_candidates.append(github_url)
+
+    for candidate in local_candidates:
+        if candidate and os.path.isdir(candidate):
+            abs_path = os.path.abspath(candidate)
+            print(f"[DEBUG] using local directory: {abs_path}")
+            return abs_path
+
+    print(f"[DEBUG] not a local directory; will attempt git clone")
     
     # 임시 디렉토리 생성
     temp_dir = tempfile.mkdtemp(prefix="pqc_scan_")
