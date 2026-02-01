@@ -23,6 +23,5 @@ jobs:
           python -m pip install -r requirements.txt
 
       - name: Run scanner against local test repo
-        run: |
-          cd 3_scanner
-          python demo_run.py
+        working-directory: ./3_scanner
+        run: python demo_run.py
