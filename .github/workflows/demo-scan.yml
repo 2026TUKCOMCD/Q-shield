@@ -25,15 +25,4 @@ jobs:
       - name: Run scanner against local test repo
         run: |
           cd 3_scanner
-          python - <<'PY'
-            import asyncio
-            import json
-            from main import scan_repository, ScanRequest
-
-            async def run():
-                req = ScanRequest(github_url='./test_vulnerable_repo')
-                res = await scan_repository(req)
-                print(json.dumps(res.result, indent=2, default=str))
-
-            asyncio.run(run())
-          PY
+          python demo_run.py
