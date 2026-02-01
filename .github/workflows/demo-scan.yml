@@ -22,25 +22,9 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
 
-      # [✅ 추가된 부분] 테스트 폴더를 Git 저장소로 초기화
-      # 이 단계가 있어야 파이썬 스크립트의 'git clone' 명령어가 성공합니다.
-      - name: Initialize local test repo
-        run: |
-          if [ -d "test_vulnerable_repo" ]; then
-            echo "📂 Found test_vulnerable_repo. Initializing as git repo..."
-            cd test_vulnerable_repo
-            git init
-            git config user.email "action@github.com"
-            git config user.name "GitHub Action"
-            git add .
-            git commit -m "Initialize for local scan"
-            echo "✅ Git repo initialization complete."
-          else
-            echo "❌ test_vulnerable_repo directory not found at root."
-            ls -R
-            exit 1
-          fi
-
+      # 🚀 [변경됨] git init 단계 삭제함
+      # 이제 파이썬 코드가 알아서 로컬 경로를 인식하므로 바로 실행하면 됩니다.
+      
       - name: Run scanner against local test repo
         working-directory: ./3_scanner
         run: python demo_run.py
