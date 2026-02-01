@@ -44,12 +44,22 @@ async def scan_repository(request: ScanRequest):
     print(f"{'='*60}\n")
     
     repo_path = None
+    should_cleanup = False  # 스캔 후 폴더 삭제 여부를 결정하는 플래그
     
     try:
-        # 1. Repository Clone
-        print("📥 Step 1: Cloning repository...")
-        repo_path = clone_repository(github_url)
-        print(f"✅ Cloned to: {repo_path}\n")
+        # 1. 로컬 경로인지 확인하거나 Repository Clone
+        if os.path.isdir(github_url):
+            # 로컬 경로인 경우
+            print(f"📂 Local directory detected: {github_url}")
+            print("ℹ️ Skipping git clone for local path.")
+            repo_path = github_url
+            should_cleanup = False  # 로컬 원본 폴더는 삭제하면 안 됨
+        else:
+            # 원격 URL인 경우
+            print("📥 Step 1: Cloning repository...")
+            repo_path = clone_repository(github_url)
+            should_cleanup = True   # 임시로 Clone한 폴더는 삭제해야 함
+            print(f"✅ Cloned to: {repo_path}\n")
         
         # 2. 언어 분석 및 분류
         print("📊 Step 2: Analyzing languages...")
@@ -174,8 +184,8 @@ async def scan_repository(request: ScanRequest):
         raise HTTPException(status_code=500, detail=str(e))
     
     finally:
-        # 임시 디렉토리 정리
-        if repo_path and os.path.exists(repo_path):
+        # 임시 디렉토리 정리 (should_cleanup이 True일 때만 삭제)
+        if should_cleanup and repo_path and os.path.exists(repo_path):
             try:
                 shutil.rmtree(repo_path)
                 print(f"🗑️  Cleaned up: {repo_path}")
