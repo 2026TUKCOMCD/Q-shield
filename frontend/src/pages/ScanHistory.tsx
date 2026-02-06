@@ -3,20 +3,27 @@ import { Link } from 'react-router-dom'
 import { ScanHistoryList } from '../components/ScanHistoryList'
 import { scanService, type ScanHistoryItem } from '../services/scanService'
 import { logError } from '../utils/logger'
-import { History, Plus, RefreshCw } from 'lucide-react'
+import { History, Plus, RefreshCw, Search, X } from 'lucide-react'
 
 export const ScanHistory = () => {
   const [scans, setScans] = useState<ScanHistoryItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [queryInput, setQueryInput] = useState('')
+  const [activeQuery, setActiveQuery] = useState('')
   const scansRef = useRef<ScanHistoryItem[]>([])
+  const activeQueryRef = useRef('')
 
   useEffect(() => {
     scansRef.current = scans
   }, [scans])
 
-  const loadScanHistory = async (isInitial: boolean = false) => {
+  useEffect(() => {
+    activeQueryRef.current = activeQuery
+  }, [activeQuery])
+
+  const loadScanHistory = async (isInitial: boolean = false, query?: string) => {
     if (isInitial) {
       setIsLoading(true)
     } else {
@@ -25,7 +32,7 @@ export const ScanHistory = () => {
     setError(null)
 
     try {
-      const allScans = await scanService.getAllScans()
+      const allScans = await scanService.getAllScans(query ?? activeQuery)
       allScans.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       setScans(allScans)
     } catch (err) {
@@ -41,13 +48,15 @@ export const ScanHistory = () => {
   }
 
   useEffect(() => {
-    loadScanHistory(true)
+    loadScanHistory(true, '')
 
     const interval = setInterval(() => {
       const currentScans = scansRef.current
-      const hasInProgress = currentScans.some((scan) => scan.status === 'IN_PROGRESS')
+      const hasInProgress = currentScans.some(
+        (scan) => scan.status === 'IN_PROGRESS' || scan.status === 'PENDING'
+      )
       if (hasInProgress) {
-        loadScanHistory(false)
+        loadScanHistory(false, activeQueryRef.current)
       }
     }, 5000)
 
@@ -55,7 +64,24 @@ export const ScanHistory = () => {
   }, [])
 
   const handleRefresh = () => {
-    loadScanHistory(false)
+    loadScanHistory(false, activeQuery)
+  }
+
+  const handleSearch = () => {
+    const nextQuery = queryInput.trim()
+    setActiveQuery(nextQuery)
+    loadScanHistory(false, nextQuery)
+  }
+
+  const handleClearSearch = () => {
+    setQueryInput('')
+    setActiveQuery('')
+    loadScanHistory(false, '')
+  }
+
+  const handleDelete = async (uuid: string) => {
+    await scanService.deleteScan(uuid)
+    setScans((prev) => prev.filter((scan) => scan.uuid !== uuid))
   }
 
   return (
@@ -79,6 +105,36 @@ export const ScanHistory = () => {
               </div>
             </div>
             <div className="flex gap-3">
+              <div className="flex items-center gap-2 px-3 py-2 bg-white/5 border border-white/10 rounded-lg min-w-[280px]">
+                <Search className="w-4 h-4 text-slate-400" />
+                <input
+                  type="text"
+                  value={queryInput}
+                  onChange={(e) => setQueryInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleSearch()
+                    }
+                  }}
+                  placeholder="Search repository URL or name"
+                  className="w-full bg-transparent text-sm text-slate-200 placeholder:text-slate-500 focus:outline-none"
+                />
+                {queryInput && (
+                  <button
+                    onClick={handleClearSearch}
+                    className="p-1 hover:bg-white/10 rounded transition-colors"
+                    title="Clear search"
+                  >
+                    <X className="w-4 h-4 text-slate-400" />
+                  </button>
+                )}
+                <button
+                  onClick={handleSearch}
+                  className="px-2 py-1 text-xs bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/30 rounded text-indigo-300"
+                >
+                  Search
+                </button>
+              </div>
               <button
                 onClick={handleRefresh}
                 disabled={isRefreshing || isLoading}
@@ -112,7 +168,7 @@ export const ScanHistory = () => {
               <p className="text-slate-300 text-lg">Loading...</p>
             </div>
           ) : (
-            <ScanHistoryList scans={scans} onRefresh={handleRefresh} />
+            <ScanHistoryList scans={scans} onRefresh={handleRefresh} onDelete={handleDelete} />
           )}
         </div>
       </div>

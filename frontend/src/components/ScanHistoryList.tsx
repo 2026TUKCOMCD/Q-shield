@@ -11,12 +11,14 @@ import {
   Copy,
   Check,
   Eye,
+  Trash2,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 interface ScanHistoryListProps {
   scans: ScanHistoryItem[]
   onRefresh?: () => void
+  onDelete?: (uuid: string) => Promise<void> | void
 }
 
 const getStatusConfig = (status: ScanStatus) => {
@@ -83,8 +85,9 @@ const shortenUuid = (uuid: string): string => {
   return `${uuid.substring(0, 8)}...${uuid.substring(uuid.length - 4)}`
 }
 
-export const ScanHistoryList = ({ scans, onRefresh }: ScanHistoryListProps) => {
+export const ScanHistoryList = ({ scans, onRefresh, onDelete }: ScanHistoryListProps) => {
   const [refreshingUuids, setRefreshingUuids] = useState<Set<string>>(new Set())
+  const [deletingUuids, setDeletingUuids] = useState<Set<string>>(new Set())
   const [copiedUuid, setCopiedUuid] = useState<string | null>(null)
 
   
@@ -109,6 +112,30 @@ export const ScanHistoryList = ({ scans, onRefresh }: ScanHistoryListProps) => {
       logError('Failed to refresh scan status', error, { uuid })
     } finally {
       setRefreshingUuids((prev) => {
+        const next = new Set(prev)
+        next.delete(uuid)
+        return next
+      })
+    }
+  }
+
+  const handleDelete = async (uuid: string) => {
+    if (!onDelete) {
+      return
+    }
+
+    const shouldDelete = window.confirm('Delete this scan from history?')
+    if (!shouldDelete) {
+      return
+    }
+
+    setDeletingUuids((prev) => new Set(prev).add(uuid))
+    try {
+      await onDelete(uuid)
+    } catch (error) {
+      logError('Failed to delete scan', error, { uuid })
+    } finally {
+      setDeletingUuids((prev) => {
         const next = new Set(prev)
         next.delete(uuid)
         return next
@@ -151,6 +178,7 @@ export const ScanHistoryList = ({ scans, onRefresh }: ScanHistoryListProps) => {
         const statusConfig = getStatusConfig(scan.status)
         const StatusIcon = statusConfig.icon
         const isRefreshing = refreshingUuids.has(scan.uuid)
+        const isDeleting = deletingUuids.has(scan.uuid)
         const isCopied = copiedUuid === scan.uuid
 
         return (
@@ -238,11 +266,19 @@ export const ScanHistoryList = ({ scans, onRefresh }: ScanHistoryListProps) => {
                 )}
                 <button
                   onClick={() => refreshScanStatus(scan.uuid)}
-                  disabled={isRefreshing}
+                  disabled={isRefreshing || isDeleting}
                   className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg transition-all duration-300 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm text-slate-300 hover:text-white"
                 >
                   <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
                   <span>Refresh</span>
+                </button>
+                <button
+                  onClick={() => handleDelete(scan.uuid)}
+                  disabled={isDeleting || isRefreshing}
+                  className="px-4 py-2 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 rounded-lg transition-all duration-300 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm text-red-300 hover:text-red-200"
+                >
+                  <Trash2 className={`w-4 h-4 ${isDeleting ? 'animate-pulse' : ''}`} />
+                  <span>{isDeleting ? 'Deleting...' : 'Delete'}</span>
                 </button>
               </div>
             </div>
