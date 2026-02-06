@@ -1,8 +1,8 @@
 /**
- * í™˜ê²½ ì„¤ì • ê´€ë¦¬ ìœ í‹¸ë¦¬í‹°
+ * È¯°æ ¼³Á¤ °ü¸® À¯Æ¿¸®Æ¼
  *
- * Viteì˜ import.meta.envë¥¼ ì‚¬ìš©í•˜ì—¬ í™˜ê²½ ë³€ìˆ˜ ë¡œë“œ
- * íƒ€ì… ì•ˆì „ì„±ì„ ìœ„í•´ ëª…ì‹œì ìœ¼ë¡œ í™˜ê²½ ë³€ìˆ˜ ì ‘ê·¼
+ * ViteÀÇ import.meta.env¸¦ »ç¿ëÇÏ¿© È¯°æ º¯¼ö ·Îµå
+ * Å¸ÀÔ ¾ÈÀü¼ºÀ» À§ÇØ ¸í½ÃÀûÀ¸·Î È¯°æ º¯¼ö ÃßÃâ
  */
 
 interface AppConfig {
@@ -12,13 +12,13 @@ interface AppConfig {
 }
 
 /**
- * í™˜ê²½ ë³€ìˆ˜ ê²€ì¦ ë° ê¸°ë³¸ê°’ ì„¤ì •
+ * È¯°æ º¯¼ö °ËÁõ ¹× ±âº»°ª ¼³Á¤
  */
 const getEnvVar = (key: string, defaultValue?: string): string => {
   const value = import.meta.env[key]
   if (value === undefined || value === '') {
     if (defaultValue === undefined) {
-      console.warn(`í™˜ê²½ ë³€ìˆ˜ ${key}ê°€ ì„¤ì •ë˜ì§€ ì•Šì•˜ìŠµë‹ˆë‹¤.`)
+      console.warn(`È¯°æ º¯¼ö ${key}°¡ ¼³Á¤µÇÁö ¾Ê¾Ò½À´Ï´Ù.`)
     }
     return defaultValue ?? ''
   }
@@ -26,16 +26,16 @@ const getEnvVar = (key: string, defaultValue?: string): string => {
 }
 
 /**
- * ì• í”Œë¦¬ì¼€ì´ì…˜ ì„¤ì • ê°ì²´
+ * ¾ÖÇÃ¸®ÄÉÀÌ¼Ç ¼³Á¤ °´Ã¼
  */
 export const config: AppConfig = {
-  apiBaseURL: getEnvVar('VITE_API_BASE_URL', 'http://localhost:3000'),
+  apiBaseURL: getEnvVar('VITE_API_BASE_URL', 'http://localhost:8000/api'),
   isDevelopment: import.meta.env.DEV,
   isProduction: import.meta.env.PROD,
 }
 
 /**
- * ê°œë°œ í™˜ê²½ì—ì„œ ì„¤ì • ê°’ ì¶œë ¥ (ë””ë²„ê¹…ìš©)
+ * °³¹ß È¯°æ¿¡¼­ ¼³Á¤ °ª Ãâ·Â (µğ¹ö±ë¿ë)
  */
 if (config.isDevelopment) {
   console.info('App Config:', config)

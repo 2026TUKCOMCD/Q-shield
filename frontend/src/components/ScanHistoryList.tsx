@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+﻿import { useState, useEffect } from 'react'
 import { scanService, type ScanHistoryItem, type ScanStatus } from '../services/scanService'
 import { logError } from '../utils/logger'
 import {
@@ -19,9 +19,6 @@ interface ScanHistoryListProps {
   onRefresh?: () => void
 }
 
-/**
- * 스캔 상태에 따른 설정 반환
- */
 const getStatusConfig = (status: ScanStatus) => {
   switch (status) {
     case 'COMPLETED':
@@ -67,9 +64,6 @@ const getStatusConfig = (status: ScanStatus) => {
   }
 }
 
-/**
- * 날짜 포맷팅
- */
 const formatDate = (dateString: string): string => {
   try {
     const date = new Date(dateString)
@@ -85,24 +79,15 @@ const formatDate = (dateString: string): string => {
   }
 }
 
-/**
- * UUID 축약 표시
- */
 const shortenUuid = (uuid: string): string => {
   return `${uuid.substring(0, 8)}...${uuid.substring(uuid.length - 4)}`
 }
 
-/**
- * 스캔 히스토리 목록 컴포넌트
- * T011: Modern Cyber-security Dashboard 스타일 적용
- */
 export const ScanHistoryList = ({ scans, onRefresh }: ScanHistoryListProps) => {
   const [refreshingUuids, setRefreshingUuids] = useState<Set<string>>(new Set())
   const [copiedUuid, setCopiedUuid] = useState<string | null>(null)
 
-  /**
-   * UUID 복사 핸들러
-   */
+  
   const copyToClipboard = async (uuid: string) => {
     try {
       await navigator.clipboard.writeText(uuid)
@@ -113,9 +98,7 @@ export const ScanHistoryList = ({ scans, onRefresh }: ScanHistoryListProps) => {
     }
   }
 
-  /**
-   * 특정 스캔의 상태 새로고침
-   */
+  
   const refreshScanStatus = async (uuid: string) => {
     setRefreshingUuids((prev) => new Set(prev).add(uuid))
 
@@ -133,7 +116,6 @@ export const ScanHistoryList = ({ scans, onRefresh }: ScanHistoryListProps) => {
     }
   }
 
-  // 진행 중인 스캔 자동 새로고침
   useEffect(() => {
     const hasInProgress = scans.some((scan) => scan.status === 'IN_PROGRESS')
     if (!hasInProgress) return
@@ -177,9 +159,7 @@ export const ScanHistoryList = ({ scans, onRefresh }: ScanHistoryListProps) => {
             className="group bg-white/5 backdrop-blur-md border border-white/10 rounded-xl p-6 hover:bg-white/10 hover:border-white/20 transition-all duration-300"
           >
             <div className="flex items-start justify-between gap-6">
-              {/* Left Section */}
               <div className="flex-1 min-w-0 space-y-4">
-                {/* Status and Progress */}
                 <div className="flex items-center gap-3 flex-wrap">
                   <div
                     className={`p-2 rounded-lg ${statusConfig.bgColor} ${statusConfig.borderColor} border`}
@@ -199,8 +179,6 @@ export const ScanHistoryList = ({ scans, onRefresh }: ScanHistoryListProps) => {
                     <span className="text-sm text-slate-400 font-mono">{scan.progress}%</span>
                   )}
                 </div>
-
-                {/* GitHub URL */}
                 <div>
                   <a
                     href={scan.githubUrl}
@@ -212,8 +190,6 @@ export const ScanHistoryList = ({ scans, onRefresh }: ScanHistoryListProps) => {
                     <ExternalLink className="w-4 h-4 opacity-0 group-hover/link:opacity-100 transition-opacity flex-shrink-0" />
                   </a>
                 </div>
-
-                {/* UUID and Dates */}
                 <div className="flex flex-wrap gap-4 text-sm">
                   <div className="flex items-center gap-2">
                     <span className="text-slate-500">UUID:</span>
@@ -239,8 +215,6 @@ export const ScanHistoryList = ({ scans, onRefresh }: ScanHistoryListProps) => {
                     <span className="text-slate-300">{formatDate(scan.updatedAt)}</span>
                   </div>
                 </div>
-
-                {/* Progress Bar */}
                 {scan.status === 'IN_PROGRESS' && (
                   <div className="pt-2">
                     <div className="h-2 bg-white/5 rounded-full overflow-hidden">
@@ -252,8 +226,6 @@ export const ScanHistoryList = ({ scans, onRefresh }: ScanHistoryListProps) => {
                   </div>
                 )}
               </div>
-
-              {/* Right Section - Actions */}
               <div className="flex items-center gap-2">
                 {scan.status === 'COMPLETED' && (
                   <Link
@@ -280,3 +252,5 @@ export const ScanHistoryList = ({ scans, onRefresh }: ScanHistoryListProps) => {
     </div>
   )
 }
+
+

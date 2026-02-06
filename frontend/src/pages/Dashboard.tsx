@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
+﻿import { useEffect, useState } from 'react'
+import { useParams, Link } from 'react-router-dom'
 import { scanService, type ScanStatusResponse } from '../services/scanService'
 import { inventoryService, type InventoryResponse } from '../services/inventoryService'
 import { PqcReadinessGauge } from '../components/PqcReadinessGauge'
@@ -8,7 +8,6 @@ import { logError } from '../utils/logger'
 import {
   Loader2,
   AlertCircle,
-  CheckCircle2,
   XCircle,
   ArrowLeft,
   Activity,
@@ -17,22 +16,14 @@ import {
   Map,
 } from 'lucide-react'
 
-/**
- * Dashboard 페이지
- * T012: 실시간 스캔 진행 상황 및 PQC 준비도 대시보드
- */
 export const Dashboard = () => {
   const { uuid } = useParams<{ uuid: string }>()
-  const navigate = useNavigate()
 
   const [scanStatus, setScanStatus] = useState<ScanStatusResponse | null>(null)
   const [inventory, setInventory] = useState<InventoryResponse | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  /**
-   * 스캔 상태 폴링 (2초마다)
-   */
   useEffect(() => {
     if (!uuid) {
       setError('Invalid scan UUID')
@@ -51,7 +42,6 @@ export const Dashboard = () => {
         setScanStatus(status)
         setIsLoading(false)
 
-        // 스캔이 완료되면 인벤토리 데이터 가져오기
         if (status.status === 'COMPLETED' && !inventory) {
           try {
             const inventoryData = await inventoryService.getScanInventory(uuid)
@@ -63,7 +53,6 @@ export const Dashboard = () => {
           }
         }
 
-        // 스캔이 완료되거나 실패하면 폴링 중지
         if (status.status === 'COMPLETED' || status.status === 'FAILED') {
           if (pollingInterval) {
             clearInterval(pollingInterval)
@@ -73,16 +62,13 @@ export const Dashboard = () => {
       } catch (err) {
         if (isMounted) {
           logError('Failed to poll scan status', err)
-          setError('스캔 상태를 불러오는데 실패했습니다.')
+          setError('Failed to load scan status.')
           setIsLoading(false)
         }
       }
     }
 
-    // 즉시 한 번 실행
     pollScanStatus()
-
-    // 1초마다 폴링 (데모용 빠른 업데이트)
     pollingInterval = setInterval(pollScanStatus, 1000)
 
     return () => {
@@ -138,14 +124,10 @@ export const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-[#020617] text-white">
-      {/* Background Mesh Gradient */}
       <div className="fixed inset-0 bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900 pointer-events-none" />
       <div className="fixed inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(99,102,241,0.1),transparent_50%)] pointer-events-none" />
-
-      {/* Main Content */}
       <div className="relative z-10 ml-0 md:ml-64 p-4 md:p-8">
         <div className="max-w-7xl mx-auto space-y-8">
-          {/* Header */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <Link
@@ -166,10 +148,8 @@ export const Dashboard = () => {
             </div>
           </div>
 
-          {/* Scanning State */}
           {isScanning && scanStatus && (
             <div className="space-y-6 animate-in fade-in duration-500">
-              {/* Status Card */}
               <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-xl p-8">
                 <div className="flex items-center gap-4 mb-6">
                   <div className="p-3 bg-blue-500/10 rounded-xl border border-blue-500/30">
@@ -183,7 +163,6 @@ export const Dashboard = () => {
                   </div>
                 </div>
 
-                {/* Progress Bar */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-slate-300">Progress</span>
@@ -198,7 +177,6 @@ export const Dashboard = () => {
                 </div>
               </div>
 
-              {/* Info Message */}
               <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4 flex items-start gap-3">
                 <Activity className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
                 <div>
@@ -211,7 +189,6 @@ export const Dashboard = () => {
             </div>
           )}
 
-          {/* Failed State */}
           {isFailed && (
             <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-8 text-center">
               <XCircle className="w-12 h-12 mx-auto mb-4 text-red-400" />
@@ -226,10 +203,8 @@ export const Dashboard = () => {
             </div>
           )}
 
-          {/* Result State */}
           {isCompleted && inventory && (
             <div className="space-y-8 animate-in fade-in duration-500">
-              {/* PQC Readiness Gauge */}
               <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-xl p-8">
                 <div className="flex items-center gap-3 mb-6">
                   <div className="p-2 bg-gradient-to-br from-indigo-500/20 to-purple-600/20 rounded-lg border border-indigo-500/30">
@@ -240,7 +215,6 @@ export const Dashboard = () => {
                 <PqcReadinessGauge score={inventory.pqcReadinessScore} />
               </div>
 
-              {/* Algorithm Ratios */}
               {Object.keys(inventory.algorithmRatios).length > 0 && (
                 <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-xl p-6">
                   <h3 className="text-lg font-semibold text-white mb-4">Algorithm Distribution</h3>
@@ -260,7 +234,6 @@ export const Dashboard = () => {
                 </div>
               )}
 
-              {/* Inventory Table */}
               <div>
                 <div className="flex items-center gap-3 mb-4">
                   <h2 className="text-2xl font-semibold text-white">Cryptographic Assets</h2>
@@ -271,9 +244,7 @@ export const Dashboard = () => {
                 <InventoryTable inventory={inventory.inventory} scanUuid={uuid} />
               </div>
 
-              {/* Quick Actions */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Recommendations Link */}
                 <div className="bg-gradient-to-r from-indigo-500/10 to-purple-600/10 border border-indigo-500/30 rounded-xl p-6">
                   <div className="flex flex-col gap-4">
                     <div className="flex items-center gap-4">
@@ -297,7 +268,6 @@ export const Dashboard = () => {
                   </div>
                 </div>
 
-                {/* Heatmap Link */}
                 <div className="bg-gradient-to-r from-indigo-500/10 to-purple-600/10 border border-indigo-500/30 rounded-xl p-6">
                   <div className="flex flex-col gap-4">
                     <div className="flex items-center gap-4">
@@ -324,7 +294,6 @@ export const Dashboard = () => {
             </div>
           )}
 
-          {/* Loading Inventory State */}
           {isCompleted && !inventory && (
             <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-xl p-12 text-center">
               <Loader2 className="w-12 h-12 mx-auto mb-4 text-indigo-400 animate-spin" />

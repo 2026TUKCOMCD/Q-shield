@@ -1,4 +1,4 @@
-import { type Priority } from '../services/recommendationService'
+﻿import { type Priority } from '../services/recommendationService'
 import { Filter, X } from 'lucide-react'
 
 interface RecommendationFiltersProps {
@@ -11,10 +11,6 @@ interface RecommendationFiltersProps {
   onReset: () => void
 }
 
-/**
- * Recommendation Filters 컴포넌트
- * T017: 알고리즘 타입 및 컨텍스트 필터링 UI
- */
 export const RecommendationFilters = ({
   algorithmType,
   context,
@@ -45,7 +41,6 @@ export const RecommendationFilters = ({
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Algorithm Type Filter */}
         <div>
           <label className="block text-sm font-medium text-slate-300 mb-2">Algorithm Type</label>
           <input
@@ -56,8 +51,6 @@ export const RecommendationFilters = ({
             className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-all"
           />
         </div>
-
-        {/* Context Filter */}
         <div>
           <label className="block text-sm font-medium text-slate-300 mb-2">Context</label>
           <input
@@ -68,8 +61,6 @@ export const RecommendationFilters = ({
             className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-all"
           />
         </div>
-
-        {/* Priority Filter */}
         <div>
           <label className="block text-sm font-medium text-slate-300 mb-2">Priority</label>
           <select
@@ -88,3 +79,5 @@ export const RecommendationFilters = ({
     </div>
   )
 }
+
+

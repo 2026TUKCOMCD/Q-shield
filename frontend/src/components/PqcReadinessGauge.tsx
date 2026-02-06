@@ -1,31 +1,24 @@
-import { useMemo } from 'react'
+﻿import { useMemo } from 'react'
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts'
 import { AlertTriangle, CheckCircle2 } from 'lucide-react'
 
 interface PqcReadinessGaugeProps {
-  score: number // 0.0-10.0
+  score: number
 }
 
-/**
- * PQC Readiness Gauge 컴포넌트
- * Premium Security Dashboard 스타일 Donut Gauge (recharts 사용)
- */
 export const PqcReadinessGauge = ({ score }: PqcReadinessGaugeProps) => {
-  // 0.0-10.0 스케일을 0-100으로 변환
   const percentage = useMemo(() => {
     return Math.min(100, Math.max(0, (score / 10) * 100))
   }, [score])
 
-  // 동적 색상 결정 (0-40: Red, 41-70: Orange, 71-100: Green)
   const getColor = (percentage: number) => {
-    if (percentage >= 71) return { color: '#2ECC40', label: 'Safe' } // Emerald Green
-    if (percentage >= 41) return { color: '#FF851B', label: 'Warning' } // Orange
-    return { color: '#FF4136', label: 'Critical' } // Bright Red
+    if (percentage >= 71) return { color: '#2ECC40', label: 'Safe' }
+    if (percentage >= 41) return { color: '#FF851B', label: 'Warning' }
+    return { color: '#FF4136', label: 'Critical' }
   }
 
   const colorConfig = getColor(percentage)
 
-  // 게이지 데이터 생성 (recharts PieChart용)
   const gaugeData = useMemo(() => {
     const remaining = 100 - percentage
     return [
@@ -34,7 +27,6 @@ export const PqcReadinessGauge = ({ score }: PqcReadinessGaugeProps) => {
     ]
   }, [percentage, colorConfig.color])
 
-  // 상태 아이콘
   const StatusIcon = useMemo(() => {
     if (percentage >= 71) return CheckCircle2
     return AlertTriangle
@@ -42,11 +34,9 @@ export const PqcReadinessGauge = ({ score }: PqcReadinessGaugeProps) => {
 
   return (
     <div className="flex flex-col items-center justify-center p-8 bg-white/5 backdrop-blur-md border border-white/10 rounded-xl">
-      {/* Gauge Container */}
       <div className="relative w-full max-w-lg" style={{ height: '320px' }}>
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
-            {/* Background Track - Full Range (Dark Gray) */}
             <Pie
               data={[{ name: 'Background', value: 100 }]}
               dataKey="value"
@@ -60,7 +50,6 @@ export const PqcReadinessGauge = ({ score }: PqcReadinessGaugeProps) => {
               stroke="none"
               isAnimationActive={false}
             />
-            {/* Progress Track - Active Score */}
             <Pie
               data={gaugeData}
               dataKey="value"
@@ -87,22 +76,17 @@ export const PqcReadinessGauge = ({ score }: PqcReadinessGaugeProps) => {
             </Pie>
           </PieChart>
         </ResponsiveContainer>
-
-        {/* Center Content - Absolutely Positioned */}
         <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
           <div className="text-center px-4">
-            {/* Large Score */}
             <div
               className="text-5xl font-bold mb-1 transition-colors duration-500"
               style={{ color: colorConfig.color }}
             >
               {percentage.toFixed(0)}
             </div>
-            {/* PQC Readiness Label */}
             <div className="text-xs text-slate-400 mb-2 uppercase tracking-widest font-medium">
               PQC Readiness
             </div>
-            {/* Status Badge */}
             <div className="flex items-center gap-2 justify-center mb-4">
               <div
                 className="px-2.5 py-1 rounded-full flex items-center gap-1.5"
@@ -123,7 +107,6 @@ export const PqcReadinessGauge = ({ score }: PqcReadinessGaugeProps) => {
                 </span>
               </div>
             </div>
-            {/* Overall Score */}
             <div className="pt-3 border-t border-white/10">
               <div className="text-xs text-slate-500 mb-0.5">Overall Score</div>
               <div className="text-lg font-semibold text-white">
@@ -136,3 +119,5 @@ export const PqcReadinessGauge = ({ score }: PqcReadinessGaugeProps) => {
     </div>
   )
 }
+
+

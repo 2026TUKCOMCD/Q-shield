@@ -64,7 +64,7 @@ def _extract_issue_name(ai_recommendation: str, fallback: str) -> str:
     return fallback
 
 
-def _build_inventory_assets(inv: InventorySnapshot) -> list[InventoryAsset]:
+def _build_inventory_assets(inv: InventorySnapshot, include_detail: bool = False) -> list[InventoryAsset]:
     assets: list[InventoryAsset] = []
     table = inv.inventory_table or []
     for entry in table:
@@ -86,7 +86,21 @@ def _build_inventory_assets(inv: InventorySnapshot) -> list[InventoryAsset]:
         for idx, loc in enumerate(locations, start=1):
             file_path = "unknown"
             line_numbers: list[int] = []
-            if isinstance(loc, str):
+            code_snippet = None
+            code_snippet_start_line = None
+            detected_pattern = None
+            if isinstance(loc, dict):
+                file_path = loc.get("file_path") or loc.get("filePath") or "unknown"
+                line_val = loc.get("line")
+                try:
+                    line_numbers = [int(line_val)]
+                except Exception:
+                    line_numbers = []
+                if include_detail:
+                    code_snippet = loc.get("code_snippet")
+                    code_snippet_start_line = loc.get("code_snippet_start_line")
+                    detected_pattern = loc.get("detected_pattern")
+            elif isinstance(loc, str):
                 if ":" in loc:
                     path_part, line_part = loc.rsplit(":", 1)
                     file_path = path_part or "unknown"
@@ -103,6 +117,9 @@ def _build_inventory_assets(inv: InventorySnapshot) -> list[InventoryAsset]:
                     filePath=file_path,
                     lineNumbers=line_numbers,
                     riskScore=5.0,
+                    codeSnippet=code_snippet if include_detail else None,
+                    codeSnippetStartLine=code_snippet_start_line if include_detail else None,
+                    detectedPattern=detected_pattern if include_detail else None,
                 )
             )
     return assets
@@ -212,7 +229,7 @@ def get_inventory(uuid: str, db: Session = Depends(get_db)):
             if isinstance(item, dict) and item.get("name") is not None
         }
 
-    assets = _build_inventory_assets(inv)
+    assets = _build_inventory_assets(inv, include_detail=False)
     return {
         "uuid": str(scan_uuid),
         "pqcReadinessScore": float(inv.pqc_readiness_score or 0.0),
@@ -232,7 +249,7 @@ def get_inventory_asset(uuid: str, assetId: str, db: Session = Depends(get_db)):
     if not inv:
         raise HTTPException(status_code=404, detail="Scan inventory not found")
 
-    assets = _build_inventory_assets(inv)
+    assets = _build_inventory_assets(inv, include_detail=True)
     for asset in assets:
         if asset.id == assetId:
             return asset

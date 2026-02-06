@@ -1,4 +1,4 @@
-import { type AssetDetail } from '../services/inventoryService'
+﻿import { type AssetDetail } from '../services/inventoryService'
 import {
   FileCode,
   Key,
@@ -13,9 +13,6 @@ interface AssetDetailListProps {
   asset: AssetDetail
 }
 
-/**
- * 위험도에 따른 색상 반환
- */
 const getRiskColor = (riskScore: number) => {
   if (riskScore >= 8.0)
     return {
@@ -39,9 +36,6 @@ const getRiskColor = (riskScore: number) => {
   }
 }
 
-/**
- * 복잡도에 따른 색상 반환
- */
 const getComplexityColor = (complexity?: string) => {
   switch (complexity) {
     case 'High':
@@ -55,12 +49,10 @@ const getComplexityColor = (complexity?: string) => {
   }
 }
 
-/**
- * 코드 스니펫을 라인별로 분할하고 하이라이트
- */
-const renderCodeSnippet = (code: string, lineNumbers: number[]) => {
+const renderCodeSnippet = (code: string, lineNumbers: number[], startLine?: number) => {
   const lines = code.split('\n')
   const lineNumberSet = new Set(lineNumbers)
+  const baseLine = startLine && startLine > 0 ? startLine : 1
 
   return (
     <div className="bg-slate-900/50 border border-white/10 rounded-lg overflow-hidden">
@@ -68,7 +60,7 @@ const renderCodeSnippet = (code: string, lineNumbers: number[]) => {
         <pre className="p-4 text-sm">
           <code className="text-slate-200 font-mono">
             {lines.map((line, index) => {
-              const lineNum = index + 1
+              const lineNum = baseLine + index
               const isHighlighted = lineNumberSet.has(lineNum)
 
               return (
@@ -94,16 +86,11 @@ const renderCodeSnippet = (code: string, lineNumbers: number[]) => {
   )
 }
 
-/**
- * AssetDetailList 컴포넌트
- * T027: 암호화 자산 상세 정보 표시
- */
 export const AssetDetailList = ({ asset }: AssetDetailListProps) => {
   const riskConfig = getRiskColor(asset.riskScore)
 
   return (
     <div className="space-y-6">
-      {/* Technical Specifications */}
       <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-xl p-6">
         <div className="flex items-center gap-3 mb-6">
           <div className="p-2 bg-gradient-to-br from-indigo-500/20 to-purple-600/20 rounded-lg border border-indigo-500/30">
@@ -113,7 +100,6 @@ export const AssetDetailList = ({ asset }: AssetDetailListProps) => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Algorithm Type */}
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-sm text-slate-400">
               <FileCode className="w-4 h-4" />
@@ -121,8 +107,6 @@ export const AssetDetailList = ({ asset }: AssetDetailListProps) => {
             </div>
             <p className="text-lg font-semibold text-white">{asset.algorithmType}</p>
           </div>
-
-          {/* Key Size */}
           {asset.keySize && (
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm text-slate-400">
@@ -132,8 +116,6 @@ export const AssetDetailList = ({ asset }: AssetDetailListProps) => {
               <p className="text-lg font-semibold text-white">{asset.keySize} bits</p>
             </div>
           )}
-
-          {/* Mode of Operation */}
           {asset.modeOfOperation && (
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm text-slate-400">
@@ -143,8 +125,6 @@ export const AssetDetailList = ({ asset }: AssetDetailListProps) => {
               <p className="text-lg font-semibold text-white">{asset.modeOfOperation}</p>
             </div>
           )}
-
-          {/* Implementation */}
           {asset.implementation && (
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm text-slate-400">
@@ -154,8 +134,6 @@ export const AssetDetailList = ({ asset }: AssetDetailListProps) => {
               <p className="text-lg font-semibold text-white">{asset.implementation}</p>
             </div>
           )}
-
-          {/* Standard */}
           {asset.standard && (
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm text-slate-400">
@@ -165,8 +143,6 @@ export const AssetDetailList = ({ asset }: AssetDetailListProps) => {
               <p className="text-lg font-semibold text-white">{asset.standard}</p>
             </div>
           )}
-
-          {/* Padding Scheme */}
           {asset.paddingScheme && (
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm text-slate-400">
@@ -176,8 +152,6 @@ export const AssetDetailList = ({ asset }: AssetDetailListProps) => {
               <p className="text-lg font-semibold text-white">{asset.paddingScheme}</p>
             </div>
           )}
-
-          {/* Key Derivation Function */}
           {asset.keyDerivationFunction && (
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm text-slate-400">
@@ -189,8 +163,6 @@ export const AssetDetailList = ({ asset }: AssetDetailListProps) => {
           )}
         </div>
       </div>
-
-      {/* Context & Location */}
       <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-xl p-6">
         <div className="flex items-center gap-3 mb-6">
           <div className="p-2 bg-gradient-to-br from-indigo-500/20 to-purple-600/20 rounded-lg border border-indigo-500/30">
@@ -200,15 +172,12 @@ export const AssetDetailList = ({ asset }: AssetDetailListProps) => {
         </div>
 
         <div className="space-y-4">
-          {/* File Path */}
           <div>
             <div className="text-sm text-slate-400 mb-2">File Path</div>
             <code className="text-sm text-slate-300 font-mono bg-white/5 px-3 py-2 rounded block">
               {asset.filePath}
             </code>
           </div>
-
-          {/* Line Numbers */}
           <div>
             <div className="text-sm text-slate-400 mb-2">Line Numbers</div>
             <div className="flex flex-wrap gap-2">
@@ -222,8 +191,6 @@ export const AssetDetailList = ({ asset }: AssetDetailListProps) => {
               ))}
             </div>
           </div>
-
-          {/* Detected Pattern */}
           {asset.detectedPattern && (
             <div>
               <div className="text-sm text-slate-400 mb-2">Detected Pattern</div>
@@ -232,18 +199,14 @@ export const AssetDetailList = ({ asset }: AssetDetailListProps) => {
               </code>
             </div>
           )}
-
-          {/* Code Snippet */}
           {asset.codeSnippet && (
             <div>
               <div className="text-sm text-slate-400 mb-2">Code Snippet</div>
-              {renderCodeSnippet(asset.codeSnippet, asset.lineNumbers)}
+              {renderCodeSnippet(asset.codeSnippet, asset.lineNumbers, asset.codeSnippetStartLine)}
             </div>
           )}
         </div>
       </div>
-
-      {/* AI Recommendations */}
       {asset.suggestedPQCAlternatives && asset.suggestedPQCAlternatives.length > 0 && (
         <div className="bg-gradient-to-r from-indigo-500/10 to-purple-600/10 backdrop-blur-md border border-indigo-500/30 rounded-xl p-6">
           <div className="flex items-center gap-3 mb-6">
@@ -254,7 +217,6 @@ export const AssetDetailList = ({ asset }: AssetDetailListProps) => {
           </div>
 
           <div className="space-y-4">
-            {/* Suggested Alternatives */}
             <div>
               <div className="text-sm text-slate-400 mb-3">Recommended Algorithms</div>
               <div className="flex flex-wrap gap-3">
@@ -269,8 +231,6 @@ export const AssetDetailList = ({ asset }: AssetDetailListProps) => {
                 ))}
               </div>
             </div>
-
-            {/* Migration Complexity */}
             {asset.migrationComplexity && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -281,8 +241,6 @@ export const AssetDetailList = ({ asset }: AssetDetailListProps) => {
                     {asset.migrationComplexity}
                   </div>
                 </div>
-
-                {/* Estimated Effort */}
                 {asset.estimatedEffort && (
                   <div>
                     <div className="text-sm text-slate-400 mb-2">Estimated Effort</div>
@@ -297,3 +255,5 @@ export const AssetDetailList = ({ asset }: AssetDetailListProps) => {
     </div>
   )
 }
+
+
