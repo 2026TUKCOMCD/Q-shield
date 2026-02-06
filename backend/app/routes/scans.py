@@ -1,12 +1,12 @@
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
+from datetime import datetime, timezone
 from uuid import UUID
 from urllib.parse import urlparse
 
 from app.db import get_db
-from app.models import Scan
-from app.models import InventorySnapshot, HeatmapSnapshot, Recommendation
+from app.models import InventorySnapshot, HeatmapSnapshot, Recommendation, Repository, Scan
 from app.security import require_user_uuid_from_auth_header
 from app.schemas import (
     ScanCreateRequest, ScanCreateResponse,
@@ -28,6 +28,42 @@ def extract_repo_name(github_url: str) -> str:
     if len(parts) >= 2:
         return parts[1]
     return "unknown-repo"
+
+
+def extract_repo_full_name(github_url: str) -> str:
+    parsed = urlparse(github_url)
+    parts = [p for p in parsed.path.strip("/").split("/") if p]
+    if len(parts) >= 2:
+        repo = parts[1]
+        if repo.endswith(".git"):
+            repo = repo[:-4]
+        return f"{parts[0]}/{repo}"
+    return "unknown/unknown"
+
+
+def _get_or_create_repository(db: Session, user_uuid: UUID, github_url: str) -> Repository:
+    repo_full_name = extract_repo_full_name(github_url)
+    repo = (
+        db.query(Repository)
+        .filter(Repository.user_uuid == user_uuid)
+        .filter(Repository.provider == "github")
+        .filter(Repository.repo_full_name == repo_full_name)
+        .filter(Repository.deleted_at.is_(None))
+        .first()
+    )
+    if repo:
+        repo.repo_url = github_url
+        return repo
+
+    repo = Repository(
+        user_uuid=user_uuid,
+        provider="github",
+        repo_url=github_url,
+        repo_full_name=repo_full_name,
+    )
+    db.add(repo)
+    db.flush()
+    return repo
 
 
 def _map_status(status: str) -> str:
@@ -168,9 +204,12 @@ def create_scan(
         raise HTTPException(status_code=400, detail="githubUrl is required")
 
     repo_name = extract_repo_name(github_url)
+    repository = _get_or_create_repository(db, user_uuid, github_url)
+    repository.last_scanned_at = datetime.now(timezone.utc)
 
     scan = Scan(
         user_uuid=user_uuid,
+        repository_id=repository.id,
         github_url=github_url,
         repo_name=repo_name,
         status="QUEUED",
@@ -205,6 +244,7 @@ def get_scan_status(
         uuid=str(scan.uuid),
         status=_map_status(scan.status),
         progress=_progress_percent(scan.progress),
+        githubUrl=scan.github_url,
     )
 
 
@@ -231,6 +271,7 @@ def list_scans(
         ScanListItem(
             uuid=str(s.uuid),
             githubUrl=s.github_url,
+            repositoryId=s.repository_id,
             status=_map_status(s.status),
             progress=_progress_percent(s.progress),
             createdAt=s.created_at,

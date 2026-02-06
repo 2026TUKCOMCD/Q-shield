@@ -16,12 +16,14 @@ class ScanStatusResponse(BaseModel):
     uuid: str
     status: str
     progress: int = Field(ge=0, le=100)
+    githubUrl: Optional[str] = None
 
 
 # 3) GET /api/scans
 class ScanListItem(BaseModel):
     uuid: str
     githubUrl: str
+    repositoryId: Optional[int] = None
     status: str
     progress: int = Field(ge=0, le=100)
     createdAt: datetime
@@ -37,6 +39,17 @@ class ScanBulkDeleteRequest(BaseModel):
 
 class ScanBulkDeleteResponse(BaseModel):
     deletedCount: int
+
+
+class RepositoryListItem(BaseModel):
+    id: int
+    provider: str
+    repoUrl: str
+    repoFullName: str
+    totalScans: int
+    lastScanStatus: Optional[str] = None
+    lastScannedAt: Optional[datetime] = None
+    latestPqcReadinessScore: Optional[float] = None
 
 
 # 4) GET /api/scans/{uuid}/inventory

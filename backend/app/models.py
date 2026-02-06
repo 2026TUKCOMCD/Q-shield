@@ -26,7 +26,29 @@ class User(Base):
     deleted_at: Mapped[str | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     identities: Mapped[list["AuthIdentity"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    repositories: Mapped[list["Repository"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     scans: Mapped[list["Scan"]] = relationship(back_populates="user")
+
+
+class Repository(Base):
+    __tablename__ = "repositories"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    user_uuid: Mapped[uuid_lib.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.uuid", ondelete="CASCADE"), nullable=False)
+    provider: Mapped[str] = mapped_column(String(20), nullable=False, default="github")
+    repo_url: Mapped[str] = mapped_column(Text, nullable=False)
+    repo_full_name: Mapped[str] = mapped_column(String(300), nullable=False)
+    external_repo_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    default_branch: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    is_private: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    last_scanned_at: Mapped[str | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[str] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[str] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+    deleted_at: Mapped[str | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    user: Mapped["User"] = relationship(back_populates="repositories")
+    scans: Mapped[list["Scan"]] = relationship(back_populates="repository")
 
 
 class AuthIdentity(Base):
@@ -74,6 +96,11 @@ class Scan(Base):
         ForeignKey("users.uuid", ondelete="SET NULL"),
         nullable=True,
     )
+    repository_id: Mapped[int | None] = mapped_column(
+        BigInteger,
+        ForeignKey("repositories.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     github_url: Mapped[str] = mapped_column(String(500), nullable=False)
     repo_name: Mapped[str] = mapped_column(String(200), nullable=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="QUEUED")
@@ -84,6 +111,7 @@ class Scan(Base):
     updated_at: Mapped[str] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
     user: Mapped["User | None"] = relationship(back_populates="scans")
+    repository: Mapped["Repository | None"] = relationship(back_populates="scans")
     findings: Mapped[list["Finding"]] = relationship(back_populates="scan", cascade="all, delete-orphan")
     inventory: Mapped["InventorySnapshot | None"] = relationship(back_populates="scan", uselist=False, cascade="all, delete-orphan")
     heatmap: Mapped["HeatmapSnapshot | None"] = relationship(back_populates="scan", uselist=False, cascade="all, delete-orphan")
