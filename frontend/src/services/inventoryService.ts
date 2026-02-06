@@ -1,11 +1,8 @@
-import { apiClient } from '../api'
+癤퓁mport { apiClient } from '../api'
 import { config } from '../config'
 import { handleError, type AppError, ErrorType } from '../utils/errorHandler'
 import { logError } from '../utils/logger'
 
-/**
- * 암호화 자산 타입
- */
 export interface CryptographicAsset {
   id: string
   algorithmType: string
@@ -14,9 +11,6 @@ export interface CryptographicAsset {
   riskScore: number
 }
 
-/**
- * 암호화 자산 상세 정보 타입
- */
 export interface AssetDetail extends CryptographicAsset {
   keySize?: number
   modeOfOperation?: string
@@ -25,15 +19,13 @@ export interface AssetDetail extends CryptographicAsset {
   keyDerivationFunction?: string
   paddingScheme?: string
   codeSnippet?: string
+  codeSnippetStartLine?: number
   detectedPattern?: string
   suggestedPQCAlternatives?: string[]
   migrationComplexity?: 'Low' | 'Medium' | 'High'
   estimatedEffort?: string
 }
 
-/**
- * 인벤토리 응답 타입
- */
 export interface InventoryResponse {
   uuid: string
   pqcReadinessScore: number
@@ -42,12 +34,7 @@ export interface InventoryResponse {
 }
 
 const isAppError = (error: unknown): error is AppError => {
-  return (
-    typeof error === 'object' &&
-    error !== null &&
-    'type' in error &&
-    'message' in error
-  )
+  return typeof error === 'object' && error !== null && 'type' in error && 'message' in error
 }
 
 const toAppError = (error: unknown): AppError => {
@@ -134,9 +121,6 @@ const fallbackAssetDetails: Record<string, Partial<AssetDetail>> = {
   },
 }
 
-/**
- * 인벤토리 서비스 (API-first, DEV fallback)
- */
 export const inventoryService = {
   async getScanInventory(uuid: string): Promise<InventoryResponse> {
     try {

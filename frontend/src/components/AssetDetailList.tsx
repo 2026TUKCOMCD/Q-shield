@@ -49,9 +49,10 @@ const getComplexityColor = (complexity?: string) => {
   }
 }
 
-const renderCodeSnippet = (code: string, lineNumbers: number[]) => {
+const renderCodeSnippet = (code: string, lineNumbers: number[], startLine?: number) => {
   const lines = code.split('\n')
   const lineNumberSet = new Set(lineNumbers)
+  const baseLine = startLine && startLine > 0 ? startLine : 1
 
   return (
     <div className="bg-slate-900/50 border border-white/10 rounded-lg overflow-hidden">
@@ -59,7 +60,7 @@ const renderCodeSnippet = (code: string, lineNumbers: number[]) => {
         <pre className="p-4 text-sm">
           <code className="text-slate-200 font-mono">
             {lines.map((line, index) => {
-              const lineNum = index + 1
+              const lineNum = baseLine + index
               const isHighlighted = lineNumberSet.has(lineNum)
 
               return (
@@ -201,7 +202,7 @@ export const AssetDetailList = ({ asset }: AssetDetailListProps) => {
           {asset.codeSnippet && (
             <div>
               <div className="text-sm text-slate-400 mb-2">Code Snippet</div>
-              {renderCodeSnippet(asset.codeSnippet, asset.lineNumbers)}
+              {renderCodeSnippet(asset.codeSnippet, asset.lineNumbers, asset.codeSnippetStartLine)}
             </div>
           )}
         </div>
