@@ -28,6 +28,10 @@ export interface ScanHistoryItem {
   updatedAt: string
 }
 
+export interface BulkDeleteResponse {
+  deletedCount: number
+}
+
 const isAppError = (error: unknown): error is AppError => {
   return typeof error === 'object' && error !== null && 'type' in error && 'message' in error
 }
@@ -200,6 +204,31 @@ export const scanService = {
         const next = scans.filter((scan) => scan.uuid !== uuid)
         saveScansToStorage(next)
         return
+      }
+
+      throw appError
+    }
+  },
+
+  async bulkDeleteScans(uuids: string[]): Promise<BulkDeleteResponse> {
+    if (uuids.length === 0) {
+      return { deletedCount: 0 }
+    }
+
+    try {
+      const response = await apiClient.post<BulkDeleteResponse>('/scans/bulk-delete', { uuids })
+      return response.data
+    } catch (error) {
+      const appError = toAppError(error)
+      logError('Failed to bulk delete scans', appError)
+
+      if (shouldUseDevFallback(appError)) {
+        const scans = loadScansFromStorage()
+        const deleteSet = new Set(uuids)
+        const next = scans.filter((scan) => !deleteSet.has(scan.uuid))
+        const deletedCount = scans.length - next.length
+        saveScansToStorage(next)
+        return { deletedCount }
       }
 
       throw appError

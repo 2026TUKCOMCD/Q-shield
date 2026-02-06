@@ -1,8 +1,7 @@
-﻿import { useState, useEffect } from 'react'
-import { scanService, type ScanHistoryItem, type ScanStatus } from '../services/scanService'
+﻿import { useState } from 'react'
+import { type ScanHistoryItem, type ScanStatus } from '../services/scanService'
 import { logError } from '../utils/logger'
 import {
-  RefreshCw,
   ExternalLink,
   CheckCircle2,
   Clock,
@@ -11,14 +10,17 @@ import {
   Copy,
   Check,
   Eye,
-  Trash2,
+  X,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 interface ScanHistoryListProps {
   scans: ScanHistoryItem[]
-  onRefresh?: () => void
   onDelete?: (uuid: string) => Promise<void> | void
+  selectionMode: boolean
+  selectedUuids: Set<string>
+  onToggleSelect: (uuid: string) => void
+  onToggleSelectAll: (checked: boolean) => void
 }
 
 const getStatusConfig = (status: ScanStatus) => {
@@ -85,12 +87,17 @@ const shortenUuid = (uuid: string): string => {
   return `${uuid.substring(0, 8)}...${uuid.substring(uuid.length - 4)}`
 }
 
-export const ScanHistoryList = ({ scans, onRefresh, onDelete }: ScanHistoryListProps) => {
-  const [refreshingUuids, setRefreshingUuids] = useState<Set<string>>(new Set())
+export const ScanHistoryList = ({
+  scans,
+  onDelete,
+  selectionMode,
+  selectedUuids,
+  onToggleSelect,
+  onToggleSelectAll,
+}: ScanHistoryListProps) => {
   const [deletingUuids, setDeletingUuids] = useState<Set<string>>(new Set())
   const [copiedUuid, setCopiedUuid] = useState<string | null>(null)
 
-  
   const copyToClipboard = async (uuid: string) => {
     try {
       await navigator.clipboard.writeText(uuid)
@@ -98,24 +105,6 @@ export const ScanHistoryList = ({ scans, onRefresh, onDelete }: ScanHistoryListP
       setTimeout(() => setCopiedUuid(null), 2000)
     } catch (error) {
       logError('Failed to copy UUID', error)
-    }
-  }
-
-  
-  const refreshScanStatus = async (uuid: string) => {
-    setRefreshingUuids((prev) => new Set(prev).add(uuid))
-
-    try {
-      await scanService.getScanStatus(uuid)
-      onRefresh?.()
-    } catch (error) {
-      logError('Failed to refresh scan status', error, { uuid })
-    } finally {
-      setRefreshingUuids((prev) => {
-        const next = new Set(prev)
-        next.delete(uuid)
-        return next
-      })
     }
   }
 
@@ -143,27 +132,12 @@ export const ScanHistoryList = ({ scans, onRefresh, onDelete }: ScanHistoryListP
     }
   }
 
-  useEffect(() => {
-    const hasInProgress = scans.some((scan) => scan.status === 'IN_PROGRESS')
-    if (!hasInProgress) return
-
-    const interval = setInterval(() => {
-      scans.forEach((scan) => {
-        if (scan.status === 'IN_PROGRESS') {
-          refreshScanStatus(scan.uuid)
-        }
-      })
-    }, 3000)
-
-    return () => clearInterval(interval)
-  }, [scans])
-
   if (scans.length === 0) {
     return (
       <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-xl p-12 text-center">
         <div className="max-w-md mx-auto">
           <div className="w-20 h-20 rounded-full bg-gradient-to-br from-indigo-500/20 to-purple-600/20 flex items-center justify-center mx-auto mb-4 border border-indigo-500/30">
-            <RefreshCw className="w-10 h-10 text-slate-400" />
+            <Clock className="w-10 h-10 text-slate-400" />
           </div>
           <p className="text-slate-300 text-lg mb-2 font-medium">No scan history</p>
           <p className="text-slate-500 text-sm">Start a new scan to see results here.</p>
@@ -174,12 +148,27 @@ export const ScanHistoryList = ({ scans, onRefresh, onDelete }: ScanHistoryListP
 
   return (
     <div className="space-y-4">
+      {selectionMode && (
+        <div className="flex items-center justify-between px-1">
+          <label className="flex items-center gap-2 text-sm text-slate-300">
+            <input
+              type="checkbox"
+              className="h-4 w-4 rounded border-white/20 bg-white/5 text-indigo-500 focus:ring-indigo-500/40"
+              checked={scans.length > 0 && selectedUuids.size === scans.length}
+              onChange={(e) => onToggleSelectAll(e.target.checked)}
+            />
+            <span>Select all on page</span>
+          </label>
+          <span className="text-xs text-slate-500">{selectedUuids.size} selected</span>
+        </div>
+      )}
+
       {scans.map((scan) => {
         const statusConfig = getStatusConfig(scan.status)
         const StatusIcon = statusConfig.icon
-        const isRefreshing = refreshingUuids.has(scan.uuid)
         const isDeleting = deletingUuids.has(scan.uuid)
         const isCopied = copiedUuid === scan.uuid
+        const isSelected = selectedUuids.has(scan.uuid)
 
         return (
           <div
@@ -189,9 +178,17 @@ export const ScanHistoryList = ({ scans, onRefresh, onDelete }: ScanHistoryListP
             <div className="flex items-start justify-between gap-6">
               <div className="flex-1 min-w-0 space-y-4">
                 <div className="flex items-center gap-3 flex-wrap">
-                  <div
-                    className={`p-2 rounded-lg ${statusConfig.bgColor} ${statusConfig.borderColor} border`}
-                  >
+                  {selectionMode && (
+                    <label className="flex items-center">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 rounded border-white/20 bg-white/5 text-indigo-500 focus:ring-indigo-500/40"
+                        checked={isSelected}
+                        onChange={() => onToggleSelect(scan.uuid)}
+                      />
+                    </label>
+                  )}
+                  <div className={`p-2 rounded-lg ${statusConfig.bgColor} ${statusConfig.borderColor} border`}>
                     <StatusIcon
                       className={`w-5 h-5 ${statusConfig.color} ${
                         scan.status === 'IN_PROGRESS' ? 'animate-spin' : ''
@@ -207,6 +204,7 @@ export const ScanHistoryList = ({ scans, onRefresh, onDelete }: ScanHistoryListP
                     <span className="text-sm text-slate-400 font-mono">{scan.progress}%</span>
                   )}
                 </div>
+
                 <div>
                   <a
                     href={scan.githubUrl}
@@ -218,6 +216,7 @@ export const ScanHistoryList = ({ scans, onRefresh, onDelete }: ScanHistoryListP
                     <ExternalLink className="w-4 h-4 opacity-0 group-hover/link:opacity-100 transition-opacity flex-shrink-0" />
                   </a>
                 </div>
+
                 <div className="flex flex-wrap gap-4 text-sm">
                   <div className="flex items-center gap-2">
                     <span className="text-slate-500">UUID:</span>
@@ -243,6 +242,7 @@ export const ScanHistoryList = ({ scans, onRefresh, onDelete }: ScanHistoryListP
                     <span className="text-slate-300">{formatDate(scan.updatedAt)}</span>
                   </div>
                 </div>
+
                 {scan.status === 'IN_PROGRESS' && (
                   <div className="pt-2">
                     <div className="h-2 bg-white/5 rounded-full overflow-hidden">
@@ -254,6 +254,7 @@ export const ScanHistoryList = ({ scans, onRefresh, onDelete }: ScanHistoryListP
                   </div>
                 )}
               </div>
+
               <div className="flex items-center gap-2">
                 {scan.status === 'COMPLETED' && (
                   <Link
@@ -265,20 +266,12 @@ export const ScanHistoryList = ({ scans, onRefresh, onDelete }: ScanHistoryListP
                   </Link>
                 )}
                 <button
-                  onClick={() => refreshScanStatus(scan.uuid)}
-                  disabled={isRefreshing || isDeleting}
-                  className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg transition-all duration-300 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm text-slate-300 hover:text-white"
-                >
-                  <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-                  <span>Refresh</span>
-                </button>
-                <button
                   onClick={() => handleDelete(scan.uuid)}
-                  disabled={isDeleting || isRefreshing}
-                  className="px-4 py-2 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 rounded-lg transition-all duration-300 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm text-red-300 hover:text-red-200"
+                  disabled={isDeleting}
+                  className="p-2 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed text-red-300 hover:text-red-200"
+                  title="Delete this scan"
                 >
-                  <Trash2 className={`w-4 h-4 ${isDeleting ? 'animate-pulse' : ''}`} />
-                  <span>{isDeleting ? 'Deleting...' : 'Delete'}</span>
+                  <X className={`w-4 h-4 ${isDeleting ? 'animate-pulse' : ''}`} />
                 </button>
               </div>
             </div>
@@ -288,5 +281,3 @@ export const ScanHistoryList = ({ scans, onRefresh, onDelete }: ScanHistoryListP
     </div>
   )
 }
-
-
