@@ -10,6 +10,7 @@ from app.models import InventorySnapshot, HeatmapSnapshot, Recommendation
 from app.schemas import (
     ScanCreateRequest, ScanCreateResponse,
     ScanStatusResponse, ScanListItem,
+    ScanBulkDeleteRequest, ScanBulkDeleteResponse,
     InventoryResponse, InventoryAsset,
     RecommendationsResponse, RecommendationItem,
     HeatmapResponse, HeatmapNode,
@@ -232,6 +233,29 @@ def delete_scan(uuid: str, db: Session = Depends(get_db)):
     db.delete(scan)
     db.commit()
     return None
+
+
+@router.post("/bulk-delete", response_model=ScanBulkDeleteResponse)
+def bulk_delete_scans(payload: ScanBulkDeleteRequest, db: Session = Depends(get_db)):
+    if not payload.uuids:
+        return ScanBulkDeleteResponse(deletedCount=0)
+
+    uuid_values: list[UUID] = []
+    for raw_uuid in payload.uuids:
+        try:
+            uuid_values.append(UUID(raw_uuid))
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid uuid: {raw_uuid}")
+
+    scans = db.execute(select(Scan).where(Scan.uuid.in_(uuid_values))).scalars().all()
+    if not scans:
+        return ScanBulkDeleteResponse(deletedCount=0)
+
+    for scan in scans:
+        db.delete(scan)
+    db.commit()
+
+    return ScanBulkDeleteResponse(deletedCount=len(scans))
 
 
 @router.get("/{uuid}/inventory", response_model=InventoryResponse)

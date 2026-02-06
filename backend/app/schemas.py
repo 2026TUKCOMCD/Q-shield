@@ -31,6 +31,14 @@ class ScanListResponse(BaseModel):
     items: List[ScanListItem]
 
 
+class ScanBulkDeleteRequest(BaseModel):
+    uuids: List[str]
+
+
+class ScanBulkDeleteResponse(BaseModel):
+    deletedCount: int
+
+
 # 4) GET /api/scans/{uuid}/inventory
 class InventoryAsset(BaseModel):
     id: str
