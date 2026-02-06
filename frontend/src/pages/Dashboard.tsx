@@ -143,7 +143,20 @@ export const Dashboard = () => {
                 <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-400 via-purple-400 to-indigo-400 bg-clip-text text-transparent">
                   Scan Dashboard
                 </h1>
-                <p className="text-slate-400 text-sm mt-1 font-mono">UUID: {uuid.substring(0, 8)}...</p>
+                {scanStatus?.githubUrl ? (
+                  <a
+                    href={scanStatus.githubUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-indigo-300 text-sm mt-1 font-mono hover:text-indigo-200 hover:underline break-all inline-block"
+                  >
+                    {scanStatus.githubUrl}
+                  </a>
+                ) : (
+                  <p className="text-slate-400 text-sm mt-1 font-mono">
+                    Scan ID: {uuid.substring(0, 8)}...
+                  </p>
+                )}
               </div>
             </div>
           </div>

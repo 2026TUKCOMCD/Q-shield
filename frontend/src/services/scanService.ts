@@ -17,6 +17,7 @@ export interface ScanStatusResponse {
   uuid: string
   status: ScanStatus
   progress: number
+  githubUrl?: string
 }
 
 export interface ScanHistoryItem {
@@ -131,6 +132,7 @@ const fallbackGetScanStatus = async (uuid: string): Promise<ScanStatusResponse> 
     uuid: scan.uuid,
     status: scan.status,
     progress: scan.progress,
+    githubUrl: scan.githubUrl,
   }
 }
 
