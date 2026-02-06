@@ -1,12 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import select, or_
+from sqlalchemy import or_
 from uuid import UUID
 from urllib.parse import urlparse
 
 from app.db import get_db
 from app.models import Scan
 from app.models import InventorySnapshot, HeatmapSnapshot, Recommendation
+from app.security import require_user_uuid_from_auth_header
 from app.schemas import (
     ScanCreateRequest, ScanCreateResponse,
     ScanStatusResponse, ScanListItem,
@@ -63,6 +64,17 @@ def _extract_issue_name(ai_recommendation: str, fallback: str) -> str:
     if first_line.startswith("## "):
         return first_line.replace("## ", "").strip() or fallback
     return fallback
+
+
+def get_request_user_uuid(
+    authorization: str | None = Header(default=None, alias="Authorization"),
+) -> UUID:
+    return require_user_uuid_from_auth_header(authorization)
+
+
+def _scoped_scan_query(db: Session, user_uuid: UUID):
+    q = db.query(Scan)
+    return q.filter(Scan.user_uuid == user_uuid)
 
 
 def _build_inventory_assets(inv: InventorySnapshot, include_detail: bool = False) -> list[InventoryAsset]:
@@ -146,7 +158,11 @@ def _convert_heatmap_node(node: dict) -> HeatmapNode:
 
 
 @router.post("", response_model=ScanCreateResponse, status_code=202)
-def create_scan(payload: ScanCreateRequest, db: Session = Depends(get_db)):
+def create_scan(
+    payload: ScanCreateRequest,
+    db: Session = Depends(get_db),
+    user_uuid: UUID = Depends(get_request_user_uuid),
+):
     github_url = payload.github_url or payload.githubUrl
     if not github_url:
         raise HTTPException(status_code=400, detail="githubUrl is required")
@@ -154,6 +170,7 @@ def create_scan(payload: ScanCreateRequest, db: Session = Depends(get_db)):
     repo_name = extract_repo_name(github_url)
 
     scan = Scan(
+        user_uuid=user_uuid,
         github_url=github_url,
         repo_name=repo_name,
         status="QUEUED",
@@ -169,13 +186,18 @@ def create_scan(payload: ScanCreateRequest, db: Session = Depends(get_db)):
 
 
 @router.get("/{uuid}/status", response_model=ScanStatusResponse)
-def get_scan_status(uuid: str, db: Session = Depends(get_db)):
+def get_scan_status(
+    uuid: str,
+    db: Session = Depends(get_db),
+    user_uuid: UUID = Depends(get_request_user_uuid),
+):
     try:
         scan_uuid = UUID(uuid)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid uuid")
 
-    scan = db.execute(select(Scan).where(Scan.uuid == scan_uuid)).scalar_one_or_none()
+    q = _scoped_scan_query(db, user_uuid).filter(Scan.uuid == scan_uuid)
+    scan = q.first()
     if not scan:
         raise HTTPException(status_code=404, detail="Scan not found")
 
@@ -190,20 +212,20 @@ def get_scan_status(uuid: str, db: Session = Depends(get_db)):
 def list_scans(
     db: Session = Depends(get_db),
     query: str | None = Query(default=None),
+    user_uuid: UUID = Depends(get_request_user_uuid),
 ):
-    stmt = select(Scan)
+    q = _scoped_scan_query(db, user_uuid)
     if query:
         term = query.strip()
         if term:
             like_term = f"%{term}%"
-            stmt = stmt.where(
+            q = q.filter(
                 or_(
                     Scan.github_url.ilike(like_term),
                     Scan.repo_name.ilike(like_term),
                 )
             )
-    stmt = stmt.order_by(Scan.created_at.desc())
-    scans = db.execute(stmt).scalars().all()
+    scans = q.order_by(Scan.created_at.desc()).all()
 
     items: list[ScanListItem] = [
         ScanListItem(
@@ -220,13 +242,17 @@ def list_scans(
 
 
 @router.delete("/{uuid}", status_code=204)
-def delete_scan(uuid: str, db: Session = Depends(get_db)):
+def delete_scan(
+    uuid: str,
+    db: Session = Depends(get_db),
+    user_uuid: UUID = Depends(get_request_user_uuid),
+):
     try:
         scan_uuid = UUID(uuid)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid uuid")
 
-    scan = db.execute(select(Scan).where(Scan.uuid == scan_uuid)).scalar_one_or_none()
+    scan = _scoped_scan_query(db, user_uuid).filter(Scan.uuid == scan_uuid).first()
     if not scan:
         raise HTTPException(status_code=404, detail="Scan not found")
 
@@ -236,7 +262,11 @@ def delete_scan(uuid: str, db: Session = Depends(get_db)):
 
 
 @router.post("/bulk-delete", response_model=ScanBulkDeleteResponse)
-def bulk_delete_scans(payload: ScanBulkDeleteRequest, db: Session = Depends(get_db)):
+def bulk_delete_scans(
+    payload: ScanBulkDeleteRequest,
+    db: Session = Depends(get_db),
+    user_uuid: UUID = Depends(get_request_user_uuid),
+):
     if not payload.uuids:
         return ScanBulkDeleteResponse(deletedCount=0)
 
@@ -247,7 +277,8 @@ def bulk_delete_scans(payload: ScanBulkDeleteRequest, db: Session = Depends(get_
         except ValueError:
             raise HTTPException(status_code=400, detail=f"Invalid uuid: {raw_uuid}")
 
-    scans = db.execute(select(Scan).where(Scan.uuid.in_(uuid_values))).scalars().all()
+    q = _scoped_scan_query(db, user_uuid).filter(Scan.uuid.in_(uuid_values))
+    scans = q.all()
     if not scans:
         return ScanBulkDeleteResponse(deletedCount=0)
 
@@ -259,11 +290,19 @@ def bulk_delete_scans(payload: ScanBulkDeleteRequest, db: Session = Depends(get_
 
 
 @router.get("/{uuid}/inventory", response_model=InventoryResponse)
-def get_inventory(uuid: str, db: Session = Depends(get_db)):
+def get_inventory(
+    uuid: str,
+    db: Session = Depends(get_db),
+    user_uuid: UUID = Depends(get_request_user_uuid),
+):
     try:
         scan_uuid = UUID(uuid)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid uuid")
+
+    scan = _scoped_scan_query(db, user_uuid).filter(Scan.uuid == scan_uuid).first()
+    if not scan:
+        raise HTTPException(status_code=404, detail="Scan not found")
 
     inv = db.query(InventorySnapshot).filter(InventorySnapshot.scan_uuid == scan_uuid).first()
     if not inv:
@@ -294,11 +333,20 @@ def get_inventory(uuid: str, db: Session = Depends(get_db)):
 
 
 @router.get("/{uuid}/inventory/{assetId}", response_model=InventoryAsset)
-def get_inventory_asset(uuid: str, assetId: str, db: Session = Depends(get_db)):
+def get_inventory_asset(
+    uuid: str,
+    assetId: str,
+    db: Session = Depends(get_db),
+    user_uuid: UUID = Depends(get_request_user_uuid),
+):
     try:
         scan_uuid = UUID(uuid)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid uuid")
+
+    scan = _scoped_scan_query(db, user_uuid).filter(Scan.uuid == scan_uuid).first()
+    if not scan:
+        raise HTTPException(status_code=404, detail="Scan not found")
 
     inv = db.query(InventorySnapshot).filter(InventorySnapshot.scan_uuid == scan_uuid).first()
     if not inv:
@@ -313,11 +361,19 @@ def get_inventory_asset(uuid: str, assetId: str, db: Session = Depends(get_db)):
 
 
 @router.get("/{uuid}/heatmap", response_model=HeatmapResponse)
-def get_heatmap(uuid: str, db: Session = Depends(get_db)):
+def get_heatmap(
+    uuid: str,
+    db: Session = Depends(get_db),
+    user_uuid: UUID = Depends(get_request_user_uuid),
+):
     try:
         scan_uuid = UUID(uuid)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid uuid")
+
+    scan = _scoped_scan_query(db, user_uuid).filter(Scan.uuid == scan_uuid).first()
+    if not scan:
+        raise HTTPException(status_code=404, detail="Scan not found")
 
     heat = db.query(HeatmapSnapshot).filter(HeatmapSnapshot.scan_uuid == scan_uuid).first()
     if not heat:
@@ -336,11 +392,16 @@ def get_recommendations(
     db: Session = Depends(get_db),
     algorithm: str | None = Query(default=None),
     context: str | None = Query(default=None),
+    user_uuid: UUID = Depends(get_request_user_uuid),
 ):
     try:
         scan_uuid = UUID(uuid)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid uuid")
+
+    scan = _scoped_scan_query(db, user_uuid).filter(Scan.uuid == scan_uuid).first()
+    if not scan:
+        raise HTTPException(status_code=404, detail="Scan not found")
 
     q = db.query(Recommendation).filter(Recommendation.scan_uuid == scan_uuid)
 

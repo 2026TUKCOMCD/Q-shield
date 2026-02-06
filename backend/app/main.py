@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import CORS_ORIGINS
+from app.routes.auth import router as auth_router
 from app.routes.scans import router as scans_router
 
 app = FastAPI(title="Q-shield Backend")
@@ -14,6 +15,7 @@ app.add_middleware(
 )
 
 app.include_router(scans_router)
+app.include_router(auth_router)
 
 @app.get("/health")
 async def health():
