@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, RootModel
 from typing import Optional, List, Dict
 from datetime import datetime
 
@@ -75,8 +75,8 @@ class HeatmapNode(BaseModel):
     children: Optional[List["HeatmapNode"]] = None
 
 
-class HeatmapResponse(BaseModel):
-    __root__: List[HeatmapNode]
+class HeatmapResponse(RootModel[List[HeatmapNode]]):
+    pass
 
 
 try:
