@@ -4,6 +4,7 @@
   type AxiosResponse,
 } from 'axios'
 import { config } from '../config'
+import { tokenStore } from '../auth/tokenStore'
 import { handleError } from '../utils/errorHandler'
 import { logDebug, logError, logInfo } from '../utils/logger'
 
@@ -15,10 +16,16 @@ const apiClient: AxiosInstance = axios.create({
 
 apiClient.interceptors.request.use(
   (requestConfig: InternalAxiosRequestConfig): InternalAxiosRequestConfig => {
+    const accessToken = tokenStore.getAccessToken()
+    if (accessToken) {
+      requestConfig.headers.set('Authorization', `Bearer ${accessToken}`)
+    }
+
     logDebug('API Request', {
       method: requestConfig.method?.toUpperCase(),
       url: requestConfig.url,
       baseURL: requestConfig.baseURL,
+      auth: accessToken ? 'bearer' : 'none',
     })
 
     return requestConfig
@@ -40,6 +47,10 @@ apiClient.interceptors.response.use(
     return response
   },
   (error) => {
+    if (error?.response?.status === 401) {
+      tokenStore.clear()
+      window.dispatchEvent(new Event('auth:unauthorized'))
+    }
     const appError = handleError(error)
     return Promise.reject(appError)
   },
