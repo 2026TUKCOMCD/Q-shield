@@ -1,8 +1,10 @@
 ﻿import { Link, useLocation } from 'react-router-dom'
-import { Scan, History, Shield } from 'lucide-react'
+import { Scan, History, Shield, LogOut } from 'lucide-react'
+import { useAuth } from '../auth/AuthContext'
 
 export const Sidebar = () => {
   const location = useLocation()
+  const { user, logout } = useAuth()
 
   const navItems = [
     {
@@ -53,13 +55,17 @@ export const Sidebar = () => {
           })}
         </nav>
         <div className="p-4 border-t border-white/10">
-          <p className="text-xs text-slate-500 text-center">
-            AI-PQC Scanner v1.0
-          </p>
+          <div className="mb-3 text-xs text-slate-400 truncate">{user?.email}</div>
+          <button
+            onClick={logout}
+            className="w-full mb-3 px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white flex items-center justify-center gap-2"
+          >
+            <LogOut className="w-4 h-4" />
+            <span>Logout</span>
+          </button>
+          <p className="text-xs text-slate-500 text-center">AI-PQC Scanner v1.0</p>
         </div>
       </div>
     </div>
   )
 }
-
-
