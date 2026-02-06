@@ -1,35 +1,59 @@
 import { apiClient } from '../api'
-import { handleError, type AppError } from '../utils/errorHandler'
+import { config } from '../config'
+import { handleError, type AppError, ErrorType } from '../utils/errorHandler'
 import { logError } from '../utils/logger'
 
 /**
- * ë¦¬ìŠ¤í¬ ë ˆë²¨ íƒ€ì…
+ * ¸®½ºÅ© ·¹º§ Å¸ÀÔ
  */
 export type RiskLevel = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'SAFE'
 
 /**
- * íŒŒì¼ íƒ€ì…
+ * ÆÄÀÏ Å¸ÀÔ
  */
 export type FileType = 'file' | 'folder'
 
 /**
- * ë¦¬í¬ì§€í† ë¦¬ íŒŒì¼ ë…¸ë“œ íƒ€ì…
+ * ¸®Æ÷ÁöÅä¸® ÆÄÀÏ ³ëµå Å¸ÀÔ
  */
 export interface RepositoryFile {
   filePath: string
   fileName: string
   fileType: FileType
-  aggregatedRiskScore: number // 0.0-10.0
-  children?: RepositoryFile[] // í´ë”ì¸ ê²½ìš°ì—ë§Œ ì¡´ì¬
+  aggregatedRiskScore: number
+  children?: RepositoryFile[]
 }
 
 /**
- * íˆíŠ¸ë§µ ì‘ë‹µ íƒ€ì…
+ * È÷Æ®¸Ê ÀÀ´ä Å¸ÀÔ
  */
 export type HeatmapResponse = RepositoryFile[]
 
+const isAppError = (error: unknown): error is AppError => {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'type' in error &&
+    'message' in error
+  )
+}
+
+const toAppError = (error: unknown): AppError => {
+  return isAppError(error) ? error : (handleError(error) as AppError)
+}
+
+const shouldUseDevFallback = (error: AppError): boolean => {
+  if (!config.isDevelopment) {
+    return false
+  }
+  if (error.type === ErrorType.NETWORK_ERROR) {
+    return true
+  }
+  return error.type === ErrorType.API_ERROR && (error.statusCode ?? 0) >= 500
+}
+
 /**
- * ë¦¬ìŠ¤í¬ ì ìˆ˜ë¥¼ ë¦¬ìŠ¤í¬ ë ˆë²¨ë¡œ ë³€í™˜
+ * ¸®½ºÅ© Á¡¼ö¸¦ ¸®½ºÅ© ·¹º§·Î º¯È¯
  */
 export const getRiskLevel = (riskScore: number): RiskLevel => {
   if (riskScore >= 8.0) return 'CRITICAL'
@@ -40,7 +64,7 @@ export const getRiskLevel = (riskScore: number): RiskLevel => {
 }
 
 /**
- * ë¦¬ìŠ¤í¬ ë ˆë²¨ì— ë”°ë¥¸ ìƒ‰ìƒ ë°˜í™˜
+ * ¸®½ºÅ© ·¹º§¿¡ µû¸¥ »ö»ó ¹İÈ¯
  */
 export const getRiskColor = (riskLevel: RiskLevel) => {
   switch (riskLevel) {
@@ -82,146 +106,27 @@ export const getRiskColor = (riskLevel: RiskLevel) => {
   }
 }
 
-/**
- * ë„¤íŠ¸ì›Œí¬ ì§€ì—° ì‹œë®¬ë ˆì´ì…˜ (0.5-1ì´ˆ)
- */
-const simulateNetworkDelay = (): Promise<void> => {
-  const delay = 500 + Math.random() * 500 // 0.5-1ì´ˆ
-  return new Promise((resolve) => setTimeout(resolve, delay))
-}
-
-/**
- * Mock íˆíŠ¸ë§µ ë°ì´í„° ìƒì„±
- */
 const generateMockHeatmap = (): HeatmapResponse => {
   return [
     {
       filePath: 'src',
       fileName: 'src',
       fileType: 'folder',
-      aggregatedRiskScore: 8.5, // CRITICAL
+      aggregatedRiskScore: 8.5,
       children: [
         {
           filePath: 'src/auth.c',
           fileName: 'auth.c',
           fileType: 'file',
-          aggregatedRiskScore: 9.2, // CRITICAL
-        },
-        {
-          filePath: 'src/utils',
-          fileName: 'utils',
-          fileType: 'folder',
-          aggregatedRiskScore: 7.5, // HIGH
-          children: [
-            {
-              filePath: 'src/utils/hash.py',
-              fileName: 'hash.py',
-              fileType: 'file',
-              aggregatedRiskScore: 7.5, // HIGH
-            },
-            {
-              filePath: 'src/utils/helpers.js',
-              fileName: 'helpers.js',
-              fileType: 'file',
-              aggregatedRiskScore: 2.1, // LOW
-            },
-          ],
-        },
-        {
-          filePath: 'src/crypto',
-          fileName: 'crypto',
-          fileType: 'folder',
-          aggregatedRiskScore: 6.8, // HIGH
-          children: [
-            {
-              filePath: 'src/crypto/signature.c',
-              fileName: 'signature.c',
-              fileType: 'file',
-              aggregatedRiskScore: 6.8, // HIGH
-            },
-            {
-              filePath: 'src/crypto/encryption.rs',
-              fileName: 'encryption.rs',
-              fileType: 'file',
-              aggregatedRiskScore: 4.2, // MEDIUM
-            },
-          ],
-        },
-        {
-          filePath: 'src/api',
-          fileName: 'api',
-          fileType: 'folder',
-          aggregatedRiskScore: 3.5, // MEDIUM
-          children: [
-            {
-              filePath: 'src/api/routes.ts',
-              fileName: 'routes.ts',
-              fileType: 'file',
-              aggregatedRiskScore: 3.5, // MEDIUM
-            },
-            {
-              filePath: 'src/api/middleware.ts',
-              fileName: 'middleware.ts',
-              fileType: 'file',
-              aggregatedRiskScore: 1.2, // LOW
-            },
-          ],
+          aggregatedRiskScore: 9.2,
         },
       ],
-    },
-    {
-      filePath: 'config',
-      fileName: 'config',
-      fileType: 'folder',
-      aggregatedRiskScore: 4.8, // MEDIUM
-      children: [
-        {
-          filePath: 'config/settings.json',
-          fileName: 'settings.json',
-          fileType: 'file',
-          aggregatedRiskScore: 4.8, // MEDIUM
-        },
-        {
-          filePath: 'config/database.yml',
-          fileName: 'database.yml',
-          fileType: 'file',
-          aggregatedRiskScore: 0.5, // LOW
-        },
-      ],
-    },
-    {
-      filePath: 'tests',
-      fileName: 'tests',
-      fileType: 'folder',
-      aggregatedRiskScore: 0.0, // SAFE
-      children: [
-        {
-          filePath: 'tests/unit',
-          fileName: 'unit',
-          fileType: 'folder',
-          aggregatedRiskScore: 0.0, // SAFE
-          children: [
-            {
-              filePath: 'tests/unit/auth.test.js',
-              fileName: 'auth.test.js',
-              fileType: 'file',
-              aggregatedRiskScore: 0.0, // SAFE
-            },
-          ],
-        },
-      ],
-    },
-    {
-      filePath: 'README.md',
-      fileName: 'README.md',
-      fileType: 'file',
-      aggregatedRiskScore: 0.0, // SAFE
     },
   ]
 }
 
 /**
- * í´ë”ì˜ ìµœê³  ë¦¬ìŠ¤í¬ ë ˆë²¨ ê³„ì‚° (ì¬ê·€ì )
+ * Æú´õÀÇ ÃÖ°í ¸®½ºÅ© ·¹º§ °è»ê (Àç±Í)
  */
 export const calculateFolderMaxRisk = (folder: RepositoryFile): RiskLevel => {
   if (folder.fileType === 'file') {
@@ -237,17 +142,14 @@ export const calculateFolderMaxRisk = (folder: RepositoryFile): RiskLevel => {
 
   for (const child of folder.children) {
     if (child.fileType === 'folder') {
-      const childRisk = calculateFolderMaxRisk(child)
       const childScore = child.aggregatedRiskScore
       if (childScore > maxScore) {
         maxScore = childScore
         maxRisk = getRiskLevel(childScore)
       }
-    } else {
-      if (child.aggregatedRiskScore > maxScore) {
-        maxScore = child.aggregatedRiskScore
-        maxRisk = getRiskLevel(child.aggregatedRiskScore)
-      }
+    } else if (child.aggregatedRiskScore > maxScore) {
+      maxScore = child.aggregatedRiskScore
+      maxRisk = getRiskLevel(child.aggregatedRiskScore)
     }
   }
 
@@ -255,7 +157,7 @@ export const calculateFolderMaxRisk = (folder: RepositoryFile): RiskLevel => {
 }
 
 /**
- * í´ë” ë‚´ ì·¨ì•½ì  ê°œìˆ˜ ê³„ì‚° (ì¬ê·€ì )
+ * Æú´õ ³» Ãë¾àÁ¡ °³¼ö °è»ê (Àç±Í)
  */
 export const calculateVulnerabilityCount = (folder: RepositoryFile): number => {
   if (folder.fileType === 'file') {
@@ -275,40 +177,22 @@ export const calculateVulnerabilityCount = (folder: RepositoryFile): number => {
 }
 
 /**
- * íˆíŠ¸ë§µ ì„œë¹„ìŠ¤
+ * È÷Æ®¸Ê ¼­ºñ½º (API-first, DEV fallback)
  */
 export const heatmapService = {
-  /**
-   * ìŠ¤ìº” íˆíŠ¸ë§µ ë°ì´í„° ì¡°íšŒ
-   * Mock: ìš”êµ¬ì‚¬í•­ì— ë§ëŠ” ë”ë¯¸ ë°ì´í„° ë°˜í™˜
-   */
   async getHeatmap(uuid: string): Promise<HeatmapResponse> {
     try {
-      // ë„¤íŠ¸ì›Œí¬ ì§€ì—° ì‹œë®¬ë ˆì´ì…˜
-      await simulateNetworkDelay()
+      const response = await apiClient.get<HeatmapResponse>(`/scans/${uuid}/heatmap`)
+      return response.data
+    } catch (error) {
+      const appError = toAppError(error)
+      logError('Failed to get heatmap', appError)
 
-      // ì‹¤ì œ API í˜¸ì¶œ (í˜„ì¬ëŠ” mock)
-      // const response = await apiClient.get<HeatmapResponse>(`/scans/${uuid}/heatmap`)
-      // return response.data
-
-      // localStorageì—ì„œ ìºì‹œ í™•ì¸
-      const heatmapKey = `pqc-scanner-heatmap-${uuid}`
-      const cached = localStorage.getItem(heatmapKey)
-
-      if (cached) {
-        return JSON.parse(cached) as HeatmapResponse
+      if (shouldUseDevFallback(appError)) {
+        return generateMockHeatmap()
       }
 
-      // Mock ë°ì´í„° ìƒì„±
-      const mockHeatmap = generateMockHeatmap()
-
-      // localStorageì— ì €ì¥
-      localStorage.setItem(heatmapKey, JSON.stringify(mockHeatmap))
-
-      return mockHeatmap
-    } catch (error) {
-      logError('Failed to get heatmap', error)
-      throw handleError(error) as AppError
+      throw appError
     }
   },
 }

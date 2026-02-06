@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+﻿import { useState, type FormEvent } from 'react'
 import { scanService, type InitiateScanResponse } from '../services/scanService'
 import { logError } from '../utils/logger'
 import { Github, Loader2, AlertCircle } from 'lucide-react'
@@ -9,19 +9,12 @@ interface ScanFormProps {
   onUrlChange?: (url: string) => void
 }
 
-/**
- * GitHub URL 입력 폼 컴포넌트
- * T008: Modern Cyber-security Dashboard 스타일 적용
- */
 export const ScanForm = ({ onScanInitiated, onError, onUrlChange }: ScanFormProps) => {
   const [githubUrl, setGithubUrl] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isFocused, setIsFocused] = useState(false)
   const [localError, setLocalError] = useState<string | null>(null)
 
-  /**
-   * GitHub URL 유효성 검사
-   */
   const isValidGitHubUrl = (url: string): boolean => {
     try {
       const urlObj = new URL(url)
@@ -34,23 +27,19 @@ export const ScanForm = ({ onScanInitiated, onError, onUrlChange }: ScanFormProp
     }
   }
 
-  /**
-   * 폼 제출 핸들러
-   */
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setLocalError(null)
 
-    // URL 유효성 검사
     if (!githubUrl.trim()) {
-      const errorMsg = 'GitHub URL을 입력해주세요.'
+      const errorMsg = 'Please enter a GitHub URL.'
       setLocalError(errorMsg)
       onError?.(errorMsg)
       return
     }
 
     if (!isValidGitHubUrl(githubUrl)) {
-      const errorMsg = '올바른 GitHub URL이 아닙니다. GitHub 저장소 URL을 입력해주세요. (예: https://github.com/owner/repo)'
+      const errorMsg = 'Please enter a valid GitHub repository URL. Example: https://github.com/owner/repo'
       setLocalError(errorMsg)
       onError?.(errorMsg)
       return
@@ -60,12 +49,12 @@ export const ScanForm = ({ onScanInitiated, onError, onUrlChange }: ScanFormProp
 
     try {
       const response = await scanService.initiateScan(githubUrl.trim())
-      setGithubUrl('') // 성공 시 입력 필드 초기화
+      setGithubUrl('')
       setLocalError(null)
       onScanInitiated?.(response)
     } catch (error) {
       const errorMessage =
-        error instanceof Error ? error.message : '스캔 시작에 실패했습니다.'
+        error instanceof Error ? error.message : 'Failed to start scan.'
       logError('Failed to initiate scan', error)
       setLocalError(errorMessage)
       onError?.(errorMessage)
@@ -76,25 +65,20 @@ export const ScanForm = ({ onScanInitiated, onError, onUrlChange }: ScanFormProp
 
   return (
     <form onSubmit={handleSubmit} noValidate className="space-y-6">
-      {/* Error Message */}
       {localError && (
         <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-lg flex items-center gap-3 text-red-400 animate-in fade-in duration-200">
           <AlertCircle className="w-5 h-5 flex-shrink-0" />
           <p className="text-sm">{localError}</p>
         </div>
       )}
-
-      {/* Input Field */}
       <div className="relative">
         <label htmlFor="github-url" className="block text-sm font-medium mb-2 text-slate-300">
           GitHub Repository URL
         </label>
         <div className="relative">
-          {/* Neon Glow Effect on Focus */}
           {isFocused && (
             <div className="absolute -inset-0.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500 rounded-lg blur opacity-50 animate-pulse" />
           )}
-          
           <div className="relative flex items-center">
             <div className="absolute left-4 flex items-center pointer-events-none">
               <Github className="w-5 h-5 text-slate-400" />
@@ -117,8 +101,6 @@ export const ScanForm = ({ onScanInitiated, onError, onUrlChange }: ScanFormProp
           </div>
         </div>
       </div>
-
-      {/* Submit Button */}
       <button
         type="submit"
         disabled={isSubmitting || !githubUrl.trim()}

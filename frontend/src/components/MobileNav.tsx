@@ -1,11 +1,7 @@
-import { Link, useLocation } from 'react-router-dom'
+﻿import { Link, useLocation } from 'react-router-dom'
 import { Scan, History, Menu, X, Shield } from 'lucide-react'
 import { useState } from 'react'
 
-/**
- * 모바일 네비게이션 컴포넌트
- * 데스크톱에서는 숨겨지고 모바일에서만 표시
- */
 export const MobileNav = () => {
   const location = useLocation()
   const [isOpen, setIsOpen] = useState(false)
@@ -25,7 +21,6 @@ export const MobileNav = () => {
 
   return (
     <>
-      {/* Mobile Menu Button */}
       <div className="md:hidden fixed top-4 left-4 z-50">
         <button
           onClick={() => setIsOpen(!isOpen)}
@@ -35,8 +30,6 @@ export const MobileNav = () => {
           {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
         </button>
       </div>
-
-      {/* Mobile Menu Overlay */}
       {isOpen && (
         <>
           <div
@@ -45,7 +38,6 @@ export const MobileNav = () => {
           />
           <div className="fixed left-0 top-0 h-full w-64 bg-slate-900/95 backdrop-blur-md border-r border-white/10 z-50 md:hidden animate-in slide-in-from-left duration-300">
             <div className="flex flex-col h-full">
-              {/* Logo/Brand */}
               <div className="p-6 border-b border-white/10">
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg">
@@ -57,8 +49,6 @@ export const MobileNav = () => {
                   </div>
                 </div>
               </div>
-
-              {/* Navigation */}
               <nav className="flex-1 p-4 space-y-2">
                 {navItems.map((item) => {
                   const Icon = item.icon
@@ -88,3 +78,5 @@ export const MobileNav = () => {
     </>
   )
 }
+
+

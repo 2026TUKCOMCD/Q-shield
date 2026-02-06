@@ -1,26 +1,29 @@
+import { apiClient } from '../api'
+import { config } from '../config'
+import { handleError, type AppError, ErrorType } from '../utils/errorHandler'
 import { logInfo, logError } from '../utils/logger'
 
 /**
- * 스캔 상태 타입
+ * ��ĵ ���� Ÿ��
  */
 export type ScanStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'FAILED'
 
 /**
- * 스캔 시작 요청 타입
+ * ��ĵ ���� ��û Ÿ��
  */
 export interface InitiateScanRequest {
   githubUrl: string
 }
 
 /**
- * 스캔 시작 응답 타입
+ * ��ĵ ���� ���� Ÿ��
  */
 export interface InitiateScanResponse {
   uuid: string
 }
 
 /**
- * 스캔 상태 응답 타입
+ * ��ĵ ���� ���� Ÿ��
  */
 export interface ScanStatusResponse {
   uuid: string
@@ -29,7 +32,7 @@ export interface ScanStatusResponse {
 }
 
 /**
- * 스캔 히스토리 아이템 타입
+ * ��ĵ �����丮 ������ Ÿ��
  */
 export interface ScanHistoryItem {
   uuid: string
@@ -40,8 +43,31 @@ export interface ScanHistoryItem {
   updatedAt: string
 }
 
+const isAppError = (error: unknown): error is AppError => {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'type' in error &&
+    'message' in error
+  )
+}
+
+const toAppError = (error: unknown): AppError => {
+  return isAppError(error) ? error : (handleError(error) as AppError)
+}
+
+const shouldUseDevFallback = (error: AppError): boolean => {
+  if (!config.isDevelopment) {
+    return false
+  }
+  if (error.type === ErrorType.NETWORK_ERROR) {
+    return true
+  }
+  return error.type === ErrorType.API_ERROR && (error.statusCode ?? 0) >= 500
+}
+
 /**
- * UUID 생성 헬퍼
+ * UUID ���� ����
  */
 const generateUUID = (): string => {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
@@ -52,7 +78,7 @@ const generateUUID = (): string => {
 }
 
 /**
- * 로컬 스토리지에서 스캔 목록 로드
+ * ���� ���丮������ ��ĵ ��� �ε�
  */
 const loadScansFromStorage = (): ScanHistoryItem[] => {
   try {
@@ -67,7 +93,7 @@ const loadScansFromStorage = (): ScanHistoryItem[] => {
 }
 
 /**
- * 로컬 스토리지에 스캔 목록 저장
+ * ���� ���丮���� ��ĵ ��� ����
  */
 const saveScansToStorage = (scans: ScanHistoryItem[]): void => {
   try {
@@ -78,103 +104,118 @@ const saveScansToStorage = (scans: ScanHistoryItem[]): void => {
 }
 
 /**
- * 네트워크 지연 시뮬레이션 (0.5-1초)
+ * DEV fallback: �� ��ĵ ����
  */
-const simulateNetworkDelay = (): Promise<void> => {
-  const delay = 500 + Math.random() * 500 // 0.5-1초
-  return new Promise((resolve) => setTimeout(resolve, delay))
+const fallbackInitiateScan = async (githubUrl: string): Promise<InitiateScanResponse> => {
+  const uuid = generateUUID()
+  const now = new Date().toISOString()
+
+  const newScan: ScanHistoryItem = {
+    uuid,
+    githubUrl,
+    status: 'PENDING',
+    progress: 0,
+    createdAt: now,
+    updatedAt: now,
+  }
+
+  const existingScans = loadScansFromStorage()
+  existingScans.unshift(newScan)
+  saveScansToStorage(existingScans)
+
+  return { uuid }
 }
 
 /**
- * 스캔 서비스 (localStorage 기반 Mock 구현)
- * 백엔드 API 연동 전까지 완전히 동작하는 mock 구현
+ * DEV fallback: ��ĵ ���� ��ȸ
+ */
+const fallbackGetScanStatus = async (uuid: string): Promise<ScanStatusResponse> => {
+  const scans = loadScansFromStorage()
+  const scanIndex = scans.findIndex((s) => s.uuid === uuid)
+
+  if (scanIndex === -1) {
+    throw new Error(`Scan with UUID ${uuid} not found`)
+  }
+
+  const scan = scans[scanIndex]
+
+  if (scan.status === 'PENDING' || scan.status === 'IN_PROGRESS') {
+    const increment = 25 + Math.random() * 10
+    const newProgress = Math.min(100, scan.progress + increment)
+
+    if (scan.status === 'PENDING' && newProgress > 0) {
+      scan.status = 'IN_PROGRESS'
+    }
+
+    scan.progress = Math.round(newProgress)
+    scan.updatedAt = new Date().toISOString()
+
+    if (scan.progress >= 100) {
+      scan.status = 'COMPLETED'
+      scan.progress = 100
+    }
+
+    saveScansToStorage(scans)
+  }
+
+  return {
+    uuid: scan.uuid,
+    status: scan.status,
+    progress: scan.progress,
+  }
+}
+
+/**
+ * ��ĵ ���� (API-first, DEV fallback)
  */
 export const scanService = {
-  /**
-   * 새로운 스캔 시작
-   * Mock: 즉시 UUID를 반환하고 로컬 스토리지에 저장
-   */
   async initiateScan(githubUrl: string): Promise<InitiateScanResponse> {
     logInfo('Initiating scan', { githubUrl })
 
-    // 네트워크 지연 시뮬레이션
-    await simulateNetworkDelay()
+    try {
+      const response = await apiClient.post<InitiateScanResponse>('/scans', { githubUrl })
+      return response.data
+    } catch (error) {
+      const appError = toAppError(error)
+      logError('Failed to initiate scan', appError)
 
-    const uuid = generateUUID()
-    const now = new Date().toISOString()
+      if (shouldUseDevFallback(appError)) {
+        return fallbackInitiateScan(githubUrl)
+      }
 
-    const newScan: ScanHistoryItem = {
-      uuid,
-      githubUrl,
-      status: 'PENDING',
-      progress: 0,
-      createdAt: now,
-      updatedAt: now,
+      throw appError
     }
-
-    // 기존 스캔 목록에 추가
-    const existingScans = loadScansFromStorage()
-    existingScans.unshift(newScan) // 최신순으로 앞에 추가
-    saveScansToStorage(existingScans)
-
-    return { uuid }
   },
 
-  /**
-   * 스캔 상태 조회
-   * Mock: 폴링 시뮬레이션 - 호출될 때마다 progress를 점진적으로 증가
-   */
   async getScanStatus(uuid: string): Promise<ScanStatusResponse> {
-    // 네트워크 지연 시뮬레이션
-    await simulateNetworkDelay()
+    try {
+      const response = await apiClient.get<ScanStatusResponse>(`/scans/${uuid}/status`)
+      return response.data
+    } catch (error) {
+      const appError = toAppError(error)
+      logError('Failed to get scan status', appError)
 
-    const scans = loadScansFromStorage()
-    const scanIndex = scans.findIndex((s) => s.uuid === uuid)
-
-    if (scanIndex === -1) {
-      throw new Error(`Scan with UUID ${uuid} not found`)
-    }
-
-    const scan = scans[scanIndex]
-
-    // 폴링 시뮬레이션: progress를 점진적으로 증가 (데모용 빠른 속도)
-    if (scan.status === 'PENDING' || scan.status === 'IN_PROGRESS') {
-      // 진행률 증가 (25-35%씩 랜덤하게 - 데모용 빠른 속도)
-      const increment = 25 + Math.random() * 10
-      const newProgress = Math.min(100, scan.progress + increment)
-
-      // 상태 업데이트
-      if (scan.status === 'PENDING' && newProgress > 0) {
-        scan.status = 'IN_PROGRESS'
+      if (shouldUseDevFallback(appError)) {
+        return fallbackGetScanStatus(uuid)
       }
 
-      scan.progress = Math.round(newProgress)
-      scan.updatedAt = new Date().toISOString()
-
-      // 100%가 되면 COMPLETED로 변경
-      if (scan.progress >= 100) {
-        scan.status = 'COMPLETED'
-        scan.progress = 100
-      }
-
-      // localStorage에 저장
-      saveScansToStorage(scans)
-    }
-
-    return {
-      uuid: scan.uuid,
-      status: scan.status,
-      progress: scan.progress,
+      throw appError
     }
   },
 
-  /**
-   * 모든 스캔 히스토리 조회
-   * Mock: 로컬 스토리지에서 모든 스캔 반환
-   */
   async getAllScans(): Promise<ScanHistoryItem[]> {
-    // 네트워크 지연 시뮬레이션
-    await simulateNetworkDelay()
-    return loadScansFromStorage()
+    try {
+      const response = await apiClient.get<ScanHistoryItem[]>('/scans')
+      return response.data
+    } catch (error) {
+      const appError = toAppError(error)
+      logError('Failed to get all scans', appError)
+
+      if (shouldUseDevFallback(appError)) {
+        return loadScansFromStorage()
+      }
+
+      throw appError
+    }
   },
 }

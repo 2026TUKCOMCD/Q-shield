@@ -1,34 +1,24 @@
-import { useNavigate } from 'react-router-dom'
+﻿import { useNavigate } from 'react-router-dom'
 import { type CryptographicAsset } from '../services/inventoryService'
 import { FileCode, AlertCircle, CheckCircle2, AlertTriangle } from 'lucide-react'
 
 interface InventoryTableProps {
   inventory: CryptographicAsset[]
-  scanUuid?: string // 스캔 UUID (상세 페이지 링크용)
+  scanUuid?: string
 }
 
-/**
- * 위험도에 따른 색상 반환
- */
 const getRiskColor = (riskScore: number) => {
   if (riskScore >= 8.0) return { color: 'text-red-400', bg: 'bg-red-500/10', border: 'border-red-500/30', label: 'High' }
   if (riskScore >= 5.0) return { color: 'text-orange-400', bg: 'bg-orange-500/10', border: 'border-orange-500/30', label: 'Medium' }
   return { color: 'text-yellow-400', bg: 'bg-yellow-500/10', border: 'border-yellow-500/30', label: 'Low' }
 }
 
-/**
- * 위험도 아이콘 반환
- */
 const getRiskIcon = (riskScore: number) => {
   if (riskScore >= 8.0) return AlertCircle
   if (riskScore >= 5.0) return AlertTriangle
   return CheckCircle2
 }
 
-/**
- * Inventory Table 컴포넌트
- * T014: 암호화 자산 목록 테이블
- */
 export const InventoryTable = ({ inventory, scanUuid }: InventoryTableProps) => {
   const navigate = useNavigate()
 
@@ -130,3 +120,5 @@ export const InventoryTable = ({ inventory, scanUuid }: InventoryTableProps) => 
     </div>
   )
 }
+
+

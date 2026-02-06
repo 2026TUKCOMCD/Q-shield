@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
+﻿import { useEffect, useState } from 'react'
+import { useParams, Link } from 'react-router-dom'
 import { inventoryService, type AssetDetail } from '../services/inventoryService'
+import { type AppError } from '../utils/errorHandler'
 import { AssetDetailList } from '../components/AssetDetailList'
 import { logError } from '../utils/logger'
 import {
@@ -13,9 +14,6 @@ import {
   CheckCircle2,
 } from 'lucide-react'
 
-/**
- * 위험도에 따른 색상 및 아이콘 반환
- */
 const getRiskConfig = (riskScore: number) => {
   if (riskScore >= 8.0) {
     return {
@@ -44,21 +42,14 @@ const getRiskConfig = (riskScore: number) => {
   }
 }
 
-/**
- * InventoryDetail 페이지
- * T025: 암호화 자산 상세 정보 페이지
- */
 export const InventoryDetail = () => {
   const { uuid, assetId } = useParams<{ uuid: string; assetId: string }>()
-  const navigate = useNavigate()
 
   const [asset, setAsset] = useState<AssetDetail | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  /**
-   * 자산 상세 정보 로드
-   */
+  
   useEffect(() => {
     if (!uuid || !assetId) {
       setError('Invalid scan UUID or asset ID')
@@ -74,8 +65,13 @@ export const InventoryDetail = () => {
         const data = await inventoryService.getAssetDetail(uuid, assetId)
         setAsset(data)
       } catch (err) {
+        const appError = err as AppError
         logError('Failed to load asset detail', err)
-        setError('자산 상세 정보를 불러오는데 실패했습니다.')
+        if (appError?.statusCode === 404) {
+          setError('Asset not found.')
+        } else {
+          setError('자산 상세 정보를 불러오는데 실패했습니다.')
+        }
       } finally {
         setIsLoading(false)
       }
@@ -132,14 +128,10 @@ export const InventoryDetail = () => {
 
   return (
     <div className="min-h-screen bg-[#020617] text-white">
-      {/* Background Mesh Gradient */}
       <div className="fixed inset-0 bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900 pointer-events-none" />
       <div className="fixed inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(99,102,241,0.1),transparent_50%)] pointer-events-none" />
-
-      {/* Main Content */}
       <div className="relative z-10 ml-0 md:ml-64 p-4 md:p-8">
         <div className="max-w-5xl mx-auto space-y-8">
-          {/* Header */}
           <div className="flex items-center gap-4">
             <Link
               to={`/dashboard/${uuid}`}
@@ -157,8 +149,6 @@ export const InventoryDetail = () => {
               <p className="text-slate-400 text-sm mt-1 font-mono">UUID: {uuid.substring(0, 8)}...</p>
             </div>
           </div>
-
-          {/* Error Message */}
           {error && (
             <div
               className="p-4 bg-red-500/10 border border-red-500/30 rounded-lg flex items-center gap-3 text-red-400"
@@ -168,8 +158,6 @@ export const InventoryDetail = () => {
               <p className="text-sm">{error}</p>
             </div>
           )}
-
-          {/* Hero Section */}
           <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-xl p-8">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
               <div className="flex-1">
@@ -183,8 +171,6 @@ export const InventoryDetail = () => {
                   </div>
                 </div>
               </div>
-
-              {/* Criticality Badge */}
               <div
                 className={`px-6 py-4 rounded-xl ${riskConfig.bg} ${riskConfig.border} border flex items-center gap-3`}
               >
@@ -201,11 +187,7 @@ export const InventoryDetail = () => {
               </div>
             </div>
           </div>
-
-          {/* Asset Details */}
           <AssetDetailList asset={asset} />
-
-          {/* Back Button */}
           <div className="flex justify-center">
             <Link
               to={`/dashboard/${uuid}`}
@@ -220,3 +202,5 @@ export const InventoryDetail = () => {
     </div>
   )
 }
+
+

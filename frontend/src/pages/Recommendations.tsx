@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
+﻿import { useEffect, useState } from 'react'
+import { useParams, Link } from 'react-router-dom'
 import {
   recommendationService,
   type Recommendation,
@@ -17,31 +17,21 @@ import {
   XCircle,
 } from 'lucide-react'
 
-/**
- * Recommendations 페이지
- * T016: 우선순위별 PQC 마이그레이션 추천사항 표시
- */
 export const Recommendations = () => {
   const { uuid } = useParams<{ uuid: string }>()
-  const navigate = useNavigate()
 
   const [recommendations, setRecommendations] = useState<Recommendation[]>([])
   const [filteredRecommendations, setFilteredRecommendations] = useState<Recommendation[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // 필터 상태
   const [algorithmType, setAlgorithmType] = useState('')
   const [context, setContext] = useState('')
   const [priority, setPriority] = useState<Priority | ''>('')
 
-  // AI Detail View 상태
   const [selectedRecommendation, setSelectedRecommendation] = useState<Recommendation | null>(null)
   const [isDetailViewOpen, setIsDetailViewOpen] = useState(false)
 
-  /**
-   * 추천사항 로드
-   */
   useEffect(() => {
     if (!uuid) {
       setError('Invalid scan UUID')
@@ -59,7 +49,7 @@ export const Recommendations = () => {
         setFilteredRecommendations(data.recommendations)
       } catch (err) {
         logError('Failed to load recommendations', err)
-        setError('추천사항을 불러오는데 실패했습니다.')
+        setError('Failed to load recommendations.')
       } finally {
         setIsLoading(false)
       }
@@ -68,9 +58,6 @@ export const Recommendations = () => {
     loadRecommendations()
   }, [uuid])
 
-  /**
-   * 필터링 로직
-   */
   useEffect(() => {
     let filtered = recommendations
 
@@ -95,26 +82,17 @@ export const Recommendations = () => {
     setFilteredRecommendations(filtered)
   }, [recommendations, algorithmType, context, priority])
 
-  /**
-   * 필터 리셋
-   */
   const handleResetFilters = () => {
     setAlgorithmType('')
     setContext('')
     setPriority('')
   }
 
-  /**
-   * 추천사항 클릭 핸들러
-   */
   const handleRecommendationClick = (recommendation: Recommendation) => {
     setSelectedRecommendation(recommendation)
     setIsDetailViewOpen(true)
   }
 
-  /**
-   * Detail View 닫기
-   */
   const handleCloseDetailView = () => {
     setIsDetailViewOpen(false)
     setSelectedRecommendation(null)
@@ -161,14 +139,10 @@ export const Recommendations = () => {
 
   return (
     <div className="min-h-screen bg-[#020617] text-white">
-      {/* Background Mesh Gradient */}
       <div className="fixed inset-0 bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900 pointer-events-none" />
       <div className="fixed inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(99,102,241,0.1),transparent_50%)] pointer-events-none" />
-
-      {/* Main Content */}
       <div className="relative z-10 ml-0 md:ml-64 p-4 md:p-8">
         <div className="max-w-7xl mx-auto space-y-8">
-          {/* Header */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <Link
@@ -194,7 +168,6 @@ export const Recommendations = () => {
             )}
           </div>
 
-          {/* Error Message */}
           {error && (
             <div
               className="p-4 bg-red-500/10 border border-red-500/30 rounded-lg flex items-center gap-3 text-red-400"
@@ -205,7 +178,6 @@ export const Recommendations = () => {
             </div>
           )}
 
-          {/* Filters */}
           <RecommendationFilters
             algorithmType={algorithmType}
             context={context}
@@ -216,7 +188,6 @@ export const Recommendations = () => {
             onReset={handleResetFilters}
           />
 
-          {/* Recommendations Table */}
           <RecommendationTable
             recommendations={filteredRecommendations}
             onRecommendationClick={handleRecommendationClick}
@@ -224,7 +195,6 @@ export const Recommendations = () => {
         </div>
       </div>
 
-      {/* AI Detail View Modal */}
       <AIDetailView
         recommendation={selectedRecommendation}
         isOpen={isDetailViewOpen}

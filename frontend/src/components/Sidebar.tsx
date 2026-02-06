@@ -1,9 +1,6 @@
-import { Link, useLocation } from 'react-router-dom'
+﻿import { Link, useLocation } from 'react-router-dom'
 import { Scan, History, Shield } from 'lucide-react'
 
-/**
- * 사이드바 네비게이션 컴포넌트
- */
 export const Sidebar = () => {
   const location = useLocation()
 
@@ -23,7 +20,6 @@ export const Sidebar = () => {
   return (
     <div className="fixed left-0 top-0 h-full w-64 bg-slate-900/80 backdrop-blur-md border-r border-white/10 z-50 hidden md:block">
       <div className="flex flex-col h-full">
-        {/* Logo/Brand */}
         <div className="p-6 border-b border-white/10">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg">
@@ -35,8 +31,6 @@ export const Sidebar = () => {
             </div>
           </div>
         </div>
-
-        {/* Navigation */}
         <nav className="flex-1 p-4 space-y-2">
           {navItems.map((item) => {
             const Icon = item.icon
@@ -58,8 +52,6 @@ export const Sidebar = () => {
             )
           })}
         </nav>
-
-        {/* Footer */}
         <div className="p-4 border-t border-white/10">
           <p className="text-xs text-slate-500 text-center">
             AI-PQC Scanner v1.0
@@ -69,3 +61,5 @@ export const Sidebar = () => {
     </div>
   )
 }
+
+

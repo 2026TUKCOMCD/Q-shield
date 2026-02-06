@@ -1,4 +1,4 @@
-import { type Recommendation, type Priority } from '../services/recommendationService'
+﻿import { type Recommendation, type Priority } from '../services/recommendationService'
 import { FileCode, AlertCircle, AlertTriangle, Info, CheckCircle2, Sparkles } from 'lucide-react'
 
 interface RecommendationTableProps {
@@ -6,9 +6,6 @@ interface RecommendationTableProps {
   onRecommendationClick: (recommendation: Recommendation) => void
 }
 
-/**
- * 우선순위에 따른 색상 및 아이콘 반환
- */
 const getPriorityConfig = (priority: Priority) => {
   switch (priority) {
     case 'CRITICAL':
@@ -46,10 +43,6 @@ const getPriorityConfig = (priority: Priority) => {
   }
 }
 
-/**
- * Recommendation Table 컴포넌트
- * T019: 우선순위별 추천사항 테이블
- */
 export const RecommendationTable = ({
   recommendations,
   onRecommendationClick,
@@ -153,3 +146,5 @@ export const RecommendationTable = ({
     </div>
   )
 }
+
+

@@ -1,4 +1,4 @@
-import { type HeatmapResponse } from '../services/heatmapService'
+﻿import { type HeatmapResponse } from '../services/heatmapService'
 import { FileNode } from './FileNode'
 import { FileCode } from 'lucide-react'
 
@@ -6,10 +6,6 @@ interface FileTreeProps {
   data: HeatmapResponse
 }
 
-/**
- * FileTree 컴포넌트
- * T023: 파일 트리 레이아웃 표시 컴포넌트
- */
 export const FileTree = ({ data }: FileTreeProps) => {
   if (!data || data.length === 0) {
     return (
@@ -31,3 +27,5 @@ export const FileTree = ({ data }: FileTreeProps) => {
     </div>
   )
 }
+
+
