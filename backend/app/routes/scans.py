@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import select
+from sqlalchemy import select, or_
 from uuid import UUID
 from urllib.parse import urlparse
 
@@ -186,8 +186,23 @@ def get_scan_status(uuid: str, db: Session = Depends(get_db)):
 
 
 @router.get("", response_model=list[ScanListItem])
-def list_scans(db: Session = Depends(get_db)):
-    scans = db.execute(select(Scan).order_by(Scan.created_at.desc())).scalars().all()
+def list_scans(
+    db: Session = Depends(get_db),
+    query: str | None = Query(default=None),
+):
+    stmt = select(Scan)
+    if query:
+        term = query.strip()
+        if term:
+            like_term = f"%{term}%"
+            stmt = stmt.where(
+                or_(
+                    Scan.github_url.ilike(like_term),
+                    Scan.repo_name.ilike(like_term),
+                )
+            )
+    stmt = stmt.order_by(Scan.created_at.desc())
+    scans = db.execute(stmt).scalars().all()
 
     items: list[ScanListItem] = [
         ScanListItem(
@@ -201,6 +216,22 @@ def list_scans(db: Session = Depends(get_db)):
         for s in scans
     ]
     return items
+
+
+@router.delete("/{uuid}", status_code=204)
+def delete_scan(uuid: str, db: Session = Depends(get_db)):
+    try:
+        scan_uuid = UUID(uuid)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid uuid")
+
+    scan = db.execute(select(Scan).where(Scan.uuid == scan_uuid)).scalar_one_or_none()
+    if not scan:
+        raise HTTPException(status_code=404, detail="Scan not found")
+
+    db.delete(scan)
+    db.commit()
+    return None
 
 
 @router.get("/{uuid}/inventory", response_model=InventoryResponse)
