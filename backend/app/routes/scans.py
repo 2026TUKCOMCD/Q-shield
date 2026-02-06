@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import select
+from sqlalchemy import select, or_
 from uuid import UUID
 from urllib.parse import urlparse
 
@@ -10,6 +10,7 @@ from app.models import InventorySnapshot, HeatmapSnapshot, Recommendation
 from app.schemas import (
     ScanCreateRequest, ScanCreateResponse,
     ScanStatusResponse, ScanListItem,
+    ScanBulkDeleteRequest, ScanBulkDeleteResponse,
     InventoryResponse, InventoryAsset,
     RecommendationsResponse, RecommendationItem,
     HeatmapResponse, HeatmapNode,
@@ -186,8 +187,23 @@ def get_scan_status(uuid: str, db: Session = Depends(get_db)):
 
 
 @router.get("", response_model=list[ScanListItem])
-def list_scans(db: Session = Depends(get_db)):
-    scans = db.execute(select(Scan).order_by(Scan.created_at.desc())).scalars().all()
+def list_scans(
+    db: Session = Depends(get_db),
+    query: str | None = Query(default=None),
+):
+    stmt = select(Scan)
+    if query:
+        term = query.strip()
+        if term:
+            like_term = f"%{term}%"
+            stmt = stmt.where(
+                or_(
+                    Scan.github_url.ilike(like_term),
+                    Scan.repo_name.ilike(like_term),
+                )
+            )
+    stmt = stmt.order_by(Scan.created_at.desc())
+    scans = db.execute(stmt).scalars().all()
 
     items: list[ScanListItem] = [
         ScanListItem(
@@ -201,6 +217,45 @@ def list_scans(db: Session = Depends(get_db)):
         for s in scans
     ]
     return items
+
+
+@router.delete("/{uuid}", status_code=204)
+def delete_scan(uuid: str, db: Session = Depends(get_db)):
+    try:
+        scan_uuid = UUID(uuid)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid uuid")
+
+    scan = db.execute(select(Scan).where(Scan.uuid == scan_uuid)).scalar_one_or_none()
+    if not scan:
+        raise HTTPException(status_code=404, detail="Scan not found")
+
+    db.delete(scan)
+    db.commit()
+    return None
+
+
+@router.post("/bulk-delete", response_model=ScanBulkDeleteResponse)
+def bulk_delete_scans(payload: ScanBulkDeleteRequest, db: Session = Depends(get_db)):
+    if not payload.uuids:
+        return ScanBulkDeleteResponse(deletedCount=0)
+
+    uuid_values: list[UUID] = []
+    for raw_uuid in payload.uuids:
+        try:
+            uuid_values.append(UUID(raw_uuid))
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid uuid: {raw_uuid}")
+
+    scans = db.execute(select(Scan).where(Scan.uuid.in_(uuid_values))).scalars().all()
+    if not scans:
+        return ScanBulkDeleteResponse(deletedCount=0)
+
+    for scan in scans:
+        db.delete(scan)
+    db.commit()
+
+    return ScanBulkDeleteResponse(deletedCount=len(scans))
 
 
 @router.get("/{uuid}/inventory", response_model=InventoryResponse)
