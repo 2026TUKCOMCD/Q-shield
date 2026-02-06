@@ -1,5 +1,4 @@
-# backend/app/tasks.py
-import os
+﻿import os
 import shutil
 import sys
 import time
@@ -13,18 +12,18 @@ from app.celery_app import celery_app
 from app.config import DATABASE_URL_SYNC
 from app.models import HeatmapSnapshot, InventorySnapshot, Recommendation, Scan
 
-# 3_scanner 모듈 경로 추가 (Celery 워커 프로세스에서도 import 가능하도록)
+# Add scanner module path so Celery worker can import it.
 SCANNER_PATH = Path(__file__).parent.parent.parent / "3_scanner"
 sys.path.insert(0, str(SCANNER_PATH))
 
-# 3_scanner 모듈 import
+# Scanner imports
 from language_detector.repository_analyzer import RepositoryAnalyzer  # noqa: E402
 from scanners.config.scanner import ConfigScanner  # noqa: E402
 from scanners.sast.scanner import SASTScanner  # noqa: E402
 from scanners.sca.scanner import SCAScanner  # noqa: E402
 from utils.git_utils import clone_repository  # noqa: E402
 
-# Celery는 별도 프로세스라 FastAPI Dependency(get_db)를 못 씀 -> 엔진/세션을 별도 생성
+# Celery runs outside FastAPI dependency scope, create a local session.
 engine = create_engine(DATABASE_URL_SYNC, echo=False, pool_pre_ping=True)
 SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 
@@ -37,7 +36,7 @@ def run_scan_pipeline(scan_uuid: str):
     scan = None
 
     def _update(status=None, progress=None, message=None, error_log=None):
-        """Scan 상태 업데이트 헬퍼 (프론트 폴링용)."""
+        """Update scan state and commit."""
         nonlocal scan
         if scan is None:
             return
@@ -52,7 +51,7 @@ def run_scan_pipeline(scan_uuid: str):
         db.commit()
 
     try:
-        # 문자열 -> UUID (DB 컬럼 타입이 UUID)
+        # String -> UUID (DB column is UUID)
         scan_uuid_obj = uuid_lib.UUID(scan_uuid)
 
         scan = db.query(Scan).filter(Scan.uuid == scan_uuid_obj).first()
@@ -82,7 +81,7 @@ def run_scan_pipeline(scan_uuid: str):
         _update(progress=0.70, message="Running Config Scanner...")
         config_scanner = ConfigScanner()
         _ = config_scanner.scan_repository(analysis_result.scanner_targets.config_targets)
-        # config_report는 현재 DB에 저장하지 않는 구조라면 변수 미사용 OK
+        # config_report is not persisted yet.
 
         # 6) Process & Persist
         _update(progress=0.85, message="Processing results...")
@@ -90,12 +89,12 @@ def run_scan_pipeline(scan_uuid: str):
         inv_data = {
             "pqc_readiness_score": _calculate_pqc_score(sast_report, sca_report),
             "algorithm_ratios": _extract_algorithm_ratios(sast_report),
-            "inventory_table": _extract_inventory_table(sast_report, sca_report),
+            "inventory_table": _extract_inventory_table(sast_report, sca_report, repo_path),
         }
         heat_data = _build_heatmap_tree(repo_path, analysis_result, sast_report)
         recommendations = _extract_recommendations(sast_report, sca_report)
 
-        # 결과 저장은 한 트랜잭션으로 묶기
+        # Persist results in a single transaction.
         with db.begin():
             inv = InventorySnapshot(
                 scan_uuid=scan_uuid_obj,
@@ -109,11 +108,11 @@ def run_scan_pipeline(scan_uuid: str):
                 tree=heat_data or {},
             )
 
-            # 같은 scan_uuid가 PK/UNIQUE면 merge로 교체
+            # scan_uuid is PK/UNIQUE, use merge for upsert.
             db.merge(inv)
             db.merge(heat)
 
-            # Recommendation은 여러 행: 기존 삭제 후 재삽입
+            # Replace recommendations for this scan_uuid.
             db.query(Recommendation).filter(Recommendation.scan_uuid == scan_uuid_obj).delete()
             for rec in recommendations:
                 db.add(Recommendation(scan_uuid=scan_uuid_obj, **rec))
@@ -125,7 +124,7 @@ def run_scan_pipeline(scan_uuid: str):
         return
 
     except Exception as e:
-        # 실패 처리: scan row가 남아있도록 업데이트
+        # Failure handling: update scan row if exists.
         try:
             if scan_uuid_obj is not None:
                 scan = db.query(Scan).filter(Scan.uuid == scan_uuid_obj).first()
@@ -141,7 +140,7 @@ def run_scan_pipeline(scan_uuid: str):
         raise
 
     finally:
-        # clone repo cleanup
+        # Clone repo cleanup
         if repo_path and os.path.exists(repo_path):
             try:
                 shutil.rmtree(repo_path)
@@ -151,10 +150,10 @@ def run_scan_pipeline(scan_uuid: str):
 
 
 def _calculate_pqc_score(sast_report, sca_report) -> int:
-    """PQC 준비도 점수 계산 (0-10). 단순 휴리스틱."""
+    """Calculate a simple PQC readiness score (0-10)."""
     total_issues = 0
 
-    # 안전하게 attribute 존재 여부 확인
+    # Safely check attributes
     if hasattr(sast_report, "total_vulnerabilities"):
         total_issues += int(sast_report.total_vulnerabilities or 0)
     if hasattr(sca_report, "total_vulnerable"):
@@ -166,7 +165,7 @@ def _calculate_pqc_score(sast_report, sca_report) -> int:
 
 
 def _extract_algorithm_ratios(sast_report):
-    """알고리즘별 비율 추출."""
+    """Extract algorithm ratios."""
     algo_count = getattr(sast_report, "algorithm_breakdown", {}) or {}
     total = sum(int(v or 0) for v in algo_count.values())
     if total <= 0:
@@ -179,10 +178,47 @@ def _extract_algorithm_ratios(sast_report):
     return result
 
 
-def _extract_inventory_table(sast_report, sca_report):
-    """인벤토리 테이블 생성 (SAST 기반)."""
+def _normalize_repo_path(repo_root: Path, file_path: str) -> str:
+    try:
+        path = Path(file_path)
+        if path.is_absolute():
+            return path.relative_to(repo_root).as_posix()
+        return path.as_posix()
+    except Exception:
+        return str(file_path)
+
+
+def _read_code_snippet(repo_root: Path, file_path: str, line: int, context: int = 3):
+    if not line or line < 1:
+        return None, None
+
+    path = Path(file_path)
+    if not path.is_absolute():
+        path = repo_root / path
+
+    if not path.exists() or not path.is_file():
+        return None, None
+
+    try:
+        with open(path, "r", encoding="utf-8", errors="replace") as f:
+            lines = f.readlines()
+    except Exception:
+        return None, None
+
+    if line > len(lines):
+        return None, None
+
+    start = max(1, line - context)
+    end = min(len(lines), line + context)
+    snippet = "".join(lines[start - 1 : end])
+    return snippet, start
+
+
+def _extract_inventory_table(sast_report, sca_report, repo_path: str):
+    """Build inventory table from SAST results with code snippets."""
     inventory = []
     details = getattr(sast_report, "detailed_results", []) or []
+    repo_root = Path(repo_path)
 
     for detail in details:
         vulns = getattr(detail, "vulnerabilities", None)
@@ -196,8 +232,23 @@ def _extract_inventory_table(sast_report, sca_report):
                 continue
 
             algo = vuln.get("algorithm", "Unknown")
-            line = vuln.get("line", "?")
-            location = f"{file_path}:{line}"
+            line_raw = vuln.get("line", None)
+            try:
+                line = int(line_raw)
+            except Exception:
+                line = None
+
+            normalized_path = _normalize_repo_path(repo_root, str(file_path))
+            code_snippet, snippet_start = _read_code_snippet(repo_root, str(file_path), line or 0)
+            detected_pattern = vuln.get("pattern") or vuln.get("detected_pattern")
+
+            location = {
+                "file_path": normalized_path,
+                "line": line,
+                "code_snippet": code_snippet,
+                "code_snippet_start_line": snippet_start,
+                "detected_pattern": detected_pattern,
+            }
 
             existing = next((i for i in inventory if i["algorithm"] == algo), None)
             if existing:
@@ -216,9 +267,11 @@ def _extract_inventory_table(sast_report, sca_report):
 
 
 def _build_heatmap_tree(repo_path, analysis_result, sast_report):
-    """히트맵 트리 구조 생성 (간단 버전: repo root만 반환)."""
+    """Build a full repository tree with aggregated risk scores."""
     file_risk_map = {}
     details = getattr(sast_report, "detailed_results", []) or []
+    repo_root = Path(repo_path)
+    skip_dirs = {".git", "node_modules", ".venv", "dist", "build", "__pycache__"}
 
     for detail in details:
         file_path = getattr(detail, "file_path", None)
@@ -228,22 +281,80 @@ def _build_heatmap_tree(repo_path, analysis_result, sast_report):
 
         high = sum(1 for v in vulns if isinstance(v, dict) and v.get("severity") == "HIGH")
         med = sum(1 for v in vulns if isinstance(v, dict) and v.get("severity") == "MEDIUM")
-        severity_score = (high * 0.3) + (med * 0.2)
-        file_risk_map[file_path] = min(1.0, float(severity_score) / 10.0)
+        low = sum(1 for v in vulns if isinstance(v, dict) and v.get("severity") == "LOW")
+        severity_score = min(10.0, (high * 3) + (med * 2) + (low * 1))
 
-    avg_risk = (sum(file_risk_map.values()) / max(len(file_risk_map), 1)) if file_risk_map else 0.0
+        normalized_path = _normalize_repo_path(repo_root, str(file_path))
+        existing = float(file_risk_map.get(normalized_path, 0.0))
+        file_risk_map[normalized_path] = max(existing, severity_score)
 
-    return {
-        "name": Path(repo_path).name,
+    root = {
+        "name": repo_root.name,
         "path": "",
         "type": "dir",
-        "risk_score": avg_risk,
+        "risk_score": 0.0,
         "children": [],
     }
 
+    dir_index = {"": root}
+
+    def _get_or_create_dir(path_parts):
+        current_path = ""
+        for part in path_parts:
+            next_path = f"{current_path}/{part}" if current_path else part
+            if next_path not in dir_index:
+                node = {"name": part, "path": next_path, "type": "dir", "risk_score": 0.0, "children": []}
+                parent = dir_index[current_path]
+                parent["children"].append(node)
+                dir_index[next_path] = node
+            current_path = next_path
+
+    for file_path in repo_root.rglob("*"):
+        if any(part in skip_dirs for part in file_path.parts):
+            continue
+        if file_path.is_dir():
+            continue
+        try:
+            rel_path = file_path.relative_to(repo_root).as_posix()
+        except Exception:
+            rel_path = file_path.as_posix()
+
+        parts = rel_path.split("/")
+        dir_parts = parts[:-1]
+        if dir_parts:
+            _get_or_create_dir(dir_parts)
+
+        parent_path = "/".join(dir_parts)
+        parent = dir_index.get(parent_path, root)
+        parent["children"].append(
+            {
+                "name": parts[-1],
+                "path": rel_path,
+                "type": "file",
+                "risk_score": float(file_risk_map.get(rel_path, 0.0)),
+                "children": [],
+            }
+        )
+
+    def _aggregate(node):
+        if node.get("type") == "file":
+            return float(node.get("risk_score", 0.0))
+        children = node.get("children") or []
+        if not children:
+            node["risk_score"] = 0.0
+            return 0.0
+        max_risk = 0.0
+        for child in children:
+            max_risk = max(max_risk, _aggregate(child))
+        node["risk_score"] = max_risk
+        return max_risk
+
+    _aggregate(root)
+    return root
+
 
 def _extract_recommendations(sast_report, sca_report):
-    """권장사항 추출 (SAST 상세 취약점 기반, 상위 5개)."""
+    """Extract basic recommendations from SAST results."""
     recommendations = []
     details = getattr(sast_report, "detailed_results", []) or []
 

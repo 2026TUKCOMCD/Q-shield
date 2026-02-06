@@ -38,6 +38,18 @@ class InventoryAsset(BaseModel):
     filePath: str
     lineNumbers: List[int]
     riskScore: float
+    keySize: Optional[int] = None
+    modeOfOperation: Optional[str] = None
+    implementation: Optional[str] = None
+    standard: Optional[str] = None
+    keyDerivationFunction: Optional[str] = None
+    paddingScheme: Optional[str] = None
+    codeSnippet: Optional[str] = None
+    codeSnippetStartLine: Optional[int] = None
+    detectedPattern: Optional[str] = None
+    suggestedPQCAlternatives: Optional[List[str]] = None
+    migrationComplexity: Optional[str] = None
+    estimatedEffort: Optional[str] = None
 
 
 class InventoryResponse(BaseModel):
