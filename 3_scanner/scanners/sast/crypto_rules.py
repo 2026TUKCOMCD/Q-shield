@@ -1,6 +1,6 @@
-# scanners/sast/crypto_rules.py
+﻿# scanners/sast/crypto_rules.py
 
-# 취약한 암호화 패턴
+# Cryptographic patterns for vulnerable usage
 CRYPTO_PATTERNS = {
     "python": {
         "rsa_generation": {
@@ -10,8 +10,8 @@ CRYPTO_PATTERNS = {
             ],
             "severity": "HIGH",
             "algorithm": "RSA",
-            "description": "RSA 키 생성 감지 - 양자컴퓨터에 취약",
-            "recommendation": "Kyber(KEM) 또는 Dilithium(서명)으로 교체 권장"
+            "description": "RSA key generation detected - vulnerable to quantum attacks.",
+            "recommendation": "Consider Kyber (KEM) or Dilithium (signatures)."
         },
         "ecdsa_generation": {
             "patterns": [
@@ -20,8 +20,8 @@ CRYPTO_PATTERNS = {
             ],
             "severity": "HIGH",
             "algorithm": "ECC/ECDSA",
-            "description": "ECDSA 키 생성 감지 - 양자컴퓨터에 취약",
-            "recommendation": "Dilithium 또는 Falcon으로 교체 권장"
+            "description": "ECDSA key generation detected - vulnerable to quantum attacks.",
+            "recommendation": "Consider Dilithium or Falcon."
         },
         "weak_hash": {
             "patterns": [
@@ -29,8 +29,8 @@ CRYPTO_PATTERNS = {
             ],
             "severity": "MEDIUM",
             "algorithm": "Weak Hash",
-            "description": "약한 해시 함수 사용 (MD5/SHA1)",
-            "recommendation": "SHA-256 이상 또는 SHA-3 사용 권장"
+            "description": "Weak hash function usage (MD5/SHA1).",
+            "recommendation": "Use SHA-256 or SHA-3."
         },
         "rsa_import": {
             "patterns": [
@@ -39,8 +39,8 @@ CRYPTO_PATTERNS = {
             ],
             "severity": "MEDIUM",
             "algorithm": "RSA",
-            "description": "RSA 라이브러리 임포트",
-            "recommendation": "PQC 라이브러리(pqcrypto, liboqs) 사용 검토"
+            "description": "RSA library import detected.",
+            "recommendation": "Consider PQC-safe libraries (pqcrypto, liboqs)."
         },
         "ecdsa_import": {
             "patterns": [
@@ -49,8 +49,8 @@ CRYPTO_PATTERNS = {
             ],
             "severity": "MEDIUM",
             "algorithm": "ECC",
-            "description": "ECC/ECDSA 라이브러리 임포트",
-            "recommendation": "PQC 서명 알고리즘 사용 검토"
+            "description": "ECC/ECDSA library import detected.",
+            "recommendation": "Consider PQC signature algorithms."
         }
     },
     
@@ -62,8 +62,8 @@ CRYPTO_PATTERNS = {
             ],
             "severity": "HIGH",
             "algorithm": "RSA",
-            "description": "RSA 키 생성 감지",
-            "recommendation": "PQC 라이브러리로 교체 권장"
+            "description": "RSA key generation detected.",
+            "recommendation": "Consider PQC-safe libraries."
         },
         "ecdsa_generation": {
             "patterns": [
@@ -72,8 +72,8 @@ CRYPTO_PATTERNS = {
             ],
             "severity": "HIGH",
             "algorithm": "ECC",
-            "description": "ECC 키 생성 감지",
-            "recommendation": "PQC 서명 알고리즘으로 교체 권장"
+            "description": "ECC key generation detected.",
+            "recommendation": "Consider PQC signature algorithms."
         },
         "crypto_require": {
             "patterns": [
@@ -82,8 +82,8 @@ CRYPTO_PATTERNS = {
             ],
             "severity": "MEDIUM",
             "algorithm": "RSA/ECC",
-            "description": "암호화 라이브러리 사용",
-            "recommendation": "사용 중인 알고리즘 확인 필요"
+            "description": "Cryptographic library usage detected.",
+            "recommendation": "Verify algorithm usage and migrate if needed."
         }
     },
     
@@ -94,8 +94,8 @@ CRYPTO_PATTERNS = {
             ],
             "severity": "HIGH",
             "algorithm": "RSA",
-            "description": "RSA KeyPairGenerator 사용",
-            "recommendation": "PQC 알고리즘으로 교체 권장"
+            "description": "RSA KeyPairGenerator usage detected.",
+            "recommendation": "Consider PQC key exchange/signature algorithms."
         },
         "ecdsa_keygen": {
             "patterns": [
@@ -104,8 +104,8 @@ CRYPTO_PATTERNS = {
             ],
             "severity": "HIGH",
             "algorithm": "ECC",
-            "description": "ECDSA 사용",
-            "recommendation": "PQC 서명 알고리즘으로 교체 권장"
+            "description": "ECDSA usage detected.",
+            "recommendation": "Consider PQC signature algorithms."
         }
     },
     
@@ -116,8 +116,8 @@ CRYPTO_PATTERNS = {
             ],
             "severity": "HIGH",
             "algorithm": "RSA",
-            "description": "RSA 키 생성",
-            "recommendation": "PQC 라이브러리 사용 권장"
+            "description": "RSA key generation detected.",
+            "recommendation": "Consider PQC-safe libraries."
         },
         "ecdsa_generation": {
             "patterns": [
@@ -125,13 +125,13 @@ CRYPTO_PATTERNS = {
             ],
             "severity": "HIGH",
             "algorithm": "ECC",
-            "description": "ECDSA 키 생성",
-            "recommendation": "PQC 서명 알고리즘 사용 권장"
+            "description": "ECDSA key generation detected.",
+            "recommendation": "Consider PQC signature algorithms."
         }
     }
 }
 
-# 취약한 API 목록
+# Vulnerable crypto API list
 VULNERABLE_APIS = {
     "python": [
         "Crypto.PublicKey.RSA",

@@ -114,6 +114,27 @@ DEPENDENCY_FILES = {
     "Cargo.lock",
 }
 
+# Dependency manifest -> language mapping (used for SCA)
+DEPENDENCY_LANGUAGE_MAP = {
+    "package.json": "javascript",
+    "package-lock.json": "javascript",
+    "yarn.lock": "javascript",
+    "requirements.txt": "python",
+    "Pipfile": "python",
+    "Pipfile.lock": "python",
+    "setup.py": "python",
+    "pyproject.toml": "python",
+    "pom.xml": "java",
+    "build.gradle": "java",
+    "build.gradle.kts": "java",
+    "go.mod": "go",
+    "go.sum": "go",
+    "Gemfile": "ruby",
+    "Gemfile.lock": "ruby",
+    "Cargo.toml": "rust",
+    "Cargo.lock": "rust",
+}
+
 # 무시할 디렉토리
 IGNORE_DIRECTORIES = {
     ".git",

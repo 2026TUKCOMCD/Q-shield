@@ -1,7 +1,7 @@
-# scanners/config/crypto_config_rules.py
+﻿# scanners/config/crypto_config_rules.py
 
 CONFIG_CRYPTO_PATTERNS = {
-    # TLS 버전
+    # TLS version
     "outdated_tls": {
         "patterns": [
             r'TLSv1\.0',
@@ -9,11 +9,11 @@ CONFIG_CRYPTO_PATTERNS = {
             r'ssl_protocols.*TLSv1\s',
         ],
         "severity": "HIGH",
-        "description": "구버전 TLS 프로토콜 사용 (TLS 1.0/1.1)",
-        "recommendation": "TLS 1.3으로 업그레이드 필요"
+        "description": "Outdated TLS protocol version (TLS 1.0/1.1).",
+        "recommendation": "Upgrade to TLS 1.3."
     },
     
-    # RSA 암호화 스위트
+    # RSA cipher suites
     "rsa_cipher": {
         "patterns": [
             r'TLS_RSA_',
@@ -21,8 +21,8 @@ CONFIG_CRYPTO_PATTERNS = {
             r'RSA.*AES',
         ],
         "severity": "HIGH",
-        "description": "RSA 기반 암호화 스위트 사용",
-        "recommendation": "PQC 안전 암호화 스위트로 교체 필요"
+        "description": "RSA-based cipher suite usage.",
+        "recommendation": "Migrate to PQC-safe cipher suites."
     },
     
     # ECDSA/ECDHE
@@ -34,8 +34,8 @@ CONFIG_CRYPTO_PATTERNS = {
             r'ECDHE-ECDSA',
         ],
         "severity": "HIGH",
-        "description": "ECC 기반 암호화 스위트 사용",
-        "recommendation": "PQC 안전 암호화 스위트로 교체 필요"
+        "description": "ECC-based cipher suite usage.",
+        "recommendation": "Migrate to PQC-safe cipher suites."
     },
     
     # DHE (Diffie-Hellman)
@@ -45,11 +45,11 @@ CONFIG_CRYPTO_PATTERNS = {
             r'DHE-RSA',
         ],
         "severity": "MEDIUM",
-        "description": "DHE 기반 키 교환 사용",
-        "recommendation": "PQC KEM(예: Kyber) 사용 검토"
+        "description": "DHE 湲곕컲 ??援먰솚 ?ъ슜",
+        "recommendation": "Consider PQC KEMs such as Kyber."
     },
     
-    # 약한 암호화
+    # Weak ciphers
     "weak_cipher": {
         "patterns": [
             r'DES',
@@ -58,7 +58,7 @@ CONFIG_CRYPTO_PATTERNS = {
             r'MD5',
         ],
         "severity": "CRITICAL",
-        "description": "약한 암호화 알고리즘 사용",
-        "recommendation": "즉시 제거 필요"
+        "description": "Weak cipher usage (DES/3DES/RC4/MD5).",
+        "recommendation": "Remove immediately."
     }
 }
