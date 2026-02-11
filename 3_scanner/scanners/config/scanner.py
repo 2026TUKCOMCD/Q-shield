@@ -1,7 +1,7 @@
 ﻿# scanners/config/scanner.py
 import re
 import subprocess
-from typing import List, Dict
+from typing import List, Dict, Optional
 from models.file_metadata import FileMetadata
 from models.scan_result import ConfigResult, ConfigScanReport
 from .crypto_config_rules import CONFIG_CRYPTO_PATTERNS
@@ -10,6 +10,16 @@ import xml.etree.ElementTree as ET
 
 class ConfigScanner:
     """Config scanner."""
+    _PEM_READ_BYTES = 4096
+    _ENCRYPTED_MARKERS = (
+        "BEGIN ENCRYPTED PRIVATE KEY",
+        "BEGIN RSA PRIVATE KEY",
+        "BEGIN EC PRIVATE KEY",
+        "BEGIN PRIVATE KEY",
+        "Proc-Type: 4,ENCRYPTED",
+        "DEK-Info:",
+    )
+    _CERT_MARKER = "BEGIN CERTIFICATE"
     
     def scan_file(self, file_metadata: FileMetadata) -> ConfigResult:
         """Scan a config file."""
@@ -18,7 +28,10 @@ class ConfigScanner:
         
         # Certificate files
         if ext in ['.pem', '.crt', '.cer', '.key']:
-            cert_findings = self._analyze_certificate(file_metadata.absolute_path)
+            cert_findings = self._analyze_certificate(
+                file_metadata.absolute_path,
+                ext=ext,
+            )
             findings.extend(cert_findings)
         
         # YAML/XML structured config
@@ -42,16 +55,30 @@ class ConfigScanner:
             skipped=False
         )
     
-    def _analyze_certificate(self, cert_path: str) -> List[Dict]:
+    def _analyze_certificate(self, cert_path: str, ext: str) -> List[Dict]:
         """Analyze certificate file."""
         findings = []
-        
+
+        # Avoid OpenSSL prompts: skip encrypted/private keys and non-certs.
+        skip_reason = self._should_skip_cert_file(cert_path, ext)
+        if skip_reason:
+            findings.append({
+                "type": "cert_skipped",
+                "severity": "INFO",
+                "description": "Certificate analysis skipped.",
+                "meta": {
+                    "skip_reason": skip_reason
+                }
+            })
+            return findings
+
         try:
             result = subprocess.run(
                 ['openssl', 'x509', '-in', cert_path, '-text', '-noout'],
                 capture_output=True,
                 text=True,
-                timeout=5
+                timeout=5,
+                stdin=subprocess.DEVNULL,
             )
             
             if result.returncode == 0:
@@ -74,24 +101,71 @@ class ConfigScanner:
                         "description": "ECC certificate detected - vulnerable to quantum attacks.",
                         "recommendation": "Replace with PQC-safe certificate."
                     })
+            else:
+                findings.append({
+                    "type": "cert_skipped",
+                    "severity": "INFO",
+                    "description": "OpenSSL could not parse certificate.",
+                    "meta": {
+                        "skip_reason": "openssl_parse_failed"
+                    }
+                })
         
         except subprocess.TimeoutExpired:
             findings.append({
-                "type": "cert_analysis_timeout",
+                "type": "cert_skipped",
                 "severity": "INFO",
-                "description": "Certificate analysis timed out."
+                "description": "Certificate analysis timed out.",
+                "meta": {
+                    "skip_reason": "openssl_timeout"
+                }
             })
         except FileNotFoundError:
-            # OpenSSL not available
-            pass
+            findings.append({
+                "type": "cert_skipped",
+                "severity": "INFO",
+                "description": "OpenSSL not available; skipping certificate analysis.",
+                "meta": {
+                    "skip_reason": "openssl_not_available"
+                }
+            })
         except Exception as e:
             findings.append({
-                "type": "cert_parse_error",
+                "type": "cert_skipped",
                 "severity": "INFO",
-                "description": f"Certificate analysis failed: {str(e)}"
+                "description": f"Certificate analysis failed: {str(e)}",
+                "meta": {
+                    "skip_reason": "openssl_error"
+                }
             })
         
         return findings
+
+    def _should_skip_cert_file(self, cert_path: str, ext: str) -> Optional[str]:
+        if ext == ".key":
+            return "private_key_file"
+
+        header = self._peek_pem_header(cert_path)
+        if header is None:
+            return "cert_read_failed"
+
+        header_upper = header.upper()
+        for marker in self._ENCRYPTED_MARKERS:
+            if marker in header_upper:
+                return "encrypted_private_key_requires_passphrase"
+
+        if ext == ".pem":
+            if self._CERT_MARKER not in header_upper:
+                return "pem_not_certificate"
+
+        return None
+
+    def _peek_pem_header(self, cert_path: str) -> Optional[str]:
+        try:
+            with open(cert_path, "r", encoding="utf-8", errors="ignore") as f:
+                return f.read(self._PEM_READ_BYTES)
+        except Exception:
+            return None
     
     def _scan_yaml(self, file_path: str) -> List[Dict]:
         """Scan YAML config."""
