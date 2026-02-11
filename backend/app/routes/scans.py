@@ -120,6 +120,7 @@ def _build_inventory_assets(inv: InventorySnapshot, include_detail: bool = False
         if not isinstance(entry, dict):
             continue
         algorithm = entry.get("algorithm", "Unknown")
+        entry_risk_score = float(entry.get("risk_score", 5.0))
         locations = entry.get("locations") or []
         if not locations:
             assets.append(
@@ -128,7 +129,7 @@ def _build_inventory_assets(inv: InventorySnapshot, include_detail: bool = False
                     algorithmType=str(algorithm),
                     filePath="unknown",
                     lineNumbers=[],
-                    riskScore=5.0,
+                    riskScore=entry_risk_score,
                 )
             )
             continue
@@ -165,7 +166,7 @@ def _build_inventory_assets(inv: InventorySnapshot, include_detail: bool = False
                     algorithmType=str(algorithm),
                     filePath=file_path,
                     lineNumbers=line_numbers,
-                    riskScore=5.0,
+                    riskScore=entry_risk_score,
                     codeSnippet=code_snippet if include_detail else None,
                     codeSnippetStartLine=code_snippet_start_line if include_detail else None,
                     detectedPattern=detected_pattern if include_detail else None,
