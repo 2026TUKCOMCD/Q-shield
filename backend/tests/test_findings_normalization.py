@@ -62,9 +62,12 @@ def test_normalize_findings_schema():
     findings = tasks._normalize_findings(sast_report, sca_report, config_report, None)
     assert len(findings) == 3
 
+    severities = [f.get("severity") for f in findings]
+    assert severities.count("HIGH") == 3
+
     for finding in findings:
         assert finding.get("type")
-        assert finding.get("severity")
+        assert finding.get("severity") in {"CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"}
         assert "file_path" in finding
         assert "line_start" in finding and "line_end" in finding
         assert "evidence" in finding
@@ -72,3 +75,28 @@ def test_normalize_findings_schema():
         assert meta.get("scanner_type")
         assert meta.get("rule_id")
         assert "message" in meta
+        assert isinstance(meta.get("severity_score"), int)
+
+
+def test_normalization_skips_invalid_findings(monkeypatch):
+    # Invalid SAST finding: severity is a non-canonical list -> should be skipped.
+    sast_detail = SimpleNamespace(
+        file_path="src/app.py",
+        vulnerabilities=[
+            {
+                "type": "rsa_generation",
+                "line": 10,
+                "severity": ["HIGH"],
+                "algorithm": "RSA",
+                "description": "RSA key generation detected",
+                "recommendation": "Use PQC-safe alternatives",
+                "code": "RSA.generate(2048)",
+            }
+        ],
+    )
+    sast_report = SimpleNamespace(detailed_results=[sast_detail])
+    sca_report = SimpleNamespace(detailed_results=[])
+    config_report = SimpleNamespace(detailed_results=[])
+
+    findings = tasks._normalize_findings(sast_report, sca_report, config_report, None)
+    assert findings == []

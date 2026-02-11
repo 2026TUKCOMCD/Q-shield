@@ -1,3 +1,5 @@
+import hashlib
+import logging
 import os
 import shutil
 import sys
@@ -11,6 +13,7 @@ from sqlalchemy.orm import sessionmaker
 from app.celery_app import celery_app
 from app.config import DATABASE_URL_SYNC
 from app.models import Finding, HeatmapSnapshot, InventorySnapshot, Recommendation, Scan
+from app.severity_map import CANONICAL_SEVERITIES, canonicalize_severity
 
 # Add scanner module path so Celery worker can import it.
 SCANNER_PATH = Path(__file__).parent.parent.parent / "3_scanner"
@@ -26,6 +29,7 @@ from utils.git_utils import clone_repository  # noqa: E402
 # Celery runs outside FastAPI dependency scope, create a local session.
 engine = create_engine(DATABASE_URL_SYNC, echo=False, pool_pre_ping=True)
 SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
+logger = logging.getLogger(__name__)
 
 
 @celery_app.task(name="run_scan_pipeline")
@@ -424,6 +428,79 @@ def _normalize_findings(sast_report, sca_report, config_report, repo_path: str |
         except Exception:
             return None
 
+    def _hash_evidence(value: str | None) -> str:
+        if not value:
+            return ""
+        return hashlib.sha256(str(value).encode("utf-8")).hexdigest()
+
+    def _validate_finding(payload: dict) -> bool:
+        required_keys = (
+            "type",
+            "severity",
+            "file_path",
+            "line_start",
+            "line_end",
+            "evidence",
+            "meta",
+        )
+        for key in required_keys:
+            if key not in payload:
+                logger.warning("Skipping finding: missing key=%s payload=%s", key, payload)
+                return False
+
+        if payload["severity"] not in CANONICAL_SEVERITIES:
+            logger.warning("Skipping finding: invalid severity=%s", payload["severity"])
+            return False
+
+        if payload["file_path"] is not None and not isinstance(payload["file_path"], str):
+            logger.warning("Skipping finding: file_path not str/null payload=%s", payload)
+            return False
+
+        for line_key in ("line_start", "line_end"):
+            line_val = payload.get(line_key)
+            if line_val is not None and not isinstance(line_val, int):
+                logger.warning("Skipping finding: %s not int/null payload=%s", line_key, payload)
+                return False
+
+        evidence = payload.get("evidence")
+        if evidence is not None and not isinstance(evidence, str):
+            logger.warning("Skipping finding: evidence not str/null payload=%s", payload)
+            return False
+
+        meta = payload.get("meta")
+        if not isinstance(meta, dict):
+            logger.warning("Skipping finding: meta not dict payload=%s", payload)
+            return False
+
+        if not meta.get("scanner_type") or not meta.get("rule_id") or "message" not in meta:
+            logger.warning("Skipping finding: missing meta keys payload=%s", payload)
+            return False
+
+        return True
+
+    def _dedup_findings(items: list[dict]) -> list[dict]:
+        seen: dict[tuple, dict] = {}
+        ordered: list[dict] = []
+        for payload in items:
+            meta = payload.get("meta") or {}
+            key = (
+                meta.get("scanner_type"),
+                meta.get("rule_id"),
+                payload.get("file_path"),
+                payload.get("line_start"),
+                payload.get("line_end"),
+                _hash_evidence(payload.get("evidence")),
+            )
+            if key in seen:
+                existing = seen[key]
+                existing_meta = existing.get("meta") or {}
+                existing_meta["duplicate_count"] = int(existing_meta.get("duplicate_count", 1)) + 1
+                existing["meta"] = existing_meta
+                continue
+            seen[key] = payload
+            ordered.append(payload)
+        return ordered
+
     def _add_finding(
         *,
         scanner_type: str,
@@ -436,9 +513,10 @@ def _normalize_findings(sast_report, sca_report, config_report, repo_path: str |
         algorithm: str | None = None,
         meta: dict | None = None,
     ):
+        canonical_severity, severity_score = canonicalize_severity(severity)
         payload = {
             "type": _cap(rule_id or scanner_type, 20) or scanner_type,
-            "severity": severity or "MEDIUM",
+            "severity": canonical_severity,
             "algorithm": algorithm,
             "context": scanner_type,
             "file_path": _normalize_path(file_path),
@@ -452,9 +530,11 @@ def _normalize_findings(sast_report, sca_report, config_report, repo_path: str |
                 "scanner_type": scanner_type,
                 "rule_id": rule_id,
                 "message": message or "",
+                "severity_score": severity_score,
             }
         )
-        findings.append(payload)
+        if _validate_finding(payload):
+            findings.append(payload)
 
     # SAST findings
     for detail in getattr(sast_report, "detailed_results", []) or []:
@@ -558,4 +638,4 @@ def _normalize_findings(sast_report, sca_report, config_report, repo_path: str |
                 meta=meta,
             )
 
-    return findings
+    return _dedup_findings(findings)
