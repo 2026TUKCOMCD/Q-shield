@@ -1,0 +1,31 @@
+{
+  "python": {
+    "python-rsa": {
+      "all_versions_vulnerable": true,
+      "reason": "RSA-only library without PQC support.",
+      "pqc_support": false,
+      "pqc_classification": "Traditional Crypto Library",
+      "alternatives": [
+        {"name": "pqcrypto", "version": ">=0.2.0"}
+      ]
+    }
+  },
+  "javascript": {
+    "jsonwebtoken": {
+      "all_versions_vulnerable": true,
+      "reason": "JWT signing with traditional RSA/ECDSA without PQC support.",
+      "pqc_support": false,
+      "pqc_classification": "Traditional Crypto Library",
+      "alternatives": []
+    }
+  },
+  "java": {
+    "com.nimbusds.nimbus-jose-jwt": {
+      "all_versions_vulnerable": true,
+      "reason": "JOSE/JWT library using traditional crypto without PQC support.",
+      "pqc_support": false,
+      "pqc_classification": "Traditional Crypto Library",
+      "alternatives": []
+    }
+  }
+}

@@ -11,6 +11,8 @@ venv/
 # Env files
 .env
 .env.*
+.env.local
+.env.*.local
 
 # OS
 .DS_Store
@@ -22,9 +24,24 @@ Thumbs.db
 # Alembic cache (ok to ignore)
 alembic/__pycache__/
 
+# Python tooling
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage/
+htmlcov/
+
 # Editor
 .vscode/
 .idea/
+
+# Node / frontend
+node_modules/
+dist/
+build/
+.next/
+out/
 
 # Secrets
 *.pem

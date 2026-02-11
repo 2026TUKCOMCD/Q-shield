@@ -225,12 +225,21 @@ class RepositoryAnalyzer:
     
     def _is_crypto_related_config(self, metadata: FileMetadata) -> bool:
         """Check if a config file is crypto-related."""
+        path_lower = metadata.file_path.lower().replace("\\", "/")
+        excluded_segments = [
+            "/test/",
+            "/tests/",
+            "/src/test/",
+            "/fixtures/",
+            "/examples/",
+        ]
+        if any(segment in path_lower for segment in excluded_segments):
+            return False
+
         # Certificate files
-        if metadata.extension in ['.pem', '.crt', '.cer', '.key']:
+        if metadata.extension in ['.pem', '.crt', '.cer']:
             return True
         
         # TLS/SSL-related configs
         crypto_keywords = ['ssl', 'tls', 'cert', 'key', 'crypto', 'nginx', 'apache']
-        path_lower = metadata.file_path.lower()
-        
         return any(keyword in path_lower for keyword in crypto_keywords)

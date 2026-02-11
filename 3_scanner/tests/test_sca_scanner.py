@@ -25,5 +25,14 @@ def test_sca_scanner_detects_vulnerable_dependencies():
 
     assert "pycrypto" in names
     assert "cryptography" in names
+    assert "python-rsa" in names
     assert "node-rsa" in names
     assert "jsrsasign" in names
+    assert "org.bouncycastle.bcprov-jdk15on" in names
+
+
+def test_sca_version_comparison_simple_cases():
+    scanner = SCAScanner()
+    assert scanner._is_version_vulnerable("1.2.0", ["<2.0.0"])
+    assert scanner._is_version_vulnerable("1.2.0", ["<=1.2.0"])
+    assert not scanner._is_version_vulnerable("2.0.0", ["<2.0.0"])
