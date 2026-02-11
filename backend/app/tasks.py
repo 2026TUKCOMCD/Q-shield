@@ -10,7 +10,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.celery_app import celery_app
 from app.config import DATABASE_URL_SYNC
-from app.models import HeatmapSnapshot, InventorySnapshot, Recommendation, Scan
+from app.models import Finding, HeatmapSnapshot, InventorySnapshot, Recommendation, Scan
 
 # Add scanner module path so Celery worker can import it.
 SCANNER_PATH = Path(__file__).parent.parent.parent / "3_scanner"
@@ -80,8 +80,7 @@ def run_scan_pipeline(scan_uuid: str):
         # 5) Config
         _update(progress=0.70, message="Running Config Scanner...")
         config_scanner = ConfigScanner()
-        _ = config_scanner.scan_repository(analysis_result.scanner_targets.config_targets)
-        # config_report is not persisted yet.
+        config_report = config_scanner.scan_repository(analysis_result.scanner_targets.config_targets)
 
         # 6) Process & Persist
         _update(progress=0.85, message="Processing results...")
@@ -93,6 +92,7 @@ def run_scan_pipeline(scan_uuid: str):
         }
         heat_data = _build_heatmap_tree(repo_path, analysis_result, sast_report)
         recommendations = _extract_recommendations(sast_report, sca_report)
+        findings = _normalize_findings(sast_report, sca_report, config_report, repo_path)
 
         # Persist results in a single transaction.
         with db.begin():
@@ -116,6 +116,11 @@ def run_scan_pipeline(scan_uuid: str):
             db.query(Recommendation).filter(Recommendation.scan_uuid == scan_uuid_obj).delete()
             for rec in recommendations:
                 db.add(Recommendation(scan_uuid=scan_uuid_obj, **rec))
+
+            # Replace findings for this scan_uuid.
+            db.query(Finding).filter(Finding.scan_uuid == scan_uuid_obj).delete()
+            for finding in findings:
+                db.add(Finding(scan_uuid=scan_uuid_obj, **finding))
 
         _update(progress=0.95, message="Finalizing...")
 
@@ -385,3 +390,164 @@ def _extract_recommendations(sast_report, sca_report):
                 return recommendations
 
     return recommendations
+
+
+def _normalize_findings(sast_report, sca_report, config_report, repo_path: str | None):
+    """Normalize findings from all scanners into a unified schema."""
+    findings: list[dict] = []
+    repo_root = Path(repo_path) if repo_path else None
+
+    def _cap(value: str | None, limit: int) -> str | None:
+        if value is None:
+            return None
+        text = str(value)
+        return text[:limit]
+
+    def _normalize_path(file_path: str | None) -> str | None:
+        if not file_path:
+            return None
+        if repo_root:
+            return _normalize_repo_path(repo_root, file_path)
+        return str(file_path)
+
+    def _safe_int(value):
+        try:
+            return int(value)
+        except Exception:
+            return None
+
+    def _add_finding(
+        *,
+        scanner_type: str,
+        rule_id: str,
+        severity: str | None,
+        file_path: str | None,
+        line: int | None,
+        message: str | None,
+        evidence: str | None,
+        algorithm: str | None = None,
+        meta: dict | None = None,
+    ):
+        payload = {
+            "type": _cap(rule_id or scanner_type, 20) or scanner_type,
+            "severity": severity or "MEDIUM",
+            "algorithm": algorithm,
+            "context": scanner_type,
+            "file_path": _normalize_path(file_path),
+            "line_start": line,
+            "line_end": line,
+            "evidence": evidence,
+            "meta": meta or {},
+        }
+        payload["meta"].update(
+            {
+                "scanner_type": scanner_type,
+                "rule_id": rule_id,
+                "message": message or "",
+            }
+        )
+        findings.append(payload)
+
+    # SAST findings
+    for detail in getattr(sast_report, "detailed_results", []) or []:
+        file_path = getattr(detail, "file_path", None)
+        for vuln in getattr(detail, "vulnerabilities", []) or []:
+            if not isinstance(vuln, dict):
+                continue
+            rule_id = str(vuln.get("type") or "sast_issue")
+            severity = vuln.get("severity", "MEDIUM")
+            algorithm = vuln.get("algorithm")
+            message = vuln.get("description") or "SAST issue detected"
+            line = _safe_int(vuln.get("line"))
+            evidence = vuln.get("code")
+            if not evidence and repo_root and file_path and line:
+                snippet, _ = _read_code_snippet(repo_root, file_path, line)
+                evidence = snippet
+            meta = {
+                "usage_type": "code",
+                "recommendation": vuln.get("recommendation"),
+                "detected_pattern": vuln.get("pattern") or vuln.get("detected_pattern"),
+            }
+            _add_finding(
+                scanner_type="SAST",
+                rule_id=rule_id,
+                severity=severity,
+                file_path=file_path,
+                line=line,
+                message=message,
+                evidence=evidence,
+                algorithm=algorithm,
+                meta=meta,
+            )
+
+    # SCA findings
+    for detail in getattr(sca_report, "detailed_results", []) or []:
+        file_path = getattr(detail, "file_path", None)
+        for dep in getattr(detail, "vulnerable_dependencies", []) or []:
+            if not isinstance(dep, dict):
+                continue
+            name = dep.get("name") or "dependency"
+            rule_id = str(name)
+            severity = dep.get("severity", "MEDIUM")
+            message = dep.get("reason") or "Vulnerable dependency detected"
+            current_version = dep.get("current_version")
+            evidence = f"{name}@{current_version}" if current_version else str(name)
+            meta = {
+                "usage_type": "dependency",
+                "library": name,
+                "current_version": current_version,
+                "dependency_type": dep.get("dependency_type"),
+                "pqc_support": dep.get("pqc_support"),
+                "pqc_version": dep.get("pqc_version"),
+                "alternatives": dep.get("alternatives", []),
+            }
+            _add_finding(
+                scanner_type="SCA",
+                rule_id=rule_id,
+                severity=severity,
+                file_path=file_path,
+                line=None,
+                message=message,
+                evidence=evidence,
+                algorithm=None,
+                meta=meta,
+            )
+
+    # Config findings
+    algo_map = {
+        "rsa_cipher": "RSA",
+        "ecdsa_cipher": "ECC",
+        "rsa_certificate": "RSA",
+        "ecc_certificate": "ECC",
+    }
+    for detail in getattr(config_report, "detailed_results", []) or []:
+        file_path = getattr(detail, "file_path", None)
+        for finding in getattr(detail, "findings", []) or []:
+            if not isinstance(finding, dict):
+                continue
+            rule_id = str(finding.get("type") or "config_issue")
+            severity = finding.get("severity", "MEDIUM")
+            message = finding.get("description") or "Config issue detected"
+            line = _safe_int(finding.get("line"))
+            evidence = finding.get("matched_text")
+            if not evidence and repo_root and file_path and line:
+                snippet, _ = _read_code_snippet(repo_root, file_path, line)
+                evidence = snippet
+            algorithm = algo_map.get(rule_id)
+            meta = {
+                "usage_type": "config",
+                "recommendation": finding.get("recommendation"),
+            }
+            _add_finding(
+                scanner_type="CONFIG",
+                rule_id=rule_id,
+                severity=severity,
+                file_path=file_path,
+                line=line,
+                message=message,
+                evidence=evidence,
+                algorithm=algorithm,
+                meta=meta,
+            )
+
+    return findings

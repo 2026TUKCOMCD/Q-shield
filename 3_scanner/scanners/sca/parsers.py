@@ -16,7 +16,7 @@ class NPMParser:
     
     def parse(self, file_path: str) -> List[Dependency]:
         """package.json 파싱"""
-        with open(file_path, 'r', encoding='utf-8') as f:
+        with open(file_path, 'r', encoding='utf-8-sig') as f:
             data = json.load(f)
         
         dependencies = []
@@ -38,7 +38,7 @@ class PipParser:
         """requirements.txt 파싱"""
         dependencies = []
         
-        with open(file_path, 'r', encoding='utf-8') as f:
+        with open(file_path, 'r', encoding='utf-8-sig') as f:
             for line in f:
                 line = line.strip()
                 

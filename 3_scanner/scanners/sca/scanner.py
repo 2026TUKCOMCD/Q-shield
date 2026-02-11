@@ -1,4 +1,4 @@
-# scanners/sca/scanner.py
+﻿# scanners/sca/scanner.py
 from typing import List, Dict
 from models.file_metadata import FileMetadata
 from models.scan_result import SCAResult, SCAScanReport
@@ -7,16 +7,16 @@ from .vulnerability_db import PQC_VULNERABLE_LIBRARIES
 from packaging import version as pkg_version
 
 class SCAScanner:
-    """SCA 스캐너"""
+    """SCA scanner."""
     
     def __init__(self):
         self.vuln_db = PQC_VULNERABLE_LIBRARIES
     
     def scan_file(self, file_metadata: FileMetadata) -> SCAResult:
-        """의존성 파일 스캔"""
+        """Scan a dependency manifest file."""
         file_name = file_metadata.file_name
         
-        # 지원하지 않는 파일
+        # Unsupported dependency manifest
         if file_name not in PARSERS:
             return SCAResult(
                 file_path=file_metadata.file_path,
@@ -26,7 +26,7 @@ class SCAScanner:
                 skip_reason=f"Unsupported dependency file: {file_name}"
             )
         
-        # 의존성 파싱
+        # Parse dependency manifest
         try:
             parser = PARSERS[file_name]
             dependencies = parser.parse(file_metadata.absolute_path)
@@ -39,7 +39,7 @@ class SCAScanner:
                 skip_reason=f"Parse error: {str(e)}"
             )
         
-        # 취약점 체크
+        # Vulnerability checks
         vulnerable_deps = []
         
         for dep in dependencies:
@@ -62,14 +62,14 @@ class SCAScanner:
         )
     
     def _check_vulnerability(self, dep, language: str) -> Dict:
-        """의존성 취약점 확인"""
+        """Check dependency vulnerability."""
         lang_vulns = self.vuln_db.get(language, {})
         vuln_info = lang_vulns.get(dep.name)
         
         if not vuln_info:
             return None
         
-        # 모든 버전 취약
+        # All versions vulnerable
         if vuln_info.get("all_versions_vulnerable", False):
             return {
                 "severity": "HIGH",
@@ -78,7 +78,7 @@ class SCAScanner:
                 "alternatives": vuln_info.get("alternatives", [])
             }
         
-        # 특정 버전만 취약
+        # Version-specific vulnerabilities
         vulnerable_versions = vuln_info.get("vulnerable_versions", [])
         if self._is_version_vulnerable(dep.version, vulnerable_versions):
             return {
@@ -92,9 +92,9 @@ class SCAScanner:
         return None
     
     def _is_version_vulnerable(self, current_ver: str, vuln_patterns: List[str]) -> bool:
-        """버전 취약성 체크"""
+        """Check if version is vulnerable."""
         if current_ver == "unknown":
-            return True  # 버전 모르면 취약하다고 가정
+            return True  # Unknown version: treat as vulnerable
         
         try:
             current = pkg_version.parse(current_ver.strip('<>=~^'))
@@ -109,7 +109,7 @@ class SCAScanner:
                     if current <= threshold:
                         return True
         except:
-            return True  # 파싱 실패 시 취약하다고 가정
+            return True  # Parse failure: treat as vulnerable
         
         return False
     
@@ -117,8 +117,8 @@ class SCAScanner:
         self, 
         sca_targets: List[FileMetadata]
     ) -> SCAScanReport:
-        """Repository 전체 스캔"""
-        print(f"\n📦 Running SCA Scanner on {len(sca_targets)} files...")
+        """Scan a repository."""
+        print(f"\nRunning SCA Scanner on {len(sca_targets)} files...")
         
         results = []
         for file_meta in sca_targets:
@@ -126,11 +126,11 @@ class SCAScanner:
             result = self.scan_file(file_meta)
             results.append(result)
         
-        # 결과 집계
+        # Aggregate results
         total_deps = sum(r.total_dependencies for r in results if not r.skipped)
         total_vulns = sum(r.total_vulnerabilities for r in results if not r.skipped)
         
-        print(f"✅ SCA completed: {total_vulns}/{total_deps} vulnerable dependencies")
+        print(f"SCA completed: {total_vulns}/{total_deps} vulnerable dependencies")
         
         return SCAScanReport(
             total_files_scanned=len([r for r in results if not r.skipped]),

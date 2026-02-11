@@ -140,7 +140,8 @@ export const inventoryService = {
 
   async getAssetDetail(uuid: string, assetId: string): Promise<AssetDetail> {
     try {
-      const response = await apiClient.get<AssetDetail>(`/scans/${uuid}/inventory/${assetId}`)
+      const encodedAssetId = encodeURIComponent(assetId)
+      const response = await apiClient.get<AssetDetail>(`/scans/${uuid}/inventory/${encodedAssetId}`)
       return response.data
     } catch (error) {
       const appError = toAppError(error)

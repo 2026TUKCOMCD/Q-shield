@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from datetime import datetime, timezone
 from uuid import UUID
-from urllib.parse import urlparse
+from urllib.parse import urlparse, unquote
 
 from app.db import get_db
 from app.models import InventorySnapshot, HeatmapSnapshot, Recommendation, Repository, Scan
@@ -373,7 +373,7 @@ def get_inventory(
     }
 
 
-@router.get("/{uuid}/inventory/{assetId}", response_model=InventoryAsset)
+@router.get("/{uuid}/inventory/{assetId:path}", response_model=InventoryAsset)
 def get_inventory_asset(
     uuid: str,
     assetId: str,
@@ -393,9 +393,15 @@ def get_inventory_asset(
     if not inv:
         raise HTTPException(status_code=404, detail="Scan inventory not found")
 
+    candidate_asset_ids = {
+        assetId,
+        unquote(assetId),
+        unquote(unquote(assetId)),
+    }
+
     assets = _build_inventory_assets(inv, include_detail=True)
     for asset in assets:
-        if asset.id == assetId:
+        if asset.id in candidate_asset_ids:
             return asset
 
     raise HTTPException(status_code=404, detail="Asset not found")
@@ -475,3 +481,9 @@ def get_recommendations(
         )
 
     return RecommendationsResponse(uuid=str(scan_uuid), recommendations=items)
+
+
+
+
+
+

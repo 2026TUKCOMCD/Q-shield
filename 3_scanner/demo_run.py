@@ -1,4 +1,4 @@
-import asyncio
+﻿import asyncio
 import json
 import os
 import sys
@@ -22,18 +22,18 @@ async def run():
         abs_path = os.path.abspath(path)
         if os.path.isdir(abs_path):
             test_repo_path = abs_path
-            print(f"✅ Found test_vulnerable_repo at: {test_repo_path}")
+            print(f"Found test_vulnerable_repo at: {test_repo_path}")
             break
     
     if not test_repo_path:
-        print(f"❌ Could not find test_vulnerable_repo")
+        print("Could not find test_vulnerable_repo")
         print(f"   Current working directory: {cwd}")
         print(f"   Tried paths:")
         for path in possible_paths:
             print(f"     - {os.path.abspath(path)}")
         sys.exit(1)
     
-    print(f"\n🚀 Starting scan of test_vulnerable_repo...\n")
+    print("\nStarting scan of test_vulnerable_repo...\n")
     
     req = ScanRequest(github_url=test_repo_path)
     res = await scan_repository(req)

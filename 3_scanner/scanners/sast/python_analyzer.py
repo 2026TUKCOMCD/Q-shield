@@ -1,11 +1,11 @@
-# scanners/sast/python_analyzer.py
+﻿# scanners/sast/python_analyzer.py
 import ast
 import re
 from typing import List, Dict
 from .crypto_rules import CRYPTO_PATTERNS, VULNERABLE_APIS
 
 class PythonASTAnalyzer(ast.NodeVisitor):
-    """Python AST 기반 암호화 코드 분석"""
+    """Python AST-based crypto usage analysis."""
     
     def __init__(self, file_path: str, source_code: str):
         self.file_path = file_path
@@ -15,21 +15,21 @@ class PythonASTAnalyzer(ast.NodeVisitor):
         self.imports = []
     
     def analyze(self) -> List[Dict]:
-        """분석 실행"""
+        """Run analysis."""
         try:
             tree = ast.parse(self.source_code)
             self.visit(tree)
         except SyntaxError as e:
-            print(f"⚠️  Syntax error in {self.file_path}: {e}")
+            print(f"Syntax error in {self.file_path}: {e}")
         
         return self.vulnerabilities
     
     def visit_Import(self, node: ast.Import):
-        """import 문 분석"""
+        """Analyze import statements."""
         for alias in node.names:
             self.imports.append(alias.name)
             
-            # 취약한 라이브러리 임포트 체크
+            # Check for vulnerable crypto libraries
             if alias.name in VULNERABLE_APIS["python"]:
                 self.vulnerabilities.append({
                     "type": "vulnerable_import",
@@ -37,14 +37,14 @@ class PythonASTAnalyzer(ast.NodeVisitor):
                     "code": self._get_line(node.lineno),
                     "severity": "MEDIUM",
                     "algorithm": self._get_algorithm_from_import(alias.name),
-                    "description": f"PQC 취약 라이브러리 임포트: {alias.name}",
-                    "recommendation": "PQC 안전 라이브러리로 교체 검토"
+                    "description": f"PQC-incompatible library import detected: {alias.name}",
+                    "recommendation": "Review PQC-safe library replacement."
                 })
         
         self.generic_visit(node)
     
     def visit_ImportFrom(self, node: ast.ImportFrom):
-        """from X import Y 분석"""
+        """Analyze from-import statements."""
         if node.module:
             full_imports = [f"{node.module}.{alias.name}" for alias in node.names]
             
@@ -56,15 +56,15 @@ class PythonASTAnalyzer(ast.NodeVisitor):
                         "code": self._get_line(node.lineno),
                         "severity": "MEDIUM",
                         "algorithm": self._get_algorithm_from_import(full_import),
-                        "description": f"PQC 취약 모듈 임포트: {full_import}",
-                        "recommendation": "PQC 안전 대안 검토"
+                        "description": f"PQC-incompatible module import detected: {full_import}",
+                        "recommendation": "Review PQC-safe alternatives."
                     })
         
         self.generic_visit(node)
     
     def visit_Call(self, node: ast.Call):
-        """함수 호출 분석"""
-        # RSA.generate(2048) 패턴
+        """Analyze function calls."""
+        # RSA.generate(2048) pattern
         if isinstance(node.func, ast.Attribute):
             if node.func.attr == "generate":
                 if isinstance(node.func.value, ast.Name):
@@ -75,20 +75,20 @@ class PythonASTAnalyzer(ast.NodeVisitor):
                             "code": self._get_line(node.lineno),
                             "severity": "HIGH",
                             "algorithm": "RSA",
-                            "description": "RSA 키 생성 - 양자컴퓨터에 취약",
-                            "recommendation": "Kyber(KEM) 또는 Dilithium(서명) 사용 권장"
+                            "description": "RSA key generation detected - vulnerable to quantum attacks.",
+                            "recommendation": "Consider Kyber (KEM) or Dilithium (signatures)."
                         })
         
         self.generic_visit(node)
     
     def _get_line(self, line_num: int) -> str:
-        """라인 번호로 코드 가져오기"""
+        """Return source line text by line number."""
         if 0 < line_num <= len(self.source_lines):
             return self.source_lines[line_num - 1].strip()
         return ""
     
     def _get_algorithm_from_import(self, import_name: str) -> str:
-        """임포트 이름에서 알고리즘 추출"""
+        """Infer algorithm from import name."""
         if "rsa" in import_name.lower():
             return "RSA"
         elif "ec" in import_name.lower() or "ecdsa" in import_name.lower():
@@ -97,15 +97,15 @@ class PythonASTAnalyzer(ast.NodeVisitor):
 
 
 def analyze_python_file(file_path: str, source_code: str) -> List[Dict]:
-    """Python 파일 분석 (AST + 정규식)"""
+    """Analyze Python source using AST and regex patterns."""
     vulnerabilities = []
     
-    # 1. AST 분석
+    # 1) AST analysis
     ast_analyzer = PythonASTAnalyzer(file_path, source_code)
     ast_vulnerabilities = ast_analyzer.analyze()
     vulnerabilities.extend(ast_vulnerabilities)
     
-    # 2. 정규식 패턴 매칭 (AST로 못 잡은 것들)
+    # 2) Regex pattern matching (cases not caught by AST)
     patterns = CRYPTO_PATTERNS.get("python", {})
     
     for rule_name, rule in patterns.items():
@@ -113,7 +113,7 @@ def analyze_python_file(file_path: str, source_code: str) -> List[Dict]:
             for match in re.finditer(pattern_str, source_code):
                 line_num = source_code[:match.start()].count('\n') + 1
                 
-                # 중복 체크
+                # De-duplicate by line number
                 if not any(v["line"] == line_num for v in vulnerabilities):
                     vulnerabilities.append({
                         "type": rule_name,

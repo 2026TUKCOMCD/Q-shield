@@ -1,0 +1,2 @@
+﻿pycrypto==2.6.1
+cryptography==40.0.0

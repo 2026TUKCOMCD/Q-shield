@@ -1,4 +1,4 @@
-# language_detector/repository_analyzer.py
+﻿# language_detector/repository_analyzer.py
 import os
 import re
 from pathlib import Path
@@ -9,41 +9,41 @@ from models.file_metadata import (
 )
 from .detector import LanguageDetector
 from .file_classifier import FileClassifier
-from .constants import IGNORE_DIRECTORIES, IGNORE_FILE_PATTERNS
+from .constants import IGNORE_DIRECTORIES, IGNORE_FILE_PATTERNS, DEPENDENCY_LANGUAGE_MAP
 
 class RepositoryAnalyzer:
-    """Repository 전체 분석"""
+    """Analyze repository files and select scanner targets."""
     
     def __init__(self):
         self.detector = LanguageDetector()
         self.classifier = FileClassifier()
     
     def analyze(self, repo_path: str) -> RepositoryAnalysis:
-        """Repository 분석 메인"""
-        print(f"🔍 Analyzing repository: {repo_path}")
+        """Run repository analysis."""
+        print(f"Analyzing repository: {repo_path}")
         
-        # 1. 모든 파일 수집
+        # 1) Collect all files
         all_files = self._collect_files(repo_path)
-        print(f"📁 Found {len(all_files)} files")
+        print(f"Found {len(all_files)} files")
         
-        # 2. 각 파일 분석
+        # 2) Analyze each file
         file_metadata_list = []
         for file_path in all_files:
             metadata = self._analyze_file(file_path, repo_path)
             if metadata:
                 file_metadata_list.append(metadata)
         
-        print(f"✅ Analyzed {len(file_metadata_list)} files")
+        print(f"Analyzed {len(file_metadata_list)} files")
         
-        # 3. 언어별 통계 생성
+        # 3) Build language statistics
         language_stats = self._generate_language_stats(file_metadata_list)
         
-        # 4. 스캐너별 분류
+        # 4) Classify scanner targets
         scanner_targets = self._classify_for_scanners(file_metadata_list)
         
-        print(f"🎯 SAST targets: {len(scanner_targets.sast_targets)}")
-        print(f"🎯 SCA targets: {len(scanner_targets.sca_targets)}")
-        print(f"🎯 Config targets: {len(scanner_targets.config_targets)}")
+        print(f"SAST targets: {len(scanner_targets.sast_targets)}")
+        print(f"SCA targets: {len(scanner_targets.sca_targets)}")
+        print(f"Config targets: {len(scanner_targets.config_targets)}")
         
         return RepositoryAnalysis(
             repository_path=repo_path,
@@ -54,17 +54,17 @@ class RepositoryAnalyzer:
         )
     
     def _collect_files(self, repo_path: str) -> List[str]:
-        """모든 파일 수집"""
+        """Collect all files under the repository root."""
         files = []
         
         for root, dirs, filenames in os.walk(repo_path):
-            # 무시할 디렉토리 제외
+            # Skip ignored directories
             dirs[:] = [d for d in dirs if d not in IGNORE_DIRECTORIES]
             
             for filename in filenames:
                 file_path = os.path.join(root, filename)
                 
-                # 무시할 파일 패턴 체크
+                # Skip ignored file patterns
                 if self._should_ignore_file(filename):
                     continue
                 
@@ -73,59 +73,65 @@ class RepositoryAnalyzer:
         return files
     
     def _should_ignore_file(self, filename: str) -> bool:
-        """파일 무시 여부"""
+        """Check if a file should be ignored."""
         for pattern in IGNORE_FILE_PATTERNS:
             if re.match(pattern, filename):
                 return True
         return False
     
     def _analyze_file(
-        self, 
-        file_path: str, 
-        repo_path: str
+        self,
+        file_path: str,
+        repo_path: str,
     ) -> FileMetadata:
-        """개별 파일 분석"""
+        """Analyze a single file and return metadata."""
         try:
             stat = os.stat(file_path)
             rel_path = os.path.relpath(file_path, repo_path)
             
-            # 바이너리 체크
+            # Binary check
             is_binary = self._is_binary(file_path)
             
-            # 라인 수 계산 (텍스트 파일만)
+            # Line count for text files only
             line_count = 0
             encoding = 'utf-8'
             if not is_binary:
                 line_count, encoding = self._count_lines(file_path)
             
-            # 언어 감지
+            # Language detection
             language = self.detector.detect_language(file_path)
             
-            # 메타데이터 생성
+            # Build metadata
             metadata = FileMetadata(
                 file_path=rel_path,
                 absolute_path=file_path,
                 file_name=os.path.basename(file_path),
                 extension=Path(file_path).suffix,
                 language=language,
-                category=FileCategory.UNKNOWN,  # 나중에 분류
+                category=FileCategory.UNKNOWN,  # Will be classified later
                 size_bytes=stat.st_size,
                 line_count=line_count,
                 encoding=encoding,
                 is_binary=is_binary
             )
             
-            # 카테고리 분류
+            # Category classification
             metadata.category = self.classifier.classify(metadata)
+            # Dependency manifests: override language for SCA
+            if metadata.category == FileCategory.DEPENDENCY_MANIFEST:
+                dep_lang = DEPENDENCY_LANGUAGE_MAP.get(metadata.file_name)
+                if dep_lang:
+                    metadata.language = dep_lang
+
             
             return metadata
         
         except Exception as e:
-            print(f"⚠️  Error analyzing {file_path}: {e}")
+            print(f"Error analyzing {file_path}: {e}")
             return None
     
     def _is_binary(self, file_path: str) -> bool:
-        """바이너리 파일 체크"""
+        """Check if a file is binary."""
         try:
             with open(file_path, 'rb') as f:
                 chunk = f.read(1024)
@@ -134,7 +140,7 @@ class RepositoryAnalyzer:
             return False
     
     def _count_lines(self, file_path: str) -> tuple[int, str]:
-        """라인 수 계산 및 인코딩 감지"""
+        """Count lines and detect encoding."""
         encodings = ['utf-8', 'latin-1', 'cp1252']
         
         for encoding in encodings:
@@ -148,10 +154,10 @@ class RepositoryAnalyzer:
         return 0, 'unknown'
     
     def _generate_language_stats(
-        self, 
-        file_metadata_list: List[FileMetadata]
+        self,
+        file_metadata_list: List[FileMetadata],
     ) -> List[LanguageStats]:
-        """언어별 통계 생성"""
+        """Generate language statistics."""
         stats_dict = {}
         
         for metadata in file_metadata_list:
@@ -167,10 +173,10 @@ class RepositoryAnalyzer:
             stats_dict[lang]['lines'] += metadata.line_count
             stats_dict[lang]['bytes'] += metadata.size_bytes
         
-        # 총 바이트 계산
+        # Total bytes
         total_bytes = sum(s['bytes'] for s in stats_dict.values())
         
-        # LanguageStats 객체 생성
+        # Build LanguageStats list
         stats_list = []
         for lang, data in stats_dict.items():
             percentage = (data['bytes'] / total_bytes * 100) if total_bytes > 0 else 0
@@ -183,31 +189,31 @@ class RepositoryAnalyzer:
                 percentage=round(percentage, 2)
             ))
         
-        # 퍼센티지 내림차순 정렬
+        # Sort by percentage descending
         stats_list.sort(key=lambda x: x.percentage, reverse=True)
         
         return stats_list
     
     def _classify_for_scanners(
-        self, 
-        file_metadata_list: List[FileMetadata]
+        self,
+        file_metadata_list: List[FileMetadata],
     ) -> ScannerTargets:
-        """스캐너별 대상 분류"""
+        """Classify files for each scanner."""
         sast_targets = []
         sca_targets = []
         config_targets = []
         
         for metadata in file_metadata_list:
             if metadata.category == FileCategory.SOURCE_CODE:
-                # 소스 코드 → SAST
+                # Source code files -> SAST
                 sast_targets.append(metadata)
             
             elif metadata.category == FileCategory.DEPENDENCY_MANIFEST:
-                # 의존성 파일 → SCA
+                # Dependency manifests -> SCA
                 sca_targets.append(metadata)
             
             elif metadata.category == FileCategory.CONFIGURATION:
-                # 설정 파일 → Config (암호 관련만)
+                # Config files -> Config scanner (crypto-related only)
                 if self._is_crypto_related_config(metadata):
                     config_targets.append(metadata)
         
@@ -218,12 +224,12 @@ class RepositoryAnalyzer:
         )
     
     def _is_crypto_related_config(self, metadata: FileMetadata) -> bool:
-        """암호 관련 설정 파일인지 확인"""
-        # 인증서 파일
+        """Check if a config file is crypto-related."""
+        # Certificate files
         if metadata.extension in ['.pem', '.crt', '.cer', '.key']:
             return True
         
-        # TLS/SSL 관련 설정
+        # TLS/SSL-related configs
         crypto_keywords = ['ssl', 'tls', 'cert', 'key', 'crypto', 'nginx', 'apache']
         path_lower = metadata.file_path.lower()
         
