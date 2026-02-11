@@ -24,7 +24,7 @@ export const InventoryTable = ({ inventory, scanUuid }: InventoryTableProps) => 
 
   const handleRowClick = (assetId: string) => {
     if (scanUuid) {
-      navigate(`/scans/${scanUuid}/inventory/${assetId}`)
+      navigate(`/scans/${scanUuid}/inventory/${encodeURIComponent(assetId)}`)
     }
   }
 
