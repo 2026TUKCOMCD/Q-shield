@@ -1,4 +1,4 @@
-﻿import os
+import os
 import shutil
 import sys
 import time
@@ -360,21 +360,29 @@ def _build_heatmap_tree(repo_path, analysis_result, sast_report):
 
 def _extract_recommendations(sast_report, sca_report):
     """Extract basic recommendations from SAST results."""
+    def _to_text(value) -> str:
+        if value is None:
+            return ""
+        return str(value)
+
+    def _cap(value: str, limit: int) -> str:
+        return value[:limit]
+
     recommendations = []
     details = getattr(sast_report, "detailed_results", []) or []
 
     rank = 1
     for detail in details:
-        file_path = getattr(detail, "file_path", None) or ""
+        file_path = _to_text(getattr(detail, "file_path", None))
         vulns = getattr(detail, "vulnerabilities", []) or []
 
         for vuln in vulns:
             if not isinstance(vuln, dict):
                 continue
 
-            desc = vuln.get("description", "Issue detected")
-            rec_txt = vuln.get("recommendation", "")
-            algo = vuln.get("algorithm", "Unknown")
+            desc = _to_text(vuln.get("description", "Issue detected"))
+            rec_txt = _to_text(vuln.get("recommendation", ""))
+            algo = _cap(_to_text(vuln.get("algorithm", "Unknown")), 50)
 
             recommendations.append(
                 {
