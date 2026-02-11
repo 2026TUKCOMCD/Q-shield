@@ -1,2 +1,3 @@
-﻿pycrypto==2.6.1
+pycrypto==2.6.1
 cryptography==40.0.0
+python-rsa==4.9
