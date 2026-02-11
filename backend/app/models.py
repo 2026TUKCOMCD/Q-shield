@@ -1,4 +1,4 @@
-﻿import uuid as uuid_lib
+import uuid as uuid_lib
 
 from sqlalchemy import BigInteger, Boolean, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
@@ -165,6 +165,6 @@ class Recommendation(Base):
     estimated_effort: Mapped[str] = mapped_column(String(20), nullable=False)
     ai_recommendation: Mapped[str] = mapped_column(Text, nullable=False)
     algorithm: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    context: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    context: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     scan: Mapped["Scan"] = relationship(back_populates="recommendations")
