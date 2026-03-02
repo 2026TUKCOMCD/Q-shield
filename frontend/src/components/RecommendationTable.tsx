@@ -1,10 +1,32 @@
-﻿import { type Recommendation, type Priority } from '../services/recommendationService'
-import { FileCode, AlertCircle, AlertTriangle, Info, CheckCircle2, Sparkles } from 'lucide-react'
+import {
+  AlertCircle,
+  AlertTriangle,
+  CheckCircle2,
+  FileCode,
+  Info,
+  Sparkles,
+} from 'lucide-react'
+
+import { type Priority, type Recommendation } from '../services/aiRecommendationService'
 
 interface RecommendationTableProps {
   recommendations: Recommendation[]
   onRecommendationClick: (recommendation: Recommendation) => void
 }
+
+const hasDisplayValue = (value?: string | null): value is string => {
+  if (!value) {
+    return false
+  }
+
+  const normalizedValue = value.trim()
+  return normalizedValue !== '' && normalizedValue.toUpperCase() !== 'N/A'
+}
+
+const getDisplayValue = (
+  value?: string | null,
+  fallback = 'Not available',
+) => (hasDisplayValue(value) ? value.trim() : fallback)
 
 const getPriorityConfig = (priority: Priority) => {
   switch (priority) {
@@ -78,7 +100,7 @@ export const RecommendationTable = ({
                 Recommended PQC
               </th>
               <th className="px-6 py-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                Context
+                Findings Summary
               </th>
               <th className="px-6 py-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">
                 Effort
@@ -120,18 +142,37 @@ export const RecommendationTable = ({
                         {recommendation.filePath}
                       </code>
                     )}
+                    {recommendation.nistStandardReference && (
+                      <p className="text-xs text-indigo-300 mt-1">
+                        {getDisplayValue(recommendation.nistStandardReference)}
+                      </p>
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className="text-red-300 font-mono text-sm">{recommendation.targetAlgorithm}</span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="text-green-300 font-mono text-sm">
-                      {recommendation.recommendedPQCAlgorithm}
+                    <span
+                      className="text-green-300 font-mono text-sm"
+                      title={
+                        hasDisplayValue(recommendation.recommendedPQCAlgorithm)
+                          ? undefined
+                          : 'A specific PQC replacement was not returned by the AI analysis.'
+                      }
+                    >
+                      {getDisplayValue(recommendation.recommendedPQCAlgorithm, '—')}
                     </span>
                   </td>
                   <td className="px-6 py-4">
-                    <span className="px-2 py-1 text-xs bg-white/5 text-slate-300 rounded">
-                      {recommendation.context}
+                    <span
+                      className="inline-flex max-w-[24rem] px-2 py-1 text-xs bg-white/5 text-slate-300 rounded"
+                      title={
+                        hasDisplayValue(recommendation.analysisSummary || recommendation.context)
+                          ? undefined
+                          : 'The backend did not return a findings summary for this item.'
+                      }
+                    >
+                      {getDisplayValue(recommendation.analysisSummary || recommendation.context, '—')}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -146,5 +187,3 @@ export const RecommendationTable = ({
     </div>
   )
 }
-
-

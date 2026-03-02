@@ -1,10 +1,11 @@
 ﻿import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import {
-  recommendationService,
+  aiRecommendationService,
   type Recommendation,
   type Priority,
-} from '../services/recommendationService'
+} from '../services/aiRecommendationService'
+import { scanService } from '../services/scanService'
 import { RecommendationFilters } from '../components/RecommendationFilters'
 import { RecommendationTable } from '../components/RecommendationTable'
 import { AIDetailView } from '../components/AIDetailView'
@@ -22,11 +23,11 @@ export const Recommendations = () => {
 
   const [recommendations, setRecommendations] = useState<Recommendation[]>([])
   const [filteredRecommendations, setFilteredRecommendations] = useState<Recommendation[]>([])
+  const [scanGithubUrl, setScanGithubUrl] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const [algorithmType, setAlgorithmType] = useState('')
-  const [context, setContext] = useState('')
   const [priority, setPriority] = useState<Priority | ''>('')
 
   const [selectedRecommendation, setSelectedRecommendation] = useState<Recommendation | null>(null)
@@ -39,40 +40,64 @@ export const Recommendations = () => {
       return
     }
 
+    let isMounted = true
+
     const loadRecommendations = async () => {
       setIsLoading(true)
       setError(null)
 
       try {
-        const data = await recommendationService.getRecommendations(uuid)
-        setRecommendations(data.recommendations)
-        setFilteredRecommendations(data.recommendations)
+        const data = await aiRecommendationService.getRecommendations(uuid)
+        if (isMounted) {
+          setRecommendations(data.recommendations)
+          setFilteredRecommendations(data.recommendations)
+        }
       } catch (err) {
         logError('Failed to load recommendations', err)
-        setError('Failed to load recommendations.')
+        if (isMounted) {
+          setError('Failed to load AI recommendations.')
+        }
       } finally {
-        setIsLoading(false)
+        if (isMounted) {
+          setIsLoading(false)
+        }
       }
     }
 
-    loadRecommendations()
+    const loadScanMetadata = async () => {
+      try {
+        const scanStatus = await scanService.getScanStatus(uuid)
+        if (isMounted) {
+          setScanGithubUrl(scanStatus.githubUrl ?? null)
+        }
+      } catch (err) {
+        logError('Failed to load scan metadata', err)
+      }
+    }
+
+    void loadRecommendations()
+    void loadScanMetadata()
+
+    return () => {
+      isMounted = false
+    }
   }, [uuid])
 
   useEffect(() => {
     let filtered = recommendations
 
     if (algorithmType) {
-      filtered = filtered.filter(
-        (rec) =>
-          rec.targetAlgorithm.toLowerCase().includes(algorithmType.toLowerCase()) ||
-          rec.recommendedPQCAlgorithm.toLowerCase().includes(algorithmType.toLowerCase())
-      )
-    }
+      const tokens = algorithmType
+        .split(',')
+        .map((token) => token.trim().toLowerCase())
+        .filter(Boolean)
 
-    if (context) {
-      filtered = filtered.filter((rec) =>
-        rec.context.toLowerCase().includes(context.toLowerCase())
-      )
+      if (tokens.length > 0) {
+        filtered = filtered.filter((rec) => {
+          const targetAlgorithm = rec.targetAlgorithm.toLowerCase()
+          return tokens.some((token) => targetAlgorithm.includes(token))
+        })
+      }
     }
 
     if (priority) {
@@ -80,11 +105,10 @@ export const Recommendations = () => {
     }
 
     setFilteredRecommendations(filtered)
-  }, [recommendations, algorithmType, context, priority])
+  }, [recommendations, algorithmType, priority])
 
   const handleResetFilters = () => {
     setAlgorithmType('')
-    setContext('')
     setPriority('')
   }
 
@@ -96,6 +120,24 @@ export const Recommendations = () => {
   const handleCloseDetailView = () => {
     setIsDetailViewOpen(false)
     setSelectedRecommendation(null)
+  }
+
+  const handleRetryCitations = async () => {
+    if (!uuid || !selectedRecommendation) {
+      return
+    }
+
+    const data = await aiRecommendationService.getRecommendations(uuid)
+    setRecommendations(data.recommendations)
+
+    const refreshedRecommendation =
+      data.recommendations.find((recommendation) => recommendation.id === selectedRecommendation.id) ??
+      data.recommendations.find(
+        (recommendation) => recommendation.issueName === selectedRecommendation.issueName,
+      ) ??
+      selectedRecommendation
+
+    setSelectedRecommendation(refreshedRecommendation)
   }
 
   if (!uuid) {
@@ -117,7 +159,7 @@ export const Recommendations = () => {
       <div className="min-h-screen bg-[#020617] text-white flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-12 h-12 mx-auto mb-4 text-indigo-400 animate-spin" />
-          <p className="text-lg text-slate-300">Loading recommendations...</p>
+          <p className="text-lg text-slate-300">Generating AI recommendations...</p>
         </div>
       </div>
     )
@@ -158,7 +200,20 @@ export const Recommendations = () => {
                 <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-400 via-purple-400 to-indigo-400 bg-clip-text text-transparent">
                   PQC Recommendations
                 </h1>
-                <p className="text-slate-400 text-sm mt-1 font-mono">UUID: {uuid.substring(0, 8)}...</p>
+                {scanGithubUrl ? (
+                  <a
+                    href={scanGithubUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-indigo-300 text-sm mt-1 font-mono hover:text-indigo-200 hover:underline break-all inline-block"
+                  >
+                    {scanGithubUrl}
+                  </a>
+                ) : (
+                  <p className="text-slate-400 text-sm mt-1 font-mono">
+                    UUID: {uuid.substring(0, 8)}...
+                  </p>
+                )}
               </div>
             </div>
             {filteredRecommendations.length > 0 && (
@@ -180,10 +235,8 @@ export const Recommendations = () => {
 
           <RecommendationFilters
             algorithmType={algorithmType}
-            context={context}
             priority={priority}
             onAlgorithmTypeChange={setAlgorithmType}
-            onContextChange={setContext}
             onPriorityChange={setPriority}
             onReset={handleResetFilters}
           />
@@ -199,6 +252,7 @@ export const Recommendations = () => {
         recommendation={selectedRecommendation}
         isOpen={isDetailViewOpen}
         onClose={handleCloseDetailView}
+        onRetryCitations={handleRetryCitations}
       />
     </div>
   )

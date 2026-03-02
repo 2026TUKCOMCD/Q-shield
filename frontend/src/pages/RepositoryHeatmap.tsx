@@ -1,6 +1,7 @@
 ﻿import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { heatmapService, type HeatmapResponse } from '../services/heatmapService'
+import { scanService } from '../services/scanService'
 import { FileTree } from '../components/FileTree'
 import { logError } from '../utils/logger'
 import {
@@ -18,6 +19,7 @@ export const RepositoryHeatmap = () => {
   const { uuid } = useParams<{ uuid: string }>()
 
   const [heatmapData, setHeatmapData] = useState<HeatmapResponse>([])
+  const [scanGithubUrl, setScanGithubUrl] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -28,22 +30,46 @@ export const RepositoryHeatmap = () => {
       return
     }
 
+    let isMounted = true
+
     const loadHeatmap = async () => {
       setIsLoading(true)
       setError(null)
 
       try {
         const data = await heatmapService.getHeatmap(uuid)
-        setHeatmapData(data)
+        if (isMounted) {
+          setHeatmapData(data)
+        }
       } catch (err) {
         logError('Failed to load heatmap', err)
-        setError('Failed to load heatmap data.')
+        if (isMounted) {
+          setError('Failed to load heatmap data.')
+        }
       } finally {
-        setIsLoading(false)
+        if (isMounted) {
+          setIsLoading(false)
+        }
       }
     }
 
-    loadHeatmap()
+    const loadScanMetadata = async () => {
+      try {
+        const scanStatus = await scanService.getScanStatus(uuid)
+        if (isMounted) {
+          setScanGithubUrl(scanStatus.githubUrl ?? null)
+        }
+      } catch (err) {
+        logError('Failed to load scan metadata', err)
+      }
+    }
+
+    void loadHeatmap()
+    void loadScanMetadata()
+
+    return () => {
+      isMounted = false
+    }
   }, [uuid])
 
   if (!uuid) {
@@ -106,7 +132,20 @@ export const RepositoryHeatmap = () => {
                 <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-400 via-purple-400 to-indigo-400 bg-clip-text text-transparent">
                   Repository Heatmap
                 </h1>
-                <p className="text-slate-400 text-sm mt-1 font-mono">UUID: {uuid.substring(0, 8)}...</p>
+                {scanGithubUrl ? (
+                  <a
+                    href={scanGithubUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-indigo-300 text-sm mt-1 font-mono hover:text-indigo-200 hover:underline break-all inline-block"
+                  >
+                    {scanGithubUrl}
+                  </a>
+                ) : (
+                  <p className="text-slate-400 text-sm mt-1 font-mono">
+                    UUID: {uuid.substring(0, 8)}...
+                  </p>
+                )}
               </div>
             </div>
           </div>

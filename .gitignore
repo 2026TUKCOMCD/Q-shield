@@ -46,3 +46,6 @@ out/
 # Secrets
 *.pem
 *.key
+
+# Files
+종합설계 기획서.pdf

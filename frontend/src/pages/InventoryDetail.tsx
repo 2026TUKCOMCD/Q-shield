@@ -1,6 +1,7 @@
 ﻿import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { inventoryService, type AssetDetail } from '../services/inventoryService'
+import { scanService } from '../services/scanService'
 import { type AppError } from '../utils/errorHandler'
 import { AssetDetailList } from '../components/AssetDetailList'
 import { logError } from '../utils/logger'
@@ -46,6 +47,7 @@ export const InventoryDetail = () => {
   const { uuid, assetId } = useParams<{ uuid: string; assetId: string }>()
 
   const [asset, setAsset] = useState<AssetDetail | null>(null)
+  const [scanGithubUrl, setScanGithubUrl] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -57,27 +59,51 @@ export const InventoryDetail = () => {
       return
     }
 
+    let isMounted = true
+
     const loadAssetDetail = async () => {
       setIsLoading(true)
       setError(null)
 
       try {
         const data = await inventoryService.getAssetDetail(uuid, assetId)
-        setAsset(data)
+        if (isMounted) {
+          setAsset(data)
+        }
       } catch (err) {
         const appError = err as AppError
         logError('Failed to load asset detail', err)
-        if (appError?.statusCode === 404) {
-          setError('Asset not found.')
-        } else {
-          setError('자산 상세 정보를 불러오는데 실패했습니다.')
+        if (isMounted) {
+          if (appError?.statusCode === 404) {
+            setError('Asset not found.')
+          } else {
+            setError('자산 상세 정보를 불러오는데 실패했습니다.')
+          }
         }
       } finally {
-        setIsLoading(false)
+        if (isMounted) {
+          setIsLoading(false)
+        }
       }
     }
 
-    loadAssetDetail()
+    const loadScanMetadata = async () => {
+      try {
+        const scanStatus = await scanService.getScanStatus(uuid)
+        if (isMounted) {
+          setScanGithubUrl(scanStatus.githubUrl ?? null)
+        }
+      } catch (err) {
+        logError('Failed to load scan metadata', err)
+      }
+    }
+
+    void loadAssetDetail()
+    void loadScanMetadata()
+
+    return () => {
+      isMounted = false
+    }
   }, [uuid, assetId])
 
   if (!uuid || !assetId) {
@@ -146,7 +172,20 @@ export const InventoryDetail = () => {
               <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-400 via-purple-400 to-indigo-400 bg-clip-text text-transparent">
                 Asset Details
               </h1>
-              <p className="text-slate-400 text-sm mt-1 font-mono">UUID: {uuid.substring(0, 8)}...</p>
+              {scanGithubUrl ? (
+                <a
+                  href={scanGithubUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-indigo-300 text-sm mt-1 font-mono hover:text-indigo-200 hover:underline break-all inline-block"
+                >
+                  {scanGithubUrl}
+                </a>
+              ) : (
+                <p className="text-slate-400 text-sm mt-1 font-mono">
+                  UUID: {uuid.substring(0, 8)}...
+                </p>
+              )}
             </div>
           </div>
           {error && (

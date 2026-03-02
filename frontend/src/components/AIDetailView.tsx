@@ -1,11 +1,24 @@
-﻿import { type Recommendation, type Priority } from '../services/recommendationService'
-import { X, Sparkles, Code, AlertCircle, AlertTriangle, Info, CheckCircle2 } from 'lucide-react'
-import { useEffect } from 'react'
+import { type ReactNode, useEffect, useState } from 'react'
+import {
+  AlertCircle,
+  AlertTriangle,
+  CheckCircle2,
+  Code,
+  ExternalLink,
+  Info,
+  Loader2,
+  RefreshCw,
+  Sparkles,
+  X,
+} from 'lucide-react'
+
+import { type Priority, type Recommendation } from '../services/aiRecommendationService'
 
 interface AIDetailViewProps {
   recommendation: Recommendation | null
   isOpen: boolean
   onClose: () => void
+  onRetryCitations?: () => Promise<void>
 }
 
 const getPriorityIcon = (priority: Priority) => {
@@ -21,12 +34,23 @@ const getPriorityIcon = (priority: Priority) => {
   }
 }
 
+const hasMeaningfulValue = (value?: string | null): value is string => {
+  if (!value) {
+    return false
+  }
+
+  const normalizedValue = value.trim()
+  return normalizedValue !== '' && normalizedValue.toUpperCase() !== 'N/A'
+}
+
+const getDisplayValue = (value?: string | null, fallback = 'Not available') =>
+  hasMeaningfulValue(value) ? value.trim() : fallback
+
 const renderMarkdown = (text: string) => {
   const lines = text.split('\n')
-  const elements: JSX.Element[] = []
+  const elements: ReactNode[] = []
   let currentCodeBlock: string[] = []
   let inCodeBlock = false
-  let codeLanguage = ''
 
   lines.forEach((line, index) => {
     if (line.startsWith('```')) {
@@ -37,13 +61,11 @@ const renderMarkdown = (text: string) => {
             className="bg-slate-900/50 border border-white/10 rounded-lg p-4 overflow-x-auto my-4"
           >
             <code className="text-sm text-slate-200 font-mono">{currentCodeBlock.join('\n')}</code>
-          </pre>
+          </pre>,
         )
         currentCodeBlock = []
         inCodeBlock = false
-        codeLanguage = ''
       } else {
-        codeLanguage = line.replace('```', '').trim()
         inCodeBlock = true
       }
       return
@@ -58,7 +80,7 @@ const renderMarkdown = (text: string) => {
       elements.push(
         <h2 key={index} className="text-xl font-bold text-white mt-6 mb-3">
           {line.replace('## ', '')}
-        </h2>
+        </h2>,
       )
       return
     }
@@ -67,7 +89,7 @@ const renderMarkdown = (text: string) => {
       elements.push(
         <h3 key={index} className="text-lg font-semibold text-slate-200 mt-4 mb-2">
           {line.replace('### ', '')}
-        </h3>
+        </h3>,
       )
       return
     }
@@ -76,7 +98,7 @@ const renderMarkdown = (text: string) => {
       elements.push(
         <li key={index} className="text-slate-300 ml-4 mb-1">
           {line.replace('- ', '')}
-        </li>
+        </li>,
       )
       return
     }
@@ -85,7 +107,7 @@ const renderMarkdown = (text: string) => {
       elements.push(
         <p key={index} className="text-slate-300 mb-3 leading-relaxed">
           {line}
-        </p>
+        </p>,
       )
     } else {
       elements.push(<br key={index} />)
@@ -99,17 +121,147 @@ const renderMarkdown = (text: string) => {
         className="bg-slate-900/50 border border-white/10 rounded-lg p-4 overflow-x-auto my-4"
       >
         <code className="text-sm text-slate-200 font-mono">{currentCodeBlock.join('\n')}</code>
-      </pre>
+      </pre>,
     )
   }
 
   return elements
 }
 
-export const AIDetailView = ({ recommendation, isOpen, onClose }: AIDetailViewProps) => {
+const extractPrimaryGuide = (text: string) => {
+  const stopHeaders = new Set([
+    '### nist standard reference',
+    '### confidence',
+    '### analysis summary',
+    '### supporting citations',
+  ])
+  const lines = text.split('\n')
+
+  while (lines[0]?.trim() === '') {
+    lines.shift()
+  }
+
+  if (lines[0]?.startsWith('## ')) {
+    lines.shift()
+  }
+
+  const primaryLines: string[] = []
+
+  for (const line of lines) {
+    const normalizedLine = line.trim().toLowerCase()
+    if (stopHeaders.has(normalizedLine)) {
+      break
+    }
+    primaryLines.push(line)
+  }
+
+  return primaryLines.join('\n').trim()
+}
+
+const getEvidenceCounts = (recommendation: Recommendation) => {
+  const countsByScannerType = recommendation.inputsSummary?.counts_by_scanner_type
+
+  if (countsByScannerType && typeof countsByScannerType === 'object' && !Array.isArray(countsByScannerType)) {
+    const entries = Object.entries(countsByScannerType as Record<string, unknown>)
+      .map(([label, rawValue]) => {
+        const value = typeof rawValue === 'number' ? rawValue : Number(rawValue)
+        if (!Number.isFinite(value)) {
+          return null
+        }
+
+        return `${label.toUpperCase()}=${Math.round(value)}`
+      })
+      .filter((entry): entry is string => entry !== null)
+
+    if (entries.length > 0) {
+      return entries
+    }
+  }
+
+  const summarySource = `${recommendation.analysisSummary ?? ''} ${recommendation.context ?? ''}`
+  const matches = Array.from(
+    summarySource.matchAll(/\b([A-Z][A-Z0-9_-]*)\s*=\s*(\d+)\b/g),
+    (match) => `${match[1]}=${match[2]}`,
+  )
+
+  return Array.from(new Set(matches))
+}
+
+const getEvidenceTotal = (evidenceCounts: string[]) =>
+  evidenceCounts.reduce((total, entry) => {
+    const value = Number(entry.split('=')[1] ?? 0)
+    return Number.isFinite(value) ? total + value : total
+  }, 0)
+
+const getActionSteps = (recommendation: Recommendation) => {
+  const targetAlgorithm = recommendation.targetAlgorithm.toLowerCase()
+  const recommendedPqc = recommendation.recommendedPQCAlgorithm.toLowerCase()
+
+  if (
+    targetAlgorithm.includes('rsa') &&
+    (recommendedPqc.includes('ml-kem') || recommendedPqc.includes('kyber'))
+  ) {
+    return [
+      'Locate every RSA key exchange or encapsulation entry point in the affected flows.',
+      'Identify the handshake boundary, including client, server, and any intermediary services.',
+      'Replace the RSA key establishment path with an ML-KEM-capable library or provider.',
+      'Use a hybrid rollout path first if interoperability with legacy clients is still required.',
+      'Add integration tests, monitor handshake failures, and phase the rollout by environment.',
+    ]
+  }
+
+  if (
+    (targetAlgorithm.includes('ecc') || targetAlgorithm.includes('ecdsa')) &&
+    (recommendedPqc.includes('ml-dsa') || recommendedPqc.includes('dilithium'))
+  ) {
+    return [
+      'Locate every signing and verification path that depends on ECC or ECDSA.',
+      'Replace the signing and verification implementation with an ML-DSA-capable provider.',
+      'Update key generation, storage, and rotation processes for the new signature format.',
+      'Add regression tests for signature validation, certificate flows, and deployment rollback.',
+    ]
+  }
+
+  return [
+    'Confirm the vulnerable algorithm usage and list the code paths it affects.',
+    'Choose a PQC-capable library that matches the target runtime and deployment model.',
+    'Replace the legacy primitive behind a feature flag or compatibility layer when possible.',
+    'Add unit and integration tests, then roll out gradually with monitoring.',
+  ]
+}
+
+const getConfidenceFillClass = (confidencePercent: number | null) => {
+  if (confidencePercent === null) {
+    return 'bg-slate-600'
+  }
+
+  if (confidencePercent >= 75) {
+    return 'bg-gradient-to-r from-emerald-400 to-teal-400'
+  }
+
+  if (confidencePercent >= 50) {
+    return 'bg-gradient-to-r from-indigo-400 to-purple-500'
+  }
+
+  if (confidencePercent >= 30) {
+    return 'bg-gradient-to-r from-amber-400 to-orange-500'
+  }
+
+  return 'bg-gradient-to-r from-red-400 to-pink-500'
+}
+
+export const AIDetailView = ({
+  recommendation,
+  isOpen,
+  onClose,
+  onRetryCitations,
+}: AIDetailViewProps) => {
+  const [isRetrying, setIsRetrying] = useState(false)
+  const [retryMessage, setRetryMessage] = useState<string | null>(null)
+
   useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && isOpen) {
         onClose()
       }
     }
@@ -117,11 +269,50 @@ export const AIDetailView = ({ recommendation, isOpen, onClose }: AIDetailViewPr
     return () => window.removeEventListener('keydown', handleEscape)
   }, [isOpen, onClose])
 
+  useEffect(() => {
+    setIsRetrying(false)
+    setRetryMessage(null)
+  }, [isOpen, recommendation?.id])
+
   if (!isOpen || !recommendation) {
     return null
   }
 
   const PriorityIcon = getPriorityIcon(recommendation.priority)
+  const hasNistReference = hasMeaningfulValue(recommendation.nistStandardReference)
+  const hasCitations = (recommendation.citations?.length ?? 0) > 0
+  const hasNistEvidence = hasNistReference || hasCitations
+  const confidencePercent =
+    recommendation.confidence === undefined
+      ? null
+      : Math.round(Math.max(0, Math.min(1, recommendation.confidence)) * 100)
+  const primaryGuide = extractPrimaryGuide(recommendation.aiRecommendation)
+  const evidenceCounts = getEvidenceCounts(recommendation)
+  const evidenceTotal = getEvidenceTotal(evidenceCounts)
+  const findingsSummary = getDisplayValue(recommendation.analysisSummary || recommendation.context)
+  const duplicateSignal = `${recommendation.analysisSummary ?? ''} ${recommendation.context ?? ''}`.toLowerCase()
+  const duplicateState =
+    duplicateSignal.includes('dedup') || duplicateSignal.includes('duplicate') ? 'confirmed' : 'unknown'
+  const actionSteps = getActionSteps(recommendation)
+  const canRetryCitations = typeof onRetryCitations === 'function'
+
+  const handleRetryCitations = async () => {
+    if (!onRetryCitations) {
+      return
+    }
+
+    setIsRetrying(true)
+    setRetryMessage(null)
+
+    try {
+      await onRetryCitations()
+      setRetryMessage('Citation refresh requested. This panel updates when new evidence is returned.')
+    } catch {
+      setRetryMessage('Citation refresh could not be completed right now.')
+    } finally {
+      setIsRetrying(false)
+    }
+  }
 
   return (
     <>
@@ -132,7 +323,7 @@ export const AIDetailView = ({ recommendation, isOpen, onClose }: AIDetailViewPr
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
         <div
           className="bg-[#020617] border border-white/10 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col pointer-events-auto animate-in fade-in slide-in-from-bottom-4 duration-300"
-          onClick={(e) => e.stopPropagation()}
+          onClick={(event) => event.stopPropagation()}
         >
           <div className="bg-gradient-to-r from-indigo-500/10 to-purple-600/10 border-b border-white/10 p-6">
             <div className="flex items-start justify-between gap-4">
@@ -155,7 +346,9 @@ export const AIDetailView = ({ recommendation, isOpen, onClose }: AIDetailViewPr
                     <span>
                       <span className="text-red-300">{recommendation.targetAlgorithm}</span>
                       {' -> '}
-                      <span className="text-green-300">{recommendation.recommendedPQCAlgorithm}</span>
+                      <span className="text-green-300">
+                        {getDisplayValue(recommendation.recommendedPQCAlgorithm, '—')}
+                      </span>
                     </span>
                   </div>
                   {recommendation.filePath && (
@@ -163,7 +356,7 @@ export const AIDetailView = ({ recommendation, isOpen, onClose }: AIDetailViewPr
                       {recommendation.filePath}
                     </code>
                   )}
-                  <span>Effort: {recommendation.estimatedEffort}</span>
+                  <span>Effort: {getDisplayValue(recommendation.estimatedEffort, '—')}</span>
                 </div>
               </div>
               <button
@@ -176,22 +369,285 @@ export const AIDetailView = ({ recommendation, isOpen, onClose }: AIDetailViewPr
             </div>
           </div>
           <div className="flex-1 overflow-y-auto p-6">
-            <div className="prose prose-invert max-w-none">
-              <div className="bg-gradient-to-r from-indigo-500/5 to-purple-600/5 border-l-4 border-indigo-500/50 p-4 mb-6 rounded-r-lg">
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 xl:grid-cols-5 gap-3">
+                <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500 mb-2">
+                    Target Algorithm
+                  </p>
+                  <p className="text-sm font-semibold text-red-300">{recommendation.targetAlgorithm}</p>
+                </div>
+                <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500 mb-2">
+                    Recommended PQC
+                  </p>
+                  <p
+                    className="text-sm font-semibold text-green-300"
+                    title={
+                      hasMeaningfulValue(recommendation.recommendedPQCAlgorithm)
+                        ? undefined
+                        : 'A concrete replacement was not returned by the backend.'
+                    }
+                  >
+                    {getDisplayValue(recommendation.recommendedPQCAlgorithm, '—')}
+                  </p>
+                </div>
+                <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500 mb-2">Effort</p>
+                  <p className="text-sm font-semibold text-slate-200">
+                    {getDisplayValue(recommendation.estimatedEffort, '—')}
+                  </p>
+                </div>
+                <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500 mb-2">NIST</p>
+                  <p
+                    className={`text-sm font-semibold ${hasNistEvidence ? 'text-emerald-300' : 'text-amber-300'}`}
+                  >
+                    {hasNistEvidence ? 'Available' : 'Missing'}
+                  </p>
+                </div>
+                <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500 mb-2">Confidence</p>
+                  <p className="text-sm font-semibold text-slate-200">
+                    {confidencePercent === null ? '—' : `${confidencePercent}%`}
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-gradient-to-r from-indigo-500/5 to-purple-600/5 border-l-4 border-indigo-500/50 p-4 rounded-r-lg">
                 <p className="text-slate-200 text-sm leading-relaxed">
                   <strong className="text-white">AI-Generated Migration Guide</strong>
                   <br />
-                  This guide has been automatically generated based on your codebase analysis. Follow
-                  the steps below to migrate to post-quantum cryptography.
+                  This guidance is based on the scan output and the current AI analysis. Use the
+                  action steps below to turn it into a concrete migration plan.
                 </p>
               </div>
 
-              <div className="text-slate-300">{renderMarkdown(recommendation.aiRecommendation)}</div>
+              <div className="text-slate-300">
+                {primaryGuide ? (
+                  renderMarkdown(primaryGuide)
+                ) : (
+                  <p className="text-slate-300 leading-relaxed">
+                    Detailed migration guidance was not returned. Use the action steps below as the
+                    starting point for implementation planning.
+                  </p>
+                )}
+              </div>
+
+              <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-5">
+                <div className="flex items-center gap-2 mb-4">
+                  <CheckCircle2 className="w-5 h-5 text-indigo-300" />
+                  <h3 className="text-lg font-semibold text-white">Action Steps</h3>
+                </div>
+                <ol className="space-y-3">
+                  {actionSteps.map((step, index) => (
+                    <li key={`${recommendation.id}-step-${index}`} className="flex items-start gap-3">
+                      <span className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-indigo-500/15 border border-indigo-400/30 text-xs font-semibold text-indigo-300">
+                        {index + 1}
+                      </span>
+                      <p className="text-sm leading-relaxed text-slate-300">{step}</p>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+
+              <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-5 space-y-4">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-indigo-300" />
+                  <h3 className="text-lg font-semibold text-white">NIST Evidence</h3>
+                </div>
+
+                {!hasNistReference && (
+                  <div className="rounded-xl border border-amber-400/20 bg-amber-500/10 p-4">
+                    <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                      <div className="flex items-start gap-3">
+                        <AlertTriangle className="w-5 h-5 text-amber-300 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <p className="text-sm font-semibold text-amber-200">
+                            NIST citation not available
+                          </p>
+                          <p className="text-sm text-amber-100/90 mt-1 leading-relaxed">
+                            RAG corpus is not loaded or no matching section was retrieved. Confidence
+                            is reduced.
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleRetryCitations}
+                        disabled={!canRetryCitations || isRetrying}
+                        title={
+                          canRetryCitations ? undefined : 'Backend re-run not available yet'
+                        }
+                        className="inline-flex items-center justify-center gap-2 rounded-lg border border-amber-300/20 bg-white/5 px-3 py-2 text-sm font-medium text-amber-100 transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {isRetrying ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <RefreshCw className="w-4 h-4" />
+                        )}
+                        Retry citations
+                      </button>
+                    </div>
+                    {retryMessage && <p className="mt-3 text-xs text-amber-100/80">{retryMessage}</p>}
+                  </div>
+                )}
+
+                {hasNistReference && (
+                  <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                    <p className="text-xs uppercase tracking-[0.2em] text-slate-500 mb-2">
+                      NIST Standard Reference
+                    </p>
+                    <p className="text-sm font-medium text-slate-100">
+                      {getDisplayValue(recommendation.nistStandardReference)}
+                    </p>
+                    {!hasCitations && (
+                      <p className="mt-2 text-xs text-slate-400">
+                        Supporting excerpts were not attached to this result.
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {hasCitations && (
+                  <div className="space-y-3">
+                    {recommendation.citations?.map((citation, index) => (
+                      <div
+                        key={`${citation.doc_id}-${index}`}
+                        className="rounded-xl border border-white/10 bg-white/5 p-4"
+                      >
+                        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                          <div>
+                            <p className="text-sm font-semibold text-white">
+                              {getDisplayValue(citation.title, 'NIST citation')}
+                            </p>
+                            <p className="mt-1 text-xs text-indigo-300">
+                              {getDisplayValue(citation.section, 'Section not available')}
+                              {citation.page ? ` • p.${citation.page}` : ''}
+                            </p>
+                          </div>
+                          {citation.url && (
+                            <a
+                              href={citation.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-xs font-medium text-indigo-300 hover:text-indigo-200"
+                            >
+                              <ExternalLink className="w-3.5 h-3.5" />
+                              Open
+                            </a>
+                          )}
+                        </div>
+                        <p
+                          className="mt-3 text-sm leading-relaxed text-slate-300"
+                          style={{
+                            display: '-webkit-box',
+                            WebkitBoxOrient: 'vertical',
+                            WebkitLineClamp: 2,
+                            overflow: 'hidden',
+                          }}
+                        >
+                          {getDisplayValue(citation.snippet, 'Snippet not available')}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-5 space-y-4">
+                <div className="flex items-center gap-2">
+                  <Info className="w-5 h-5 text-indigo-300" />
+                  <h3 className="text-lg font-semibold text-white">Confidence</h3>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-slate-300">Recommendation confidence</span>
+                    <span className="font-semibold text-white">
+                      {confidencePercent === null ? 'Not available' : `${confidencePercent}%`}
+                    </span>
+                  </div>
+                  <div className="h-2.5 rounded-full bg-white/5 overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-500 ${getConfidenceFillClass(confidencePercent)}`}
+                      style={{ width: `${confidencePercent ?? 0}%` }}
+                    />
+                  </div>
+                </div>
+
+                <ul className="space-y-2 text-sm text-slate-300">
+                  <li className="flex items-start gap-2">
+                    {evidenceCounts.length > 0 ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-300 mt-0.5 flex-shrink-0" />
+                    ) : (
+                      <AlertTriangle className="w-4 h-4 text-amber-300 mt-0.5 flex-shrink-0" />
+                    )}
+                    <span>
+                      Evidence strength:{' '}
+                      {evidenceCounts.length > 0
+                        ? `${evidenceTotal > 0 ? 'supported by current findings' : 'counts returned'}`
+                        : 'unknown'}
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    {duplicateState === 'confirmed' ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-300 mt-0.5 flex-shrink-0" />
+                    ) : (
+                      <Info className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
+                    )}
+                    <span>
+                      Consistency and duplicates:{' '}
+                      {duplicateState === 'confirmed'
+                        ? 'duplicate handling was noted in the analysis'
+                        : 'unknown from current payload'}
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    {hasCitations ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-300 mt-0.5 flex-shrink-0" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 text-rose-300 mt-0.5 flex-shrink-0" />
+                    )}
+                    <span>
+                      Citations present:{' '}
+                      {hasCitations
+                        ? 'supporting excerpts are attached'
+                        : 'missing, which reduced confidence'}
+                    </span>
+                  </li>
+                </ul>
+
+                <div className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-1">
+                  <p className="text-sm text-slate-200">
+                    Evidence:{' '}
+                    {evidenceCounts.length > 0
+                      ? evidenceCounts.slice(0, 3).join(', ')
+                      : 'Counts not available'}
+                  </p>
+                  {!hasCitations && (
+                    <p className="text-sm text-slate-400">Citations missing, so confidence is reduced</p>
+                  )}
+                  <p className="text-xs text-slate-500">
+                    {hasCitations
+                      ? 'Add stronger scan evidence if you need a higher-confidence recommendation.'
+                      : 'Load the RAG corpus and retry citations to increase confidence.'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <Info className="w-5 h-5 text-indigo-300" />
+                  <h3 className="text-lg font-semibold text-white">Analysis Summary</h3>
+                </div>
+                <p className="text-sm leading-relaxed text-slate-300">{findingsSummary}</p>
+              </div>
             </div>
           </div>
-          <div className="bg-white/5 border-t border-white/10 p-4 flex items-center justify-between">
+          <div className="bg-white/5 border-t border-white/10 p-4 flex items-center justify-between gap-4">
             <p className="text-xs text-slate-500">
-              Generated by AI-PQC Scanner | Context: {recommendation.context}
+              Generated by AI-PQC Scanner | Findings summary: {findingsSummary}
             </p>
             <button
               onClick={onClose}
@@ -205,6 +661,3 @@ export const AIDetailView = ({ recommendation, isOpen, onClose }: AIDetailViewPr
     </>
   )
 }
-
-
-

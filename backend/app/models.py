@@ -116,6 +116,11 @@ class Scan(Base):
     inventory: Mapped["InventorySnapshot | None"] = relationship(back_populates="scan", uselist=False, cascade="all, delete-orphan")
     heatmap: Mapped["HeatmapSnapshot | None"] = relationship(back_populates="scan", uselist=False, cascade="all, delete-orphan")
     recommendations: Mapped[list["Recommendation"]] = relationship(back_populates="scan", cascade="all, delete-orphan")
+    ai_analysis: Mapped["AiAnalysisSnapshot | None"] = relationship(
+        back_populates="scan",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
 
 
 class Finding(Base):
@@ -168,3 +173,33 @@ class Recommendation(Base):
     context: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     scan: Mapped["Scan"] = relationship(back_populates="recommendations")
+
+
+class AiAnalysisSnapshot(Base):
+    __tablename__ = "ai_analysis_snapshots"
+
+    scan_uuid: Mapped[uuid_lib.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("scans.uuid", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    risk_score: Mapped[int] = mapped_column(Integer, nullable=False)
+    pqc_readiness_score: Mapped[int] = mapped_column(Integer, nullable=False)
+    severity_weighted_index: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    refactor_cost_level: Mapped[str] = mapped_column(String(10), nullable=False)
+    refactor_cost_explanation: Mapped[str] = mapped_column(Text, nullable=False)
+    affected_files_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    priority_rank: Mapped[int] = mapped_column(Integer, nullable=False)
+    recommendations: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    analysis_summary: Mapped[str] = mapped_column(Text, nullable=False)
+    confidence_score: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    citations: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    nist_standard_reference: Mapped[str] = mapped_column(Text, nullable=False, default="N/A")
+    citation_missing: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    citations_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    inputs_summary: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    analysis_version: Mapped[str] = mapped_column(String(20), nullable=False, default="v1")
+    created_at: Mapped[str] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[str] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    scan: Mapped["Scan"] = relationship(back_populates="ai_analysis")

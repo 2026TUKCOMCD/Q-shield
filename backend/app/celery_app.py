@@ -1,5 +1,7 @@
 import os
+
 from celery import Celery
+
 from app.config import REDIS_URL
 
 BROKER_URL = os.getenv("CELERY_BROKER_URL", REDIS_URL)
@@ -9,7 +11,7 @@ celery_app = Celery(
     "qshield",
     broker=BROKER_URL,
     backend=RESULT_BACKEND,
-    include=["app.tasks"],  # ✅ tasks 자동 로드
+    include=["app.tasks", "app.tasks_ai"],
 )
 
 celery_app.conf.update(
