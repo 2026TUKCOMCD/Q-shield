@@ -61,7 +61,7 @@ export const RecommendationFilters = ({
   }, [isPriorityMenuOpen])
 
   return (
-    <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-xl p-6">
+    <div className="relative z-20 overflow-visible bg-white/5 backdrop-blur-md border border-white/10 rounded-xl p-6">
       <div className="flex items-center gap-3 mb-6">
         <div className="p-2 bg-gradient-to-br from-indigo-500/20 to-purple-600/20 rounded-lg border border-indigo-500/30">
           <Filter className="w-5 h-5 text-indigo-400" />
@@ -89,7 +89,7 @@ export const RecommendationFilters = ({
             className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-all"
           />
         </div>
-        <div ref={priorityMenuRef} className="relative">
+        <div ref={priorityMenuRef} className="relative z-30">
           <label className="block text-sm font-medium text-slate-300 mb-2">Priority</label>
           <button
             type="button"
@@ -111,7 +111,7 @@ export const RecommendationFilters = ({
           </button>
 
           {isPriorityMenuOpen && (
-            <div className="absolute z-20 mt-2 w-full overflow-hidden rounded-lg border border-indigo-500/30 bg-slate-950/95 shadow-2xl shadow-black/40 backdrop-blur-xl">
+            <div className="absolute left-0 right-0 z-50 mt-2 overflow-hidden rounded-lg border border-indigo-400/30 bg-[#1b173a] shadow-2xl shadow-black/50">
               <div className="py-1" role="listbox" aria-label="Priority">
                 {priorityOptions.map((option) => {
                   const isSelected = option.value === priority
@@ -126,8 +126,8 @@ export const RecommendationFilters = ({
                       }}
                       className={`flex w-full items-center px-4 py-2.5 text-left text-sm transition-colors ${
                         isSelected
-                          ? 'bg-indigo-500/20 text-indigo-200'
-                          : 'text-slate-200 hover:bg-white/10 hover:text-white'
+                          ? 'bg-indigo-500/25 text-indigo-100'
+                          : 'text-slate-100 hover:bg-indigo-500/15 hover:text-white'
                       }`}
                       role="option"
                       aria-selected={isSelected}
