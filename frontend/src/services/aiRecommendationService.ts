@@ -207,25 +207,23 @@ const applyFilters = (
   response: RecommendationsResponse,
   filters?: {
     algorithmType?: string
-    context?: string
     priority?: Priority
   },
 ): RecommendationsResponse => {
   let recommendations = response.recommendations
 
   if (filters?.algorithmType) {
-    const keyword = filters.algorithmType.toLowerCase()
-    recommendations = recommendations.filter(
-      (rec) =>
-        rec.targetAlgorithm.toLowerCase().includes(keyword) ||
-        rec.recommendedPQCAlgorithm.toLowerCase().includes(keyword) ||
-        rec.issueName.toLowerCase().includes(keyword),
-    )
-  }
+    const tokens = filters.algorithmType
+      .split(',')
+      .map((token) => token.trim().toLowerCase())
+      .filter(Boolean)
 
-  if (filters?.context) {
-    const keyword = filters.context.toLowerCase()
-    recommendations = recommendations.filter((rec) => rec.context.toLowerCase().includes(keyword))
+    if (tokens.length > 0) {
+      recommendations = recommendations.filter((rec) => {
+        const targetAlgorithm = rec.targetAlgorithm.toLowerCase()
+        return tokens.some((token) => targetAlgorithm.includes(token))
+      })
+    }
   }
 
   if (filters?.priority) {
@@ -243,7 +241,6 @@ export const aiRecommendationService = {
     uuid: string,
     filters?: {
       algorithmType?: string
-      context?: string
       priority?: Priority
     },
   ): Promise<RecommendationsResponse> {
