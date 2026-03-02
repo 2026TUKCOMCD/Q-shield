@@ -1,10 +1,10 @@
 ﻿import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import {
-  recommendationService,
+  aiRecommendationService,
   type Recommendation,
   type Priority,
-} from '../services/recommendationService'
+} from '../services/aiRecommendationService'
 import { RecommendationFilters } from '../components/RecommendationFilters'
 import { RecommendationTable } from '../components/RecommendationTable'
 import { AIDetailView } from '../components/AIDetailView'
@@ -44,12 +44,12 @@ export const Recommendations = () => {
       setError(null)
 
       try {
-        const data = await recommendationService.getRecommendations(uuid)
+        const data = await aiRecommendationService.getRecommendations(uuid)
         setRecommendations(data.recommendations)
         setFilteredRecommendations(data.recommendations)
       } catch (err) {
         logError('Failed to load recommendations', err)
-        setError('Failed to load recommendations.')
+        setError('Failed to load AI recommendations.')
       } finally {
         setIsLoading(false)
       }
@@ -117,7 +117,7 @@ export const Recommendations = () => {
       <div className="min-h-screen bg-[#020617] text-white flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-12 h-12 mx-auto mb-4 text-indigo-400 animate-spin" />
-          <p className="text-lg text-slate-300">Loading recommendations...</p>
+          <p className="text-lg text-slate-300">Generating AI recommendations...</p>
         </div>
       </div>
     )

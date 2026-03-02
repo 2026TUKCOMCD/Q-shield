@@ -1,6 +1,15 @@
-﻿import { type Recommendation, type Priority } from '../services/recommendationService'
-import { X, Sparkles, Code, AlertCircle, AlertTriangle, Info, CheckCircle2 } from 'lucide-react'
 import { useEffect } from 'react'
+import {
+  AlertCircle,
+  AlertTriangle,
+  CheckCircle2,
+  Code,
+  Info,
+  Sparkles,
+  X,
+} from 'lucide-react'
+
+import { type Priority, type Recommendation } from '../services/aiRecommendationService'
 
 interface AIDetailViewProps {
   recommendation: Recommendation | null
@@ -26,7 +35,6 @@ const renderMarkdown = (text: string) => {
   const elements: JSX.Element[] = []
   let currentCodeBlock: string[] = []
   let inCodeBlock = false
-  let codeLanguage = ''
 
   lines.forEach((line, index) => {
     if (line.startsWith('```')) {
@@ -37,13 +45,11 @@ const renderMarkdown = (text: string) => {
             className="bg-slate-900/50 border border-white/10 rounded-lg p-4 overflow-x-auto my-4"
           >
             <code className="text-sm text-slate-200 font-mono">{currentCodeBlock.join('\n')}</code>
-          </pre>
+          </pre>,
         )
         currentCodeBlock = []
         inCodeBlock = false
-        codeLanguage = ''
       } else {
-        codeLanguage = line.replace('```', '').trim()
         inCodeBlock = true
       }
       return
@@ -58,7 +64,7 @@ const renderMarkdown = (text: string) => {
       elements.push(
         <h2 key={index} className="text-xl font-bold text-white mt-6 mb-3">
           {line.replace('## ', '')}
-        </h2>
+        </h2>,
       )
       return
     }
@@ -67,7 +73,7 @@ const renderMarkdown = (text: string) => {
       elements.push(
         <h3 key={index} className="text-lg font-semibold text-slate-200 mt-4 mb-2">
           {line.replace('### ', '')}
-        </h3>
+        </h3>,
       )
       return
     }
@@ -76,7 +82,7 @@ const renderMarkdown = (text: string) => {
       elements.push(
         <li key={index} className="text-slate-300 ml-4 mb-1">
           {line.replace('- ', '')}
-        </li>
+        </li>,
       )
       return
     }
@@ -85,7 +91,7 @@ const renderMarkdown = (text: string) => {
       elements.push(
         <p key={index} className="text-slate-300 mb-3 leading-relaxed">
           {line}
-        </p>
+        </p>,
       )
     } else {
       elements.push(<br key={index} />)
@@ -99,7 +105,7 @@ const renderMarkdown = (text: string) => {
         className="bg-slate-900/50 border border-white/10 rounded-lg p-4 overflow-x-auto my-4"
       >
         <code className="text-sm text-slate-200 font-mono">{currentCodeBlock.join('\n')}</code>
-      </pre>
+      </pre>,
     )
   }
 
@@ -108,8 +114,8 @@ const renderMarkdown = (text: string) => {
 
 export const AIDetailView = ({ recommendation, isOpen, onClose }: AIDetailViewProps) => {
   useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && isOpen) {
         onClose()
       }
     }
@@ -132,7 +138,7 @@ export const AIDetailView = ({ recommendation, isOpen, onClose }: AIDetailViewPr
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
         <div
           className="bg-[#020617] border border-white/10 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col pointer-events-auto animate-in fade-in slide-in-from-bottom-4 duration-300"
-          onClick={(e) => e.stopPropagation()}
+          onClick={(event) => event.stopPropagation()}
         >
           <div className="bg-gradient-to-r from-indigo-500/10 to-purple-600/10 border-b border-white/10 p-6">
             <div className="flex items-start justify-between gap-4">
@@ -187,6 +193,52 @@ export const AIDetailView = ({ recommendation, isOpen, onClose }: AIDetailViewPr
               </div>
 
               <div className="text-slate-300">{renderMarkdown(recommendation.aiRecommendation)}</div>
+
+              {(recommendation.nistStandardReference || recommendation.confidence !== undefined) && (
+                <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {recommendation.nistStandardReference && (
+                    <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+                      <p className="text-xs uppercase tracking-wide text-slate-500 mb-2">
+                        NIST Standard
+                      </p>
+                      <p className="text-sm text-slate-200">{recommendation.nistStandardReference}</p>
+                    </div>
+                  )}
+                  {recommendation.confidence !== undefined && (
+                    <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+                      <p className="text-xs uppercase tracking-wide text-slate-500 mb-2">
+                        Confidence
+                      </p>
+                      <p className="text-sm text-slate-200">
+                        {Math.round(recommendation.confidence * 100)}%
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {recommendation.citations && recommendation.citations.length > 0 && (
+                <div className="mt-6">
+                  <h3 className="text-lg font-semibold text-white mb-3">Supporting Citations</h3>
+                  <div className="space-y-3">
+                    {recommendation.citations.map((citation, index) => (
+                      <div
+                        key={`${citation.doc_id}-${index}`}
+                        className="bg-white/5 border border-white/10 rounded-lg p-4"
+                      >
+                        <p className="text-sm font-semibold text-white">
+                          {citation.title}
+                          {citation.page ? ` (p.${citation.page})` : ''}
+                        </p>
+                        <p className="text-xs text-indigo-300 mt-1">{citation.section}</p>
+                        <p className="text-sm text-slate-300 mt-2 leading-relaxed">
+                          {citation.snippet}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
           <div className="bg-white/5 border-t border-white/10 p-4 flex items-center justify-between">
@@ -205,6 +257,3 @@ export const AIDetailView = ({ recommendation, isOpen, onClose }: AIDetailViewPr
     </>
   )
 }
-
-
-

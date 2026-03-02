@@ -1,5 +1,13 @@
-﻿import { type Recommendation, type Priority } from '../services/recommendationService'
-import { FileCode, AlertCircle, AlertTriangle, Info, CheckCircle2, Sparkles } from 'lucide-react'
+import {
+  AlertCircle,
+  AlertTriangle,
+  CheckCircle2,
+  FileCode,
+  Info,
+  Sparkles,
+} from 'lucide-react'
+
+import { type Priority, type Recommendation } from '../services/aiRecommendationService'
 
 interface RecommendationTableProps {
   recommendations: Recommendation[]
@@ -120,6 +128,11 @@ export const RecommendationTable = ({
                         {recommendation.filePath}
                       </code>
                     )}
+                    {recommendation.nistStandardReference && (
+                      <p className="text-xs text-indigo-300 mt-1">
+                        {recommendation.nistStandardReference}
+                      </p>
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className="text-red-300 font-mono text-sm">{recommendation.targetAlgorithm}</span>
@@ -146,5 +159,3 @@ export const RecommendationTable = ({
     </div>
   )
 }
-
-

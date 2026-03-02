@@ -1,5 +1,6 @@
-﻿import { type Priority } from '../services/recommendationService'
 import { Filter, X } from 'lucide-react'
+
+import { type Priority } from '../services/aiRecommendationService'
 
 interface RecommendationFiltersProps {
   algorithmType: string
@@ -46,7 +47,7 @@ export const RecommendationFilters = ({
           <input
             type="text"
             value={algorithmType}
-            onChange={(e) => onAlgorithmTypeChange(e.target.value)}
+            onChange={(event) => onAlgorithmTypeChange(event.target.value)}
             placeholder="e.g., RSA, SHA, AES"
             className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-all"
           />
@@ -56,7 +57,7 @@ export const RecommendationFilters = ({
           <input
             type="text"
             value={context}
-            onChange={(e) => onContextChange(e.target.value)}
+            onChange={(event) => onContextChange(event.target.value)}
             placeholder="e.g., authentication, payment"
             className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-all"
           />
@@ -65,7 +66,7 @@ export const RecommendationFilters = ({
           <label className="block text-sm font-medium text-slate-300 mb-2">Priority</label>
           <select
             value={priority}
-            onChange={(e) => onPriorityChange(e.target.value as Priority | '')}
+            onChange={(event) => onPriorityChange(event.target.value as Priority | '')}
             className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-all"
           >
             <option value="">All Priorities</option>
@@ -79,5 +80,3 @@ export const RecommendationFilters = ({
     </div>
   )
 }
-
-
