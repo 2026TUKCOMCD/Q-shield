@@ -13,6 +13,8 @@ from sqlalchemy.orm import sessionmaker
 from app.celery_app import celery_app
 from app.config import DATABASE_URL_SYNC
 from app.models import Finding, HeatmapSnapshot, InventorySnapshot, Recommendation, Scan
+from app.scoring import build_score_signals_from_reports, compute_pqc_readiness_score
+from app.scoring.criteria import score_signal_points
 from app.severity_map import CANONICAL_SEVERITIES, canonicalize_severity
 
 # Add scanner module path so Celery worker can import it.
@@ -159,68 +161,9 @@ def run_scan_pipeline(scan_uuid: str):
 
 
 def _calculate_pqc_score(sast_report, sca_report) -> int:
-    """Calculate a PQC readiness score (0-10) using weighted risk signals."""
-    severity_weight = {
-        "CRITICAL": 4.0,
-        "HIGH": 3.0,
-        "MEDIUM": 2.0,
-        "LOW": 1.0,
-        "INFO": 0.5,
-    }
-
-    def _algo_weight(algo: str | None) -> float:
-        if not algo:
-            return 1.0
-        text = str(algo).lower()
-        if any(k in text for k in ("rsa", "ecc", "ecdsa", "dsa", "dh", "diffie")):
-            return 1.6
-        if any(k in text for k in ("md5", "sha1", "sha-1", "weak hash", "sha1")):
-            return 1.3
-        if any(k in text for k in ("aes", "chacha", "symmetric")):
-            return 1.0
-        return 1.0
-
-    def _lib_to_algo(name: str | None) -> str:
-        if not name:
-            return "Unknown"
-        text = str(name).lower()
-        if any(k in text for k in ("rsa", "node-rsa", "python-rsa")):
-            return "RSA"
-        if any(k in text for k in ("ecdsa", "ecc", "elliptic")):
-            return "ECC/ECDSA"
-        if any(k in text for k in ("dsa", "dh", "diffie")):
-            return "DSA/DH"
-        if any(k in text for k in ("sha1", "sha-1", "md5")):
-            return "Weak Hash"
-        return "Unknown"
-
-    weighted_total = 0.0
-
-    # SAST
-    for detail in getattr(sast_report, "detailed_results", []) or []:
-        for vuln in getattr(detail, "vulnerabilities", []) or []:
-            if not isinstance(vuln, dict):
-                continue
-            sev = str(vuln.get("severity", "MEDIUM")).upper()
-            algo = vuln.get("algorithm")
-            weighted_total += severity_weight.get(sev, 2.0) * _algo_weight(algo)
-
-    # SCA
-    for detail in getattr(sca_report, "detailed_results", []) or []:
-        for dep in getattr(detail, "vulnerable_dependencies", []) or []:
-            if not isinstance(dep, dict):
-                continue
-            sev = str(dep.get("severity", "MEDIUM")).upper()
-            lib = dep.get("name") or dep.get("library_name")
-            algo = _lib_to_algo(lib)
-            weighted_total += severity_weight.get(sev, 2.0) * _algo_weight(algo)
-
-    if weighted_total <= 0:
-        return 10
-
-    penalty = min(9.0, weighted_total / 3.0)
-    score = int(max(1.0, 10.0 - penalty))
-    return score
+    """Calculate a PQC readiness score (0-10) using shared scoring criteria."""
+    signals = build_score_signals_from_reports(sast_report, sca_report)
+    return compute_pqc_readiness_score(signals, scale=10)
 
 
 def _extract_algorithm_ratios(sast_report):
@@ -279,26 +222,6 @@ def _extract_inventory_table(sast_report, sca_report, repo_path: str):
     details = getattr(sast_report, "detailed_results", []) or []
     repo_root = Path(repo_path)
 
-    severity_weight = {
-        "CRITICAL": 4.0,
-        "HIGH": 3.0,
-        "MEDIUM": 2.0,
-        "LOW": 1.0,
-        "INFO": 0.5,
-    }
-
-    def _algo_weight(algo: str | None) -> float:
-        if not algo:
-            return 1.0
-        text = str(algo).lower()
-        if any(k in text for k in ("rsa", "ecc", "ecdsa", "dsa", "dh", "diffie")):
-            return 1.6
-        if any(k in text for k in ("md5", "sha1", "sha-1", "weak hash", "sha1")):
-            return 1.3
-        if any(k in text for k in ("aes", "chacha", "symmetric")):
-            return 1.0
-        return 1.0
-
     for detail in details:
         vulns = getattr(detail, "vulnerabilities", None)
         file_path = getattr(detail, "file_path", None)
@@ -312,7 +235,7 @@ def _extract_inventory_table(sast_report, sca_report, repo_path: str):
 
             algo = vuln.get("algorithm", "Unknown")
             severity = str(vuln.get("severity", "MEDIUM")).upper()
-            risk_points = severity_weight.get(severity, 2.0) * _algo_weight(algo)
+            risk_points = score_signal_points(severity, algo)
             line_raw = vuln.get("line", None)
             try:
                 line = int(line_raw)
@@ -356,26 +279,6 @@ def _build_heatmap_tree(repo_path, analysis_result, sast_report):
     repo_root = Path(repo_path)
     skip_dirs = {".git", "node_modules", ".venv", "dist", "build", "__pycache__"}
 
-    severity_weight = {
-        "CRITICAL": 4.0,
-        "HIGH": 3.0,
-        "MEDIUM": 2.0,
-        "LOW": 1.0,
-        "INFO": 0.5,
-    }
-
-    def _algo_weight(algo: str | None) -> float:
-        if not algo:
-            return 1.0
-        text = str(algo).lower()
-        if any(k in text for k in ("rsa", "ecc", "ecdsa", "dsa", "dh", "diffie")):
-            return 1.6
-        if any(k in text for k in ("md5", "sha1", "sha-1", "weak hash", "sha1")):
-            return 1.3
-        if any(k in text for k in ("aes", "chacha", "symmetric")):
-            return 1.0
-        return 1.0
-
     for detail in details:
         file_path = getattr(detail, "file_path", None)
         vulns = getattr(detail, "vulnerabilities", []) or []
@@ -388,7 +291,7 @@ def _build_heatmap_tree(repo_path, analysis_result, sast_report):
                 continue
             sev = str(v.get("severity", "MEDIUM")).upper()
             algo = v.get("algorithm")
-            severity_score += severity_weight.get(sev, 2.0) * _algo_weight(algo)
+            severity_score += score_signal_points(sev, algo)
         severity_score = min(10.0, severity_score)
 
         normalized_path = _normalize_repo_path(repo_root, str(file_path))
@@ -611,6 +514,9 @@ def _normalize_findings(sast_report, sca_report, config_report, repo_path: str |
         algorithm: str | None = None,
         meta: dict | None = None,
     ):
+        if severity is not None and not isinstance(severity, str):
+            logger.warning("Skipping finding: invalid severity type=%s", type(severity).__name__)
+            return
         canonical_severity, severity_score = canonicalize_severity(severity)
         payload = {
             "type": _cap(rule_id or scanner_type, 20) or scanner_type,

@@ -5,18 +5,23 @@ from datetime import datetime, timezone
 from uuid import UUID
 from urllib.parse import urlparse, unquote
 
+from app.ai_analysis_store import get_ai_analysis_snapshot, serialize_ai_analysis_snapshot
 from app.db import get_db
 from app.models import InventorySnapshot, HeatmapSnapshot, Recommendation, Repository, Scan
+from app.scan_read_service import get_findings_response
 from app.security import require_user_uuid_from_auth_header
 from app.schemas import (
     ScanCreateRequest, ScanCreateResponse,
     ScanStatusResponse, ScanListItem,
     ScanBulkDeleteRequest, ScanBulkDeleteResponse,
+    FindingsResponse,
     InventoryResponse, InventoryAsset,
     RecommendationsResponse, RecommendationItem,
+    AiAnalysisResponse, AiAnalysisStartResponse,
     HeatmapResponse, HeatmapNode,
 )
 from app.tasks import run_scan_pipeline
+from app.tasks_ai import run_ai_analysis
 
 
 router = APIRouter(prefix="/api/scans", tags=["scans"])
@@ -303,6 +308,32 @@ def delete_scan(
     return None
 
 
+@router.get("/{uuid}/findings", response_model=FindingsResponse)
+def get_findings(
+    uuid: str,
+    db: Session = Depends(get_db),
+    scanner_type: str | None = Query(default=None),
+    severity: str | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
+    user_uuid: UUID = Depends(get_request_user_uuid),
+):
+    try:
+        scan_uuid = UUID(uuid)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid uuid")
+
+    return get_findings_response(
+        db,
+        scan_uuid,
+        scanner_type=scanner_type,
+        severity=severity,
+        limit=limit,
+        offset=offset,
+        user_uuid=user_uuid,
+    )
+
+
 @router.post("/bulk-delete", response_model=ScanBulkDeleteResponse)
 def bulk_delete_scans(
     payload: ScanBulkDeleteRequest,
@@ -482,6 +513,52 @@ def get_recommendations(
         )
 
     return RecommendationsResponse(uuid=str(scan_uuid), recommendations=items)
+
+
+@router.post("/{uuid}/ai-analysis", response_model=AiAnalysisStartResponse, status_code=202)
+def create_ai_analysis(
+    uuid: str,
+    db: Session = Depends(get_db),
+    user_uuid: UUID = Depends(get_request_user_uuid),
+):
+    try:
+        scan_uuid = UUID(uuid)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid uuid")
+
+    scan = _scoped_scan_query(db, user_uuid).filter(Scan.uuid == scan_uuid).first()
+    if not scan:
+        raise HTTPException(status_code=404, detail="Scan not found")
+
+    existing = get_ai_analysis_snapshot(db, scan_uuid)
+    run_ai_analysis.delay(str(scan_uuid))
+    return AiAnalysisStartResponse(
+        status="QUEUED",
+        scan_id=str(scan_uuid),
+        ai_analysis_id=str(existing.scan_uuid) if existing else None,
+    )
+
+
+@router.get("/{uuid}/ai-analysis", response_model=AiAnalysisResponse)
+def get_ai_analysis(
+    uuid: str,
+    db: Session = Depends(get_db),
+    user_uuid: UUID = Depends(get_request_user_uuid),
+):
+    try:
+        scan_uuid = UUID(uuid)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid uuid")
+
+    scan = _scoped_scan_query(db, user_uuid).filter(Scan.uuid == scan_uuid).first()
+    if not scan:
+        raise HTTPException(status_code=404, detail="Scan not found")
+
+    snapshot = get_ai_analysis_snapshot(db, scan_uuid)
+    if not snapshot:
+        raise HTTPException(status_code=404, detail="AI analysis not ready")
+
+    return serialize_ai_analysis_snapshot(snapshot)
 
 
 

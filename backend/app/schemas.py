@@ -2,6 +2,8 @@ from pydantic import BaseModel, Field, RootModel
 from typing import Optional, List, Dict
 from datetime import datetime
 
+from app.ai_module.schemas import AiAnalysisResponse, AiAnalysisStartResponse
+
 # 1) POST /api/scans
 class ScanCreateRequest(BaseModel):
     github_url: Optional[str] = None
@@ -78,6 +80,27 @@ class InventoryResponse(BaseModel):
     pqcReadinessScore: float
     algorithmRatios: Dict[str, float]
     inventory: List[InventoryAsset]
+
+
+class FindingItem(BaseModel):
+    id: int
+    type: str
+    severity: str
+    algorithm: Optional[str] = None
+    context: Optional[str] = None
+    file_path: Optional[str] = None
+    line_start: Optional[int] = None
+    line_end: Optional[int] = None
+    evidence: Optional[str] = None
+    meta: Dict = Field(default_factory=dict)
+
+
+class FindingsResponse(BaseModel):
+    scan_id: str
+    total: int
+    limit: int
+    offset: int
+    items: List[FindingItem]
 
 
 # 5) GET /api/scans/{uuid}/recommendations
