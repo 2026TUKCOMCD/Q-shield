@@ -122,6 +122,24 @@ export const Recommendations = () => {
     setSelectedRecommendation(null)
   }
 
+  const handleRetryCitations = async () => {
+    if (!uuid || !selectedRecommendation) {
+      return
+    }
+
+    const data = await aiRecommendationService.getRecommendations(uuid)
+    setRecommendations(data.recommendations)
+
+    const refreshedRecommendation =
+      data.recommendations.find((recommendation) => recommendation.id === selectedRecommendation.id) ??
+      data.recommendations.find(
+        (recommendation) => recommendation.issueName === selectedRecommendation.issueName,
+      ) ??
+      selectedRecommendation
+
+    setSelectedRecommendation(refreshedRecommendation)
+  }
+
   if (!uuid) {
     return (
       <div className="min-h-screen bg-[#020617] text-white flex items-center justify-center">
@@ -234,6 +252,7 @@ export const Recommendations = () => {
         recommendation={selectedRecommendation}
         isOpen={isDetailViewOpen}
         onClose={handleCloseDetailView}
+        onRetryCitations={handleRetryCitations}
       />
     </div>
   )

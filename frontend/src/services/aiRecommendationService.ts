@@ -21,6 +21,8 @@ export interface Recommendation {
   citations?: AiCitation[]
   confidence?: number
   analysisSummary?: string
+  citationMissing?: boolean
+  inputsSummary?: Record<string, unknown>
 }
 
 export interface RecommendationsResponse {
@@ -51,7 +53,7 @@ const shouldUseDevFallback = (error: AppError): boolean => {
   return error.type === ErrorType.API_ERROR && (error.statusCode ?? 0) >= 500
 }
 
-const generateMockRecommendations = (uuid: string): Recommendation[] => {
+const generateMockRecommendations = (): Recommendation[] => {
   return [
     {
       id: 'rec-1',
@@ -112,6 +114,15 @@ const getEffortFromCostLevel = (level: 'LOW' | 'MEDIUM' | 'HIGH'): string => {
   }
 }
 
+const hasMeaningfulText = (value?: string | null): value is string => {
+  if (!value) {
+    return false
+  }
+
+  const normalizedValue = value.trim()
+  return normalizedValue !== '' && normalizedValue.toUpperCase() !== 'N/A'
+}
+
 const inferTargetAlgorithm = (recommendation: AiAnalysisRecommendation): string => {
   const text = `${recommendation.title} ${recommendation.description}`.toLowerCase()
   if (text.includes('rsa')) {
@@ -140,7 +151,9 @@ const inferRecommendedPqc = (recommendation: AiAnalysisRecommendation): string =
   if (text.includes('ml-dsa') || text.includes('dilithium')) {
     return 'ML-DSA (Dilithium)'
   }
-  return recommendation.nist_standard_reference || 'PQC Migration'
+  return hasMeaningfulText(recommendation.nist_standard_reference)
+    ? recommendation.nist_standard_reference
+    : 'PQC Migration'
 }
 
 const formatAiRecommendation = (
@@ -153,7 +166,9 @@ const formatAiRecommendation = (
     recommendation.description,
     '',
     '### NIST Standard Reference',
-    recommendation.nist_standard_reference || 'N/A',
+    hasMeaningfulText(recommendation.nist_standard_reference)
+      ? recommendation.nist_standard_reference
+      : 'Not available',
     '',
     '### Confidence',
     `${Math.round(confidenceScore * 100)}%`,
@@ -197,6 +212,8 @@ const mapAiAnalysisToRecommendations = (
       citations: recommendation.citations,
       confidence,
       analysisSummary: payload.analysis_summary,
+      citationMissing: payload.citation_missing,
+      inputsSummary: payload.inputs_summary,
     }
   })
 
@@ -265,7 +282,7 @@ export const aiRecommendationService = {
       }
 
       if (shouldUseDevFallback(appError)) {
-        return applyFilters({ uuid, recommendations: generateMockRecommendations(uuid) }, filters)
+        return applyFilters({ uuid, recommendations: generateMockRecommendations() }, filters)
       }
 
       throw appError
