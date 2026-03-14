@@ -45,7 +45,7 @@ CONFIG_CRYPTO_PATTERNS = {
             r'DHE-RSA',
         ],
         "severity": "MEDIUM",
-        "description": "DHE 湲곕컲 ??援먰솚 ?ъ슜",
+        "description": "DHE-based key exchange usage.",
         "recommendation": "Consider PQC KEMs such as Kyber."
     },
     
