@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { ScanForm } from '../components/ScanForm'
 import { type InitiateScanResponse } from '../services/scanService'
 import { logInfo } from '../utils/logger'
-import { Search, Shield, Zap, CheckCircle2 } from 'lucide-react'
+import { Search, CheckCircle2 } from 'lucide-react'
 
 export const ScanInput = () => {
   const navigate = useNavigate()
@@ -74,50 +74,6 @@ export const ScanInput = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-200">
-            {[
-              {
-                icon: Shield,
-                title: 'Algorithm Detection',
-                description: 'Detects weak cryptographic algorithms such as RSA-1024 and SHA-1.',
-                gradient: 'from-blue-500/20 to-cyan-500/20',
-                borderColor: 'border-blue-500/30',
-                iconColor: 'text-blue-400',
-              },
-              {
-                icon: Search,
-                title: 'Risk Scoring',
-                description: 'Calculates migration risk based on post-quantum transition urgency.',
-                gradient: 'from-purple-500/20 to-pink-500/20',
-                borderColor: 'border-purple-500/30',
-                iconColor: 'text-purple-400',
-              },
-              {
-                icon: Zap,
-                title: 'Fast AST Scan',
-                description: 'Performs AST-based analysis for accurate and stable results.',
-                gradient: 'from-indigo-500/20 to-purple-500/20',
-                borderColor: 'border-indigo-500/30',
-                iconColor: 'text-indigo-400',
-              },
-            ].map((feature, idx) => {
-              const Icon = feature.icon
-              return (
-                <div
-                  key={idx}
-                  className="group relative bg-white/5 backdrop-blur-md border border-white/10 rounded-xl p-6 hover:bg-white/10 hover:border-white/20 transition-all duration-300 hover:-translate-y-1"
-                >
-                  <div
-                    className={`w-12 h-12 bg-gradient-to-br ${feature.gradient} ${feature.borderColor} border rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}
-                  >
-                    <Icon className={`w-6 h-6 ${feature.iconColor}`} />
-                  </div>
-                  <h3 className="text-white font-semibold mb-2">{feature.title}</h3>
-                  <p className="text-sm text-slate-400 leading-relaxed">{feature.description}</p>
-                </div>
-              )
-            })}
-          </div>
         </div>
       </div>
     </div>
