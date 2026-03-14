@@ -193,43 +193,6 @@ const getEvidenceTotal = (evidenceCounts: string[]) =>
     return Number.isFinite(value) ? total + value : total
   }, 0)
 
-const getActionSteps = (recommendation: Recommendation) => {
-  const targetAlgorithm = recommendation.targetAlgorithm.toLowerCase()
-  const recommendedPqc = recommendation.recommendedPQCAlgorithm.toLowerCase()
-
-  if (
-    targetAlgorithm.includes('rsa') &&
-    (recommendedPqc.includes('ml-kem') || recommendedPqc.includes('kyber'))
-  ) {
-    return [
-      'Locate every RSA key exchange or encapsulation entry point in the affected flows.',
-      'Identify the handshake boundary, including client, server, and any intermediary services.',
-      'Replace the RSA key establishment path with an ML-KEM-capable library or provider.',
-      'Use a hybrid rollout path first if interoperability with legacy clients is still required.',
-      'Add integration tests, monitor handshake failures, and phase the rollout by environment.',
-    ]
-  }
-
-  if (
-    (targetAlgorithm.includes('ecc') || targetAlgorithm.includes('ecdsa')) &&
-    (recommendedPqc.includes('ml-dsa') || recommendedPqc.includes('dilithium'))
-  ) {
-    return [
-      'Locate every signing and verification path that depends on ECC or ECDSA.',
-      'Replace the signing and verification implementation with an ML-DSA-capable provider.',
-      'Update key generation, storage, and rotation processes for the new signature format.',
-      'Add regression tests for signature validation, certificate flows, and deployment rollback.',
-    ]
-  }
-
-  return [
-    'Confirm the vulnerable algorithm usage and list the code paths it affects.',
-    'Choose a PQC-capable library that matches the target runtime and deployment model.',
-    'Replace the legacy primitive behind a feature flag or compatibility layer when possible.',
-    'Add unit and integration tests, then roll out gradually with monitoring.',
-  ]
-}
-
 const getConfidenceFillClass = (confidencePercent: number | null) => {
   if (confidencePercent === null) {
     return 'bg-slate-600'
@@ -293,7 +256,8 @@ export const AIDetailView = ({
   const duplicateSignal = `${recommendation.analysisSummary ?? ''} ${recommendation.context ?? ''}`.toLowerCase()
   const duplicateState =
     duplicateSignal.includes('dedup') || duplicateSignal.includes('duplicate') ? 'confirmed' : 'unknown'
-  const actionSteps = getActionSteps(recommendation)
+  const affectedLocations = recommendation.affectedLocations ?? []
+  const codeFixExamples = recommendation.codeFixExamples ?? []
   const canRetryCitations = typeof onRetryCitations === 'function'
 
   const handleRetryCitations = async () => {
@@ -419,7 +383,7 @@ export const AIDetailView = ({
                   <strong className="text-white">AI-Generated Migration Guide</strong>
                   <br />
                   This guidance is based on the scan output and the current AI analysis. Use the
-                  action steps below to turn it into a concrete migration plan.
+                  affected locations and suggested code fixes below to build your migration plan.
                 </p>
               </div>
 
@@ -428,27 +392,76 @@ export const AIDetailView = ({
                   renderMarkdown(primaryGuide)
                 ) : (
                   <p className="text-slate-300 leading-relaxed">
-                    Detailed migration guidance was not returned. Use the action steps below as the
-                    starting point for implementation planning.
+                    Detailed migration guidance was not returned. Use the affected locations and
+                    suggested code fixes below as the starting point for implementation planning.
                   </p>
                 )}
               </div>
 
               <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-5">
                 <div className="flex items-center gap-2 mb-4">
-                  <CheckCircle2 className="w-5 h-5 text-indigo-300" />
-                  <h3 className="text-lg font-semibold text-white">Action Steps</h3>
+                  <Code className="w-5 h-5 text-indigo-300" />
+                  <h3 className="text-lg font-semibold text-white">Affected Code Locations</h3>
                 </div>
-                <ol className="space-y-3">
-                  {actionSteps.map((step, index) => (
-                    <li key={`${recommendation.id}-step-${index}`} className="flex items-start gap-3">
-                      <span className="mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-indigo-500/15 border border-indigo-400/30 text-xs font-semibold text-indigo-300">
-                        {index + 1}
-                      </span>
-                      <p className="text-sm leading-relaxed text-slate-300">{step}</p>
-                    </li>
-                  ))}
-                </ol>
+                {affectedLocations.length > 0 ? (
+                  <div className="space-y-3">
+                    {affectedLocations.slice(0, 8).map((location, index) => (
+                      <div key={`${recommendation.id}-loc-${index}`} className="rounded-lg border border-white/10 bg-white/5 p-3">
+                        <p className="text-sm text-slate-100 font-mono">{location.file_path}</p>
+                        <p className="text-xs text-slate-400 mt-1">
+                          line {location.line_start ?? '?'}{location.line_end && location.line_end !== location.line_start ? `-${location.line_end}` : ''}
+                          {location.rule_id ? ` | rule=${location.rule_id}` : ''}
+                          {location.scanner_type ? ` | scanner=${location.scanner_type}` : ''}
+                        </p>
+                        {location.evidence_excerpt && (
+                          <pre className="mt-2 whitespace-pre-wrap text-xs text-slate-300 bg-slate-900/40 border border-white/10 rounded p-2 overflow-x-auto">
+                            <code>{location.evidence_excerpt}</code>
+                          </pre>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-400">No concrete affected locations were returned by the AI response.</p>
+                )}
+              </div>
+
+              <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-5">
+                <div className="flex items-center gap-2 mb-4">
+                  <Code className="w-5 h-5 text-indigo-300" />
+                  <h3 className="text-lg font-semibold text-white">Suggested Code Fixes</h3>
+                </div>
+                {codeFixExamples.length > 0 ? (
+                  <div className="space-y-4">
+                    {codeFixExamples.slice(0, 6).map((fix, index) => (
+                      <div key={`${recommendation.id}-fix-${index}`} className="rounded-lg border border-white/10 bg-white/5 p-4 space-y-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="text-sm text-slate-100 font-mono">{fix.file_path}</p>
+                          <p className="text-xs text-slate-400">
+                            {fix.language ? `${fix.language} | ` : ''}confidence {Math.round(Math.max(0, Math.min(1, fix.confidence ?? 0)) * 100)}%
+                          </p>
+                        </div>
+                        <p className="text-sm text-slate-300">{fix.rationale}</p>
+                        <div className="grid gap-3 xl:grid-cols-2">
+                          <div>
+                            <p className="text-xs uppercase tracking-[0.15em] text-rose-300 mb-2">Before</p>
+                            <pre className="whitespace-pre-wrap text-xs text-slate-200 bg-slate-900/60 border border-rose-400/20 rounded p-3 overflow-x-auto">
+                              <code>{fix.before_code}</code>
+                            </pre>
+                          </div>
+                          <div>
+                            <p className="text-xs uppercase tracking-[0.15em] text-emerald-300 mb-2">After</p>
+                            <pre className="whitespace-pre-wrap text-xs text-slate-200 bg-slate-900/60 border border-emerald-400/20 rounded p-3 overflow-x-auto">
+                              <code>{fix.after_code}</code>
+                            </pre>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-400">No concrete before/after patch examples were returned by the AI response.</p>
+                )}
               </div>
 
               <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-5 space-y-4">

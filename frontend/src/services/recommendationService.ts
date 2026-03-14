@@ -3,14 +3,8 @@ import { config } from '../config'
 import { handleError, type AppError, ErrorType } from '../utils/errorHandler'
 import { logError } from '../utils/logger'
 
-/**
- * 우선순위 타입
- */
 export type Priority = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'
 
-/**
- * 추천사항 타입
- */
 export interface Recommendation {
   id: string
   priorityRank: number
@@ -24,21 +18,13 @@ export interface Recommendation {
   filePath?: string
 }
 
-/**
- * 추천사항 응답 타입
- */
 export interface RecommendationsResponse {
   uuid: string
   recommendations: Recommendation[]
 }
 
 const isAppError = (error: unknown): error is AppError => {
-  return (
-    typeof error === 'object' &&
-    error !== null &&
-    'type' in error &&
-    'message' in error
-  )
+  return typeof error === 'object' && error !== null && 'type' in error && 'message' in error
 }
 
 const toAppError = (error: unknown): AppError => {
@@ -46,7 +32,7 @@ const toAppError = (error: unknown): AppError => {
 }
 
 const shouldUseDevFallback = (error: AppError): boolean => {
-  if (!config.isDevelopment) {
+  if (!config.isDevelopment || !config.enableDevFallbacks) {
     return false
   }
   if (error.type === ErrorType.NETWORK_ERROR) {
@@ -55,7 +41,7 @@ const shouldUseDevFallback = (error: AppError): boolean => {
   return error.type === ErrorType.API_ERROR && (error.statusCode ?? 0) >= 500
 }
 
-const generateMockRecommendations = (uuid: string): Recommendation[] => {
+const generateMockRecommendations = (): Recommendation[] => {
   return [
     {
       id: 'rec-1',
@@ -84,9 +70,6 @@ const generateMockRecommendations = (uuid: string): Recommendation[] => {
   ]
 }
 
-/**
- * 추천사항 서비스 (API-first, DEV fallback)
- */
 export const recommendationService = {
   async getRecommendations(
     uuid: string,
@@ -94,7 +77,7 @@ export const recommendationService = {
       algorithmType?: string
       context?: string
       priority?: Priority
-    }
+    },
   ): Promise<RecommendationsResponse> {
     try {
       const params = new URLSearchParams()
@@ -117,14 +100,14 @@ export const recommendationService = {
       logError('Failed to get recommendations', appError)
 
       if (shouldUseDevFallback(appError)) {
-        let recommendations = generateMockRecommendations(uuid)
+        let recommendations = generateMockRecommendations()
 
         if (filters?.algorithmType) {
           const keyword = filters.algorithmType.toLowerCase()
           recommendations = recommendations.filter(
             (rec) =>
               rec.targetAlgorithm.toLowerCase().includes(keyword) ||
-              rec.recommendedPQCAlgorithm.toLowerCase().includes(keyword)
+              rec.recommendedPQCAlgorithm.toLowerCase().includes(keyword),
           )
         }
         if (filters?.context) {

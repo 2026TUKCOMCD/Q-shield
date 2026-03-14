@@ -3,19 +3,9 @@ import { config } from '../config'
 import { handleError, type AppError, ErrorType } from '../utils/errorHandler'
 import { logError } from '../utils/logger'
 
-/**
- * 리스크 레벨 타입
- */
 export type RiskLevel = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'SAFE'
-
-/**
- * 파일 타입
- */
 export type FileType = 'file' | 'folder'
 
-/**
- * 리포지토리 파일 노드 타입
- */
 export interface RepositoryFile {
   filePath: string
   fileName: string
@@ -24,18 +14,10 @@ export interface RepositoryFile {
   children?: RepositoryFile[]
 }
 
-/**
- * 히트맵 응답 타입
- */
 export type HeatmapResponse = RepositoryFile[]
 
 const isAppError = (error: unknown): error is AppError => {
-  return (
-    typeof error === 'object' &&
-    error !== null &&
-    'type' in error &&
-    'message' in error
-  )
+  return typeof error === 'object' && error !== null && 'type' in error && 'message' in error
 }
 
 const toAppError = (error: unknown): AppError => {
@@ -43,7 +25,7 @@ const toAppError = (error: unknown): AppError => {
 }
 
 const shouldUseDevFallback = (error: AppError): boolean => {
-  if (!config.isDevelopment) {
+  if (!config.isDevelopment || !config.enableDevFallbacks) {
     return false
   }
   if (error.type === ErrorType.NETWORK_ERROR) {
@@ -52,9 +34,6 @@ const shouldUseDevFallback = (error: AppError): boolean => {
   return error.type === ErrorType.API_ERROR && (error.statusCode ?? 0) >= 500
 }
 
-/**
- * 리스크 점수를 리스크 레벨로 변환
- */
 export const getRiskLevel = (riskScore: number): RiskLevel => {
   if (riskScore >= 8.0) return 'CRITICAL'
   if (riskScore >= 5.0) return 'HIGH'
@@ -63,9 +42,6 @@ export const getRiskLevel = (riskScore: number): RiskLevel => {
   return 'SAFE'
 }
 
-/**
- * 리스크 레벨에 따른 색상 반환
- */
 export const getRiskColor = (riskLevel: RiskLevel) => {
   switch (riskLevel) {
     case 'CRITICAL':
@@ -125,14 +101,10 @@ const generateMockHeatmap = (): HeatmapResponse => {
   ]
 }
 
-/**
- * 폴더의 최고 리스크 레벨 계산 (재귀)
- */
 export const calculateFolderMaxRisk = (folder: RepositoryFile): RiskLevel => {
   if (folder.fileType === 'file') {
     return getRiskLevel(folder.aggregatedRiskScore)
   }
-
   if (!folder.children || folder.children.length === 0) {
     return 'SAFE'
   }
@@ -156,14 +128,10 @@ export const calculateFolderMaxRisk = (folder: RepositoryFile): RiskLevel => {
   return maxRisk
 }
 
-/**
- * 폴더 내 취약점 개수 계산 (재귀)
- */
 export const calculateVulnerabilityCount = (folder: RepositoryFile): number => {
   if (folder.fileType === 'file') {
     return folder.aggregatedRiskScore > 0 ? 1 : 0
   }
-
   if (!folder.children || folder.children.length === 0) {
     return 0
   }
@@ -172,13 +140,9 @@ export const calculateVulnerabilityCount = (folder: RepositoryFile): number => {
   for (const child of folder.children) {
     count += calculateVulnerabilityCount(child)
   }
-
   return count
 }
 
-/**
- * 히트맵 서비스 (API-first, DEV fallback)
- */
 export const heatmapService = {
   async getHeatmap(uuid: string): Promise<HeatmapResponse> {
     try {
@@ -187,11 +151,9 @@ export const heatmapService = {
     } catch (error) {
       const appError = toAppError(error)
       logError('Failed to get heatmap', appError)
-
       if (shouldUseDevFallback(appError)) {
         return generateMockHeatmap()
       }
-
       throw appError
     }
   },

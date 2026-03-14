@@ -10,6 +10,7 @@ import { RecommendationFilters } from '../components/RecommendationFilters'
 import { RecommendationTable } from '../components/RecommendationTable'
 import { AIDetailView } from '../components/AIDetailView'
 import { logError } from '../utils/logger'
+import { handleError, ErrorType } from '../utils/errorHandler'
 import {
   Loader2,
   AlertCircle,
@@ -55,7 +56,12 @@ export const Recommendations = () => {
       } catch (err) {
         logError('Failed to load recommendations', err)
         if (isMounted) {
-          setError('Failed to load AI recommendations.')
+          const appError = handleError(err)
+          if (appError.type === ErrorType.API_ERROR && appError.statusCode === 202) {
+            setError(appError.message)
+          } else {
+            setError('Failed to load AI recommendations.')
+          }
         }
       } finally {
         if (isMounted) {
@@ -127,8 +133,11 @@ export const Recommendations = () => {
       return
     }
 
-    const data = await aiRecommendationService.getRecommendations(uuid)
+    const data = await aiRecommendationService.getRecommendations(uuid, undefined, {
+      forceAnalysisRefresh: true,
+    })
     setRecommendations(data.recommendations)
+    setError(null)
 
     const refreshedRecommendation =
       data.recommendations.find((recommendation) => recommendation.id === selectedRecommendation.id) ??
