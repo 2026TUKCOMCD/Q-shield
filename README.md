@@ -6,6 +6,11 @@
 
 <br>
 
+## 📌 Project Overview
+양자 컴퓨터의 등장으로 기존 공개키 암호체계(RSA, ECC 등)가 무력화되는 HNDL(Harvest Now, Decrypt Later) 위협에 대응하기 위한 프로젝트입니다. Q-shield는 기업의 코드 베이스를 분석하여 PQC(양자내성암호)로의 전환이 필요한 지점을 탐지하고, AI를 통해 최적의 전환 로드맵과 예상 비용을 제시하는 전략 수립 지원 플랫폼입니다.
+
+<br>
+
 ## 🏗️ 소프트웨어 구조도
 
 ![AI PQC Platform Architecture](software_architecture.png)
