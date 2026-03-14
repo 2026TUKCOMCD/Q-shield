@@ -1,5 +1,11 @@
 import { apiClient } from '../api'
-import { aiAnalysisService, type AiAnalysisRecommendation, type AiCitation } from './aiAnalysisService'
+import {
+  aiAnalysisService,
+  type AiAffectedLocation,
+  type AiAnalysisRecommendation,
+  type AiCitation,
+  type AiCodeFixExample,
+} from './aiAnalysisService'
 import { config } from '../config'
 import { handleError, type AppError, ErrorType } from '../utils/errorHandler'
 import { logError } from '../utils/logger'
@@ -18,6 +24,8 @@ export interface Recommendation {
   context: string
   filePath?: string
   nistStandardReference?: string
+  affectedLocations?: AiAffectedLocation[]
+  codeFixExamples?: AiCodeFixExample[]
   citations?: AiCitation[]
   confidence?: number
   analysisSummary?: string
@@ -44,7 +52,7 @@ const toAppError = (error: unknown): AppError => {
 }
 
 const shouldUseDevFallback = (error: AppError): boolean => {
-  if (!config.isDevelopment) {
+  if (!config.isDevelopment || !config.enableDevFallbacks) {
     return false
   }
   if (error.type === ErrorType.NETWORK_ERROR) {
@@ -194,9 +202,15 @@ const mapAiAnalysisToRecommendations = (
   uuid: string,
   payload: Awaited<ReturnType<typeof aiAnalysisService.ensureAnalysis>>,
 ): RecommendationsResponse => {
+  if (payload.analysis_mode && payload.analysis_mode !== 'real') {
+    return { uuid, recommendations: [] }
+  }
+
   const recommendations: Recommendation[] = payload.recommendations.map((recommendation, index) => {
     const priorityRank = payload.priority_rank + index
     const confidence = recommendation.confidence || payload.confidence_score
+    const affectedLocations = recommendation.affected_locations ?? []
+    const primaryLocation = affectedLocations[0]
 
     return {
       id: `${uuid}-ai-${index + 1}`,
@@ -208,7 +222,10 @@ const mapAiAnalysisToRecommendations = (
       recommendedPQCAlgorithm: inferRecommendedPqc(recommendation),
       targetAlgorithm: inferTargetAlgorithm(recommendation),
       context: payload.analysis_summary,
+      filePath: primaryLocation?.file_path,
       nistStandardReference: recommendation.nist_standard_reference,
+      affectedLocations,
+      codeFixExamples: recommendation.code_fix_examples ?? [],
       citations: recommendation.citations,
       confidence,
       analysisSummary: payload.analysis_summary,
@@ -260,15 +277,20 @@ export const aiRecommendationService = {
       algorithmType?: string
       priority?: Priority
     },
+    options?: {
+      forceAnalysisRefresh?: boolean
+    },
   ): Promise<RecommendationsResponse> {
     try {
-      const aiAnalysis = await aiAnalysisService.ensureAnalysis(uuid)
+      const aiAnalysis = await aiAnalysisService.ensureAnalysis(uuid, {
+        forceRefresh: Boolean(options?.forceAnalysisRefresh),
+      })
       return applyFilters(mapAiAnalysisToRecommendations(uuid, aiAnalysis), filters)
     } catch (error) {
       const appError = toAppError(error)
       logError('Failed to get AI recommendations', appError)
 
-      if (appError.type === ErrorType.API_ERROR && appError.statusCode === 404) {
+      if (config.enableDevFallbacks && appError.type === ErrorType.API_ERROR && appError.statusCode === 404) {
         try {
           const response = await apiClient.get<RecommendationsResponse>(`/scans/${uuid}/recommendations`)
           return applyFilters(response.data, filters)
@@ -289,3 +311,4 @@ export const aiRecommendationService = {
     }
   },
 }
+

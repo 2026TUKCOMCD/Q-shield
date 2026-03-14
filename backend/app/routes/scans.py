@@ -518,6 +518,7 @@ def get_recommendations(
 @router.post("/{uuid}/ai-analysis", response_model=AiAnalysisStartResponse, status_code=202)
 def create_ai_analysis(
     uuid: str,
+    force: bool = False,
     db: Session = Depends(get_db),
     user_uuid: UUID = Depends(get_request_user_uuid),
 ):
@@ -531,6 +532,13 @@ def create_ai_analysis(
         raise HTTPException(status_code=404, detail="Scan not found")
 
     existing = get_ai_analysis_snapshot(db, scan_uuid)
+    if existing is not None and not force:
+        return AiAnalysisStartResponse(
+            status="READY",
+            scan_id=str(scan_uuid),
+            ai_analysis_id=str(existing.scan_uuid),
+        )
+
     run_ai_analysis.delay(str(scan_uuid))
     return AiAnalysisStartResponse(
         status="QUEUED",

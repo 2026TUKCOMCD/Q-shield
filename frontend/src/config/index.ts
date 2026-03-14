@@ -1,7 +1,8 @@
-﻿interface AppConfig {
+interface AppConfig {
   apiBaseURL: string
   isDevelopment: boolean
   isProduction: boolean
+  enableDevFallbacks: boolean
 }
 
 const getEnvVar = (key: string, defaultValue?: string): string => {
@@ -19,6 +20,7 @@ export const config: AppConfig = {
   apiBaseURL: getEnvVar('VITE_API_BASE_URL', 'http://localhost:8000/api'),
   isDevelopment: import.meta.env.DEV,
   isProduction: import.meta.env.PROD,
+  enableDevFallbacks: getEnvVar('VITE_ENABLE_DEV_FALLBACKS', 'false').toLowerCase() === 'true',
 }
 
 if (config.isDevelopment) {

@@ -1,4 +1,4 @@
-﻿import { apiClient } from '../api'
+import { apiClient } from '../api'
 import { config } from '../config'
 import { handleError, type AppError, ErrorType } from '../utils/errorHandler'
 import { logInfo, logError } from '../utils/logger'
@@ -42,7 +42,7 @@ const toAppError = (error: unknown): AppError => {
 }
 
 const shouldUseDevFallback = (error: AppError): boolean => {
-  if (!config.isDevelopment) {
+  if (!config.isDevelopment || !config.enableDevFallbacks) {
     return false
   }
   if (error.type === ErrorType.NETWORK_ERROR) {
@@ -237,3 +237,4 @@ export const scanService = {
     }
   },
 }
+
