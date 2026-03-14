@@ -51,8 +51,9 @@
 
 | EPIC | 주요 기능 (Stories) | 담당자 |
 | :--- | :--- | :---: |
-| **Core Scanning** | • SAST(암호패턴), SCA(라이브러리), Config(설정) 스캐너 구현 | 최진혁, 허준영 |
+| **Core Scanning** | • SAST(암호패턴), SCA(라이브러리), Config(설정) 스캐너 구현 | 최진혁 |
 | **AI & Risk** | • OpenAI 프롬프트 엔지니어링<br>• 위험도/비용 산출 알고리즘 | 경건웅 |
-| **Backend** | • FastAPI 설계 및 비동기 큐(Celery) 연동<br>• DB 스키마 설계 | 허준영, 최진혁 |
+| **Backend** | • FastAPI 설계 및 비동기 큐(Celery) 연동<br>• DB 스키마 설계 | 경건웅 |
 | **Dashboard** | • 히트맵 시각화 및 리포트 PDF 다운로드 구현 | 경건웅 |
+| **Frontend** | • React와 TypeScript를 기반으로 대시보드 설계 및 구현 | 경건웅, 허준영 |
 
