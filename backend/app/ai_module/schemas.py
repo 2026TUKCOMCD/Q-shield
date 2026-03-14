@@ -14,6 +14,24 @@ class Citation(BaseModel):
     snippet: str
 
 
+class AffectedLocation(BaseModel):
+    file_path: str
+    line_start: int | None = None
+    line_end: int | None = None
+    rule_id: str | None = None
+    scanner_type: str | None = None
+    evidence_excerpt: str | None = None
+
+
+class CodeFixExample(BaseModel):
+    file_path: str
+    language: str | None = None
+    rationale: str
+    before_code: str
+    after_code: str
+    confidence: float = Field(ge=0.0, le=1.0)
+
+
 class RefactorCostEstimate(BaseModel):
     level: Literal["LOW", "MEDIUM", "HIGH"]
     explanation: str
@@ -24,6 +42,8 @@ class RecommendationPayload(BaseModel):
     title: str
     description: str
     nist_standard_reference: str
+    affected_locations: list[AffectedLocation] = Field(default_factory=list)
+    code_fix_examples: list[CodeFixExample] = Field(default_factory=list)
     citations: list[Citation] = Field(default_factory=list)
     confidence: float = Field(ge=0.0, le=1.0)
 
@@ -39,6 +59,15 @@ class AiAnalysisResponse(BaseModel):
     confidence_score: float = Field(ge=0.0, le=1.0)
     citation_missing: bool
     inputs_summary: dict = Field(default_factory=dict)
+    analysis_mode: Literal["real", "fallback", "mock", "error"] = "error"
+    rag_corpus_loaded: bool = False
+    rag_chunks_retrieved: int = 0
+    citations_available: bool = False
+    llm_model_used: str | None = None
+    embedding_model_used: str | None = None
+    vector_store_collection: str | None = None
+    debug_message: str | None = None
+    failure_reason: str | None = None
 
 
 class AiAnalysisStartResponse(BaseModel):
