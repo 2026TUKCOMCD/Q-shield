@@ -4,7 +4,6 @@ import {
   AlertTriangle,
   CheckCircle2,
   Code,
-  ExternalLink,
   Info,
   Loader2,
   RefreshCw,
@@ -258,6 +257,19 @@ export const AIDetailView = ({
     duplicateSignal.includes('dedup') || duplicateSignal.includes('duplicate') ? 'confirmed' : 'unknown'
   const affectedLocations = recommendation.affectedLocations ?? []
   const codeFixExamples = recommendation.codeFixExamples ?? []
+  const citationEvidenceRows = (recommendation.citations ?? []).map((citation) => {
+    const sectionText = hasMeaningfulValue(citation.section)
+      ? citation.section.trim()
+      : citation.page
+        ? `page ${citation.page}`
+        : 'Section not available'
+    const pageText = citation.page ? ` • p.${citation.page}` : ''
+    return {
+      key: `${citation.doc_id}:${citation.page ?? 'na'}:${sectionText}`,
+      title: getDisplayValue(citation.title, 'NIST citation'),
+      location: `${sectionText}${pageText}`,
+    }
+  })
   const canRetryCitations = typeof onRetryCitations === 'function'
 
   const handleRetryCitations = async () => {
@@ -514,56 +526,23 @@ export const AIDetailView = ({
                     <p className="text-sm font-medium text-slate-100">
                       {getDisplayValue(recommendation.nistStandardReference)}
                     </p>
-                    {!hasCitations && (
+                    {citationEvidenceRows.length > 0 ? (
+                      <div className="mt-3 space-y-3">
+                        {citationEvidenceRows.map((row) => (
+                          <div
+                            key={row.key}
+                            className="rounded-lg border border-white/10 bg-white/5 p-3"
+                          >
+                            <p className="text-sm font-semibold text-white">{row.title}</p>
+                            <p className="mt-1 text-xs text-indigo-300">{row.location}</p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
                       <p className="mt-2 text-xs text-slate-400">
                         Supporting excerpts were not attached to this result.
                       </p>
                     )}
-                  </div>
-                )}
-
-                {hasCitations && (
-                  <div className="space-y-3">
-                    {recommendation.citations?.map((citation, index) => (
-                      <div
-                        key={`${citation.doc_id}-${index}`}
-                        className="rounded-xl border border-white/10 bg-white/5 p-4"
-                      >
-                        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                          <div>
-                            <p className="text-sm font-semibold text-white">
-                              {getDisplayValue(citation.title, 'NIST citation')}
-                            </p>
-                            <p className="mt-1 text-xs text-indigo-300">
-                              {getDisplayValue(citation.section, 'Section not available')}
-                              {citation.page ? ` • p.${citation.page}` : ''}
-                            </p>
-                          </div>
-                          {citation.url && (
-                            <a
-                              href={citation.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 text-xs font-medium text-indigo-300 hover:text-indigo-200"
-                            >
-                              <ExternalLink className="w-3.5 h-3.5" />
-                              Open
-                            </a>
-                          )}
-                        </div>
-                        <p
-                          className="mt-3 text-sm leading-relaxed text-slate-300"
-                          style={{
-                            display: '-webkit-box',
-                            WebkitBoxOrient: 'vertical',
-                            WebkitLineClamp: 2,
-                            overflow: 'hidden',
-                          }}
-                        >
-                          {getDisplayValue(citation.snippet, 'Snippet not available')}
-                        </p>
-                      </div>
-                    ))}
                   </div>
                 )}
               </div>
@@ -641,11 +620,11 @@ export const AIDetailView = ({
                   {!hasCitations && (
                     <p className="text-sm text-slate-400">Citations missing, so confidence is reduced</p>
                   )}
-                  <p className="text-xs text-slate-500">
-                    {hasCitations
-                      ? 'Add stronger scan evidence if you need a higher-confidence recommendation.'
-                      : 'Load the RAG corpus and retry citations to increase confidence.'}
-                  </p>
+                  {!hasCitations && (
+                    <p className="text-xs text-slate-500">
+                      Load the RAG corpus and retry citations to increase confidence.
+                    </p>
+                  )}
                 </div>
               </div>
 
