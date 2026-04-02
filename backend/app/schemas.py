@@ -104,6 +104,32 @@ class FindingsResponse(BaseModel):
 
 
 # 5) GET /api/scans/{uuid}/recommendations
+class RecommendationEvidence(BaseModel):
+    normalizedClass: Optional[str] = None
+    priorityReason: Optional[str] = None
+    evidenceCount: int = 0
+    affectedFilesCount: int = 0
+    affectedFilePaths: List[str] = Field(default_factory=list)
+    scannerTypes: List[str] = Field(default_factory=list)
+    normativeEvidenceCount: int = 0
+    benchmarkEvidenceCount: int = 0
+
+
+class RecommendationGuidance(BaseModel):
+    summary: Optional[str] = None
+    validationChecklist: List[str] = Field(default_factory=list)
+    benchmarkNotes: List[str] = Field(default_factory=list)
+    assumptions: List[str] = Field(default_factory=list)
+
+
+class RecommendationTrust(BaseModel):
+    confidence: Optional[float] = None
+    confidenceReason: Optional[str] = None
+    citationMissing: Optional[bool] = None
+    normativeEvidenceCount: int = 0
+    benchmarkEvidenceCount: int = 0
+
+
 class RecommendationItem(BaseModel):
     id: str
     priorityRank: int
@@ -121,6 +147,9 @@ class RecommendationItem(BaseModel):
     affectedFilesCount: Optional[int] = None
     affectedFilePaths: List[str] = Field(default_factory=list)
     scannerTypes: List[str] = Field(default_factory=list)
+    evidence: Optional[RecommendationEvidence] = None
+    guidance: Optional[RecommendationGuidance] = None
+    trust: Optional[RecommendationTrust] = None
 
 
 class RecommendationsResponse(BaseModel):

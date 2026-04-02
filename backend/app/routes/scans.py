@@ -17,7 +17,7 @@ from app.schemas import (
     ScanBulkDeleteRequest, ScanBulkDeleteResponse,
     FindingsResponse,
     InventoryResponse, InventoryAsset,
-    RecommendationsResponse, RecommendationItem,
+    RecommendationsResponse, RecommendationItem, RecommendationEvidence, RecommendationGuidance, RecommendationTrust,
     AiAnalysisResponse, AiAnalysisStartResponse,
     HeatmapResponse, HeatmapNode,
 )
@@ -113,6 +113,62 @@ def _matches_filter(value: str | None, filter_text: str) -> bool:
         return True
     haystack = (value or "").lower()
     return filter_text.lower() in haystack
+
+
+def _build_recommendation_evidence(
+    *,
+    normalized_class: str | None,
+    priority_reason: str | None,
+    evidence_count: int | None,
+    affected_paths: list[str] | None,
+    scanner_types: list[str] | None,
+    normative_evidence_count: int = 0,
+    benchmark_evidence_count: int = 0,
+) -> RecommendationEvidence:
+    paths = list(affected_paths or [])
+    scanners = list(scanner_types or [])
+    return RecommendationEvidence(
+        normalizedClass=normalized_class,
+        priorityReason=priority_reason,
+        evidenceCount=int(evidence_count or 0),
+        affectedFilesCount=len(paths),
+        affectedFilePaths=paths,
+        scannerTypes=scanners,
+        normativeEvidenceCount=normative_evidence_count,
+        benchmarkEvidenceCount=benchmark_evidence_count,
+    )
+
+
+def _build_recommendation_guidance(
+    *,
+    summary: str | None,
+    validation_checklist: list[str] | None = None,
+    benchmark_notes: list[str] | None = None,
+    assumptions: list[str] | None = None,
+) -> RecommendationGuidance:
+    return RecommendationGuidance(
+        summary=summary,
+        validationChecklist=list(validation_checklist or []),
+        benchmarkNotes=list(benchmark_notes or []),
+        assumptions=list(assumptions or []),
+    )
+
+
+def _build_recommendation_trust(
+    *,
+    confidence: float | None = None,
+    confidence_reason: str | None = None,
+    citation_missing: bool | None = None,
+    normative_evidence_count: int = 0,
+    benchmark_evidence_count: int = 0,
+) -> RecommendationTrust:
+    return RecommendationTrust(
+        confidence=confidence,
+        confidenceReason=confidence_reason,
+        citationMissing=citation_missing,
+        normativeEvidenceCount=normative_evidence_count,
+        benchmarkEvidenceCount=benchmark_evidence_count,
+    )
 
 
 def get_request_user_uuid(
@@ -554,6 +610,17 @@ def get_recommendations(
                     affectedFilesCount=int(plan["affected_files_count"]),
                     affectedFilePaths=affected_paths,
                     scannerTypes=list(plan.get("scanner_types") or []),
+                    evidence=_build_recommendation_evidence(
+                        normalized_class=str(plan["normalized_class"]),
+                        priority_reason=str(plan["priority_reason"]),
+                        evidence_count=int(plan["evidence_count"]),
+                        affected_paths=affected_paths,
+                        scanner_types=list(plan.get("scanner_types") or []),
+                    ),
+                    guidance=_build_recommendation_guidance(
+                        summary=str(plan["ai_recommendation"]),
+                    ),
+                    trust=_build_recommendation_trust(),
                 )
             )
     else:
@@ -583,6 +650,17 @@ def get_recommendations(
                     targetAlgorithm=r.algorithm or "Unknown",
                     context=r.context or "",
                     filePath=file_path,
+                    evidence=_build_recommendation_evidence(
+                        normalized_class=None,
+                        priority_reason=None,
+                        evidence_count=None,
+                        affected_paths=[file_path] if file_path else [],
+                        scanner_types=[],
+                    ),
+                    guidance=_build_recommendation_guidance(
+                        summary=r.ai_recommendation or "",
+                    ),
+                    trust=_build_recommendation_trust(),
                 )
             )
 
