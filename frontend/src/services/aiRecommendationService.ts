@@ -12,6 +12,32 @@ import { logError } from '../utils/logger'
 
 export type Priority = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'
 
+export interface RecommendationEvidence {
+  normalizedClass?: string
+  priorityReason?: string
+  evidenceCount: number
+  affectedFilesCount: number
+  affectedFilePaths: string[]
+  scannerTypes: string[]
+  normativeEvidenceCount: number
+  benchmarkEvidenceCount: number
+}
+
+export interface RecommendationGuidance {
+  summary?: string
+  validationChecklist: string[]
+  benchmarkNotes: string[]
+  assumptions: string[]
+}
+
+export interface RecommendationTrust {
+  confidence?: number
+  confidenceReason?: string
+  citationMissing?: boolean
+  normativeEvidenceCount: number
+  benchmarkEvidenceCount: number
+}
+
 export interface Recommendation {
   id: string
   priorityRank: number
@@ -41,6 +67,9 @@ export interface Recommendation {
   benchmarkNotes?: string[]
   assumptions?: string[]
   confidenceReason?: string
+  evidence?: RecommendationEvidence
+  guidance?: RecommendationGuidance
+  trust?: RecommendationTrust
 }
 
 export interface RecommendationsResponse {
@@ -95,6 +124,29 @@ const generateMockRecommendations = (): Recommendation[] => {
       affectedFilesCount: 1,
       affectedFilePaths: ['src/auth.c'],
       scannerTypes: ['SAST'],
+      evidence: {
+        normalizedClass: 'rsa-public-key',
+        priorityReason: 'RSA class risk, auth-facing usage, development fallback data',
+        evidenceCount: 2,
+        affectedFilesCount: 1,
+        affectedFilePaths: ['src/auth.c'],
+        scannerTypes: ['SAST'],
+        normativeEvidenceCount: 0,
+        benchmarkEvidenceCount: 0,
+      },
+      guidance: {
+        summary: '## Replace RSA-1024 with Kyber-768\n\nMigrate quantum-vulnerable key exchange to ML-KEM.',
+        validationChecklist: [],
+        benchmarkNotes: [],
+        assumptions: [],
+      },
+      trust: {
+        confidence: 0.7,
+        confidenceReason: undefined,
+        citationMissing: true,
+        normativeEvidenceCount: 0,
+        benchmarkEvidenceCount: 0,
+      },
     },
     {
       id: 'rec-2',
@@ -118,6 +170,29 @@ const generateMockRecommendations = (): Recommendation[] => {
       affectedFilesCount: 1,
       affectedFilePaths: ['src/utils/hash.py'],
       scannerTypes: ['SAST'],
+      evidence: {
+        normalizedClass: 'weak-hash',
+        priorityReason: 'Weak hash usage remains migration debt and lowers trust',
+        evidenceCount: 1,
+        affectedFilesCount: 1,
+        affectedFilePaths: ['src/utils/hash.py'],
+        scannerTypes: ['SAST'],
+        normativeEvidenceCount: 0,
+        benchmarkEvidenceCount: 0,
+      },
+      guidance: {
+        summary: '## Replace SHA-1 with SHA-3\n\nRemove weak hash usage and adopt SHA-3-compatible paths.',
+        validationChecklist: [],
+        benchmarkNotes: [],
+        assumptions: [],
+      },
+      trust: {
+        confidence: 0.68,
+        confidenceReason: undefined,
+        citationMissing: true,
+        normativeEvidenceCount: 0,
+        benchmarkEvidenceCount: 0,
+      },
     },
   ]
 }
@@ -252,6 +327,24 @@ const uniq = (values: Array<string | null | undefined>): string[] => {
   )
 }
 
+const countCitationsBySourceType = (citations: AiCitation[]) => {
+  let normativeEvidenceCount = 0
+  let benchmarkEvidenceCount = 0
+
+  citations.forEach((citation) => {
+    const sourceType = (citation.source_type || '').toUpperCase()
+    if (sourceType === 'NIST_STANDARD' || sourceType === 'NIST_GUIDE') {
+      normativeEvidenceCount += 1
+      return
+    }
+    if (sourceType === 'BENCHMARK' || sourceType === 'ACADEMIC_PAPER') {
+      benchmarkEvidenceCount += 1
+    }
+  })
+
+  return { normativeEvidenceCount, benchmarkEvidenceCount }
+}
+
 const getAiFindingSummary = (recommendation: AiAnalysisRecommendation) => {
   const affectedLocations = recommendation.affected_locations ?? []
   const affectedFilePaths = uniq(affectedLocations.map((location) => location.file_path))
@@ -280,6 +373,7 @@ const mapAiAnalysisToRecommendations = (
     const normalizedClass = inferNormalizedClass(targetAlgorithm)
     const summary = getAiFindingSummary(recommendation)
     const primaryLocation = summary.affectedLocations[0]
+    const citationCounts = countCitationsBySourceType(recommendation.citations)
 
     return {
       id: `${uuid}-ai-${index + 1}`,
@@ -308,6 +402,29 @@ const mapAiAnalysisToRecommendations = (
       benchmarkNotes: recommendation.benchmark_notes ?? [],
       assumptions: recommendation.assumptions ?? [],
       confidenceReason: recommendation.confidence_reason ?? undefined,
+      evidence: {
+        normalizedClass,
+        priorityReason: recommendation.priority_reason ?? undefined,
+        evidenceCount: summary.affectedLocations.length,
+        affectedFilesCount: summary.affectedFilesCount,
+        affectedFilePaths: summary.affectedFilePaths,
+        scannerTypes: summary.scannerTypes,
+        normativeEvidenceCount: citationCounts.normativeEvidenceCount,
+        benchmarkEvidenceCount: citationCounts.benchmarkEvidenceCount,
+      },
+      guidance: {
+        summary: recommendation.description,
+        validationChecklist: recommendation.validation_checklist ?? [],
+        benchmarkNotes: recommendation.benchmark_notes ?? [],
+        assumptions: recommendation.assumptions ?? [],
+      },
+      trust: {
+        confidence,
+        confidenceReason: recommendation.confidence_reason ?? undefined,
+        citationMissing: payload.citation_missing,
+        normativeEvidenceCount: citationCounts.normativeEvidenceCount,
+        benchmarkEvidenceCount: citationCounts.benchmarkEvidenceCount,
+      },
     }
   })
 
@@ -394,6 +511,29 @@ const mergeRecommendationData = (
         benchmarkNotes: aiRecommendation.benchmarkNotes,
         assumptions: aiRecommendation.assumptions,
         confidenceReason: aiRecommendation.confidenceReason,
+        evidence: {
+          normalizedClass: plannerRecommendation.normalizedClass,
+          priorityReason: plannerRecommendation.priorityReason,
+          evidenceCount: plannerRecommendation.evidenceCount ?? 0,
+          affectedFilesCount: plannerRecommendation.affectedFilesCount ?? 0,
+          affectedFilePaths: plannerRecommendation.affectedFilePaths ?? [],
+          scannerTypes: plannerRecommendation.scannerTypes ?? [],
+          normativeEvidenceCount: aiRecommendation.evidence?.normativeEvidenceCount ?? 0,
+          benchmarkEvidenceCount: aiRecommendation.evidence?.benchmarkEvidenceCount ?? 0,
+        },
+        guidance: {
+          summary: plannerRecommendation.aiRecommendation,
+          validationChecklist: aiRecommendation.validationChecklist ?? [],
+          benchmarkNotes: aiRecommendation.benchmarkNotes ?? [],
+          assumptions: aiRecommendation.assumptions ?? [],
+        },
+        trust: {
+          confidence: aiRecommendation.confidence,
+          confidenceReason: aiRecommendation.confidenceReason,
+          citationMissing: aiRecommendation.citationMissing,
+          normativeEvidenceCount: aiRecommendation.evidence?.normativeEvidenceCount ?? 0,
+          benchmarkEvidenceCount: aiRecommendation.evidence?.benchmarkEvidenceCount ?? 0,
+        },
       }
     }),
   }

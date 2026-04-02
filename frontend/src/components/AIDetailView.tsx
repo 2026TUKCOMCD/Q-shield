@@ -313,25 +313,40 @@ export const AIDetailView = ({
   const hasNistReference = hasMeaningfulValue(recommendation.nistStandardReference)
   const hasCitations = (recommendation.citations?.length ?? 0) > 0
   const hasNistEvidence = hasNistReference || hasCitations
+  const plannerEvidence = recommendation.evidence
+  const structuredGuidance = recommendation.guidance
+  const structuredTrust = recommendation.trust
   const confidencePercent =
-    recommendation.confidence === undefined
+    (recommendation.confidence ?? structuredTrust?.confidence) === undefined
       ? null
-      : Math.round(Math.max(0, Math.min(1, recommendation.confidence)) * 100)
-  const primaryGuide = extractPrimaryGuide(recommendation.aiRecommendation)
+      : Math.round(
+          Math.max(0, Math.min(1, recommendation.confidence ?? structuredTrust?.confidence ?? 0)) * 100,
+        )
+  const primaryGuide = extractPrimaryGuide(recommendation.aiRecommendation || structuredGuidance?.summary || '')
   const evidenceCounts = getEvidenceCounts(recommendation)
   const evidenceTotal =
-    recommendation.evidenceCount !== undefined ? recommendation.evidenceCount : getEvidenceTotal(evidenceCounts)
+    recommendation.evidenceCount !== undefined
+      ? recommendation.evidenceCount
+      : plannerEvidence?.evidenceCount !== undefined
+        ? plannerEvidence.evidenceCount
+        : getEvidenceTotal(evidenceCounts)
   const findingsSummary = getDisplayValue(recommendation.analysisSummary || recommendation.context)
   const duplicateSignal = `${recommendation.analysisSummary ?? ''} ${recommendation.context ?? ''}`.toLowerCase()
   const duplicateState =
     duplicateSignal.includes('dedup') || duplicateSignal.includes('duplicate') ? 'confirmed' : 'unknown'
   const affectedLocations = recommendation.affectedLocations ?? []
-  const affectedFilePaths = recommendation.affectedFilePaths ?? []
+  const affectedFilePaths = recommendation.affectedFilePaths ?? plannerEvidence?.affectedFilePaths ?? []
   const codeFixExamples = recommendation.codeFixExamples ?? []
-  const scannerTypes = recommendation.scannerTypes ?? []
-  const validationChecklist = recommendation.validationChecklist ?? []
-  const benchmarkNotes = recommendation.benchmarkNotes ?? []
-  const assumptions = recommendation.assumptions ?? []
+  const scannerTypes = recommendation.scannerTypes ?? plannerEvidence?.scannerTypes ?? []
+  const validationChecklist =
+    recommendation.validationChecklist ?? structuredGuidance?.validationChecklist ?? []
+  const benchmarkNotes = recommendation.benchmarkNotes ?? structuredGuidance?.benchmarkNotes ?? []
+  const assumptions = recommendation.assumptions ?? structuredGuidance?.assumptions ?? []
+  const priorityReason =
+    recommendation.priorityReason ?? plannerEvidence?.priorityReason ?? 'Deterministic priority rationale not available'
+  const confidenceReason = recommendation.confidenceReason ?? structuredTrust?.confidenceReason
+  const affectedFilesCount =
+    recommendation.affectedFilesCount ?? plannerEvidence?.affectedFilesCount ?? affectedFilePaths.length
   const citationEvidenceRows = (recommendation.citations ?? []).map((citation) => {
     const sectionText = hasMeaningfulValue(citation.section)
       ? citation.section.trim()
@@ -500,12 +515,9 @@ export const AIDetailView = ({
                 />
                 <SummaryCard
                   label="Evidence Count"
-                  value={String((recommendation.evidenceCount ?? evidenceTotal) || 0)}
+                  value={String(evidenceTotal || 0)}
                 />
-                <SummaryCard
-                  label="Affected Files"
-                  value={String((recommendation.affectedFilesCount ?? affectedFilePaths.length) || 0)}
-                />
+                <SummaryCard label="Affected Files" value={String(affectedFilesCount || 0)} />
                 <SummaryCard
                   label="Scanner Sources"
                   value={scannerTypes.length > 0 ? scannerTypes.join(', ') : 'Not available'}
@@ -534,9 +546,7 @@ export const AIDetailView = ({
                 <div className="space-y-4">
                   <div>
                     <p className="mb-2 text-xs uppercase tracking-[0.15em] text-slate-500">Priority Reason</p>
-                    <p className="text-sm leading-relaxed text-slate-300">
-                      {getDisplayValue(recommendation.priorityReason, 'Deterministic priority rationale not available')}
-                    </p>
+                    <p className="text-sm leading-relaxed text-slate-300">{priorityReason}</p>
                   </div>
                   <div className="grid gap-4 md:grid-cols-2">
                     <div>
@@ -905,10 +915,10 @@ export const AIDetailView = ({
                   </li>
                 </ul>
 
-                {recommendation.confidenceReason && (
+                {confidenceReason && (
                   <div className="rounded-xl border border-white/10 bg-white/5 p-4">
                     <p className="mb-2 text-xs uppercase tracking-[0.2em] text-slate-500">Confidence Reason</p>
-                    <p className="text-sm text-slate-300">{recommendation.confidenceReason}</p>
+                    <p className="text-sm text-slate-300">{confidenceReason}</p>
                   </div>
                 )}
               </div>
