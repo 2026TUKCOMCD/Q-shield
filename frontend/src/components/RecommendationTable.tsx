@@ -124,26 +124,29 @@ const getAnalysisModeBadge = (mode?: Recommendation['analysisMode']) => {
   switch (mode) {
     case 'real':
       return {
-        label: 'Real',
+        label: 'AI Guided',
         className: 'border-emerald-400/20 bg-emerald-500/10 text-emerald-300',
       }
     case 'fallback':
       return {
-        label: 'Fallback',
+        label: 'AI Fallback',
         className: 'border-amber-400/20 bg-amber-500/10 text-amber-300',
       }
     case 'mock':
       return {
-        label: 'Mock',
+        label: 'Mock AI',
         className: 'border-sky-400/20 bg-sky-500/10 text-sky-300',
       }
     case 'error':
       return {
-        label: 'Error',
+        label: 'AI Error',
         className: 'border-rose-400/20 bg-rose-500/10 text-rose-300',
       }
     default:
-      return null
+      return {
+        label: 'Rule-based',
+        className: 'border-white/10 bg-white/5 text-slate-300',
+      }
   }
 }
 
@@ -211,13 +214,11 @@ export const RecommendationTable = ({
                       </span>
                     </div>
                     <p className="mt-2 text-xs text-slate-500">Rank #{recommendation.priorityRank}</p>
-                    {analysisModeBadge && (
-                      <span
-                        className={`mt-2 inline-flex rounded-full border px-2.5 py-1 text-[11px] ${analysisModeBadge.className}`}
-                      >
-                        {analysisModeBadge.label}
-                      </span>
-                    )}
+                    <span
+                      className={`mt-2 inline-flex rounded-full border px-2.5 py-1 text-[11px] ${analysisModeBadge.className}`}
+                    >
+                      {analysisModeBadge.label}
+                    </span>
                   </td>
                   <td className="px-6 py-4 align-top">
                     <div className="flex items-center gap-2">

@@ -291,15 +291,15 @@ const normalizeCitationGroup = (sourceType?: string | null) => {
 const getAnalysisModeConfig = (mode?: 'real' | 'fallback' | 'mock' | 'error') => {
   switch (mode) {
     case 'real':
-      return { label: 'Real Analysis', className: 'border-emerald-400/20 bg-emerald-500/10 text-emerald-300' }
+      return { label: 'AI Guided', className: 'border-emerald-400/20 bg-emerald-500/10 text-emerald-300' }
     case 'fallback':
-      return { label: 'Fallback Analysis', className: 'border-amber-400/20 bg-amber-500/10 text-amber-300' }
+      return { label: 'AI Fallback', className: 'border-amber-400/20 bg-amber-500/10 text-amber-300' }
     case 'mock':
-      return { label: 'Mock Analysis', className: 'border-sky-400/20 bg-sky-500/10 text-sky-300' }
+      return { label: 'Mock AI', className: 'border-sky-400/20 bg-sky-500/10 text-sky-300' }
     case 'error':
-      return { label: 'Error State', className: 'border-rose-400/20 bg-rose-500/10 text-rose-300' }
+      return { label: 'AI Error', className: 'border-rose-400/20 bg-rose-500/10 text-rose-300' }
     default:
-      return null
+      return { label: 'Rule-based', className: 'border-white/10 bg-white/5 text-slate-300' }
   }
 }
 
