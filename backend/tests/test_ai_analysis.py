@@ -14,6 +14,7 @@ sys.path.insert(0, str(ROOT))
 from app.ai_module.orchestrator import analyze_findings
 import app.ai_module.orchestrator as orchestrator
 from app.ai_module.schemas import AiAnalysisResponse
+from app.ai_module.validator import validate_ai_response
 from app.models import Finding, Scan
 import app.routes.scans as scans
 from app.scan_read_service import get_findings_response
@@ -353,3 +354,91 @@ def test_rag_failure_returns_fallback_mode_when_enabled(monkeypatch):
     assert response.recommendations[0].validation_checklist
     assert response.recommendations[0].assumptions
     assert response.recommendations[0].confidence_reason
+
+
+def test_validator_removes_quantified_security_claims():
+    payload = AiAnalysisResponse.model_validate(
+        {
+            "risk_score": 55,
+            "pqc_readiness_score": 60,
+            "severity_weighted_index": 2.4,
+            "refactor_cost_estimate": {
+                "level": "MEDIUM",
+                "explanation": "4 files affected, distributed usage.",
+                "affected_files": 4,
+            },
+            "priority_rank": 3,
+            "recommendations": [
+                {
+                    "title": "Replace RSA with ML-KEM",
+                    "description": "This migration improves security by 73%. Use ML-KEM instead.",
+                    "nist_standard_reference": "FIPS 203 (ML-KEM)",
+                    "citations": [],
+                    "confidence": 0.7,
+                    "benchmark_notes": ["Handshake performance improved by 45% in one setup."],
+                }
+            ],
+            "analysis_summary": "Security improved by 80% after migration.",
+            "confidence_score": 0.7,
+            "citation_missing": True,
+            "inputs_summary": {},
+        }
+    )
+
+    validated = validate_ai_response(payload)
+
+    assert "%" not in validated.analysis_summary
+    assert "%" not in validated.recommendations[0].description
+    assert all("%" not in note for note in validated.recommendations[0].benchmark_notes)
+    assert validated.inputs_summary["validation"]["percentage_claims_removed"] >= 2
+    assert validated.recommendations[0].confidence < payload.recommendations[0].confidence
+
+
+def test_validator_downgrades_benchmark_only_normative_reference():
+    payload = AiAnalysisResponse.model_validate(
+        {
+            "risk_score": 55,
+            "pqc_readiness_score": 60,
+            "severity_weighted_index": 2.4,
+            "refactor_cost_estimate": {
+                "level": "MEDIUM",
+                "explanation": "4 files affected, distributed usage.",
+                "affected_files": 4,
+            },
+            "priority_rank": 3,
+            "recommendations": [
+                {
+                    "title": "Replace RSA with ML-KEM",
+                    "description": "Replace RSA key establishment.",
+                    "nist_standard_reference": "FIPS 203 (ML-KEM)",
+                    "citations": [
+                        {
+                            "doc_id": "38c.pdf",
+                            "title": "SP 1800-38C",
+                            "section": "page 12",
+                            "page": 12,
+                            "url": None,
+                            "snippet": "Benchmark handshake latency in PQC migration.",
+                            "source_type": "NIST_GUIDE",
+                            "claim_type": "benchmark_guidance",
+                            "topic": "tls,interop,performance",
+                            "authority_weight": 95,
+                        }
+                    ],
+                    "confidence": 0.8,
+                    "confidence_reason": "1 supporting citations attached",
+                }
+            ],
+            "analysis_summary": "Sample summary",
+            "confidence_score": 0.8,
+            "citation_missing": False,
+            "inputs_summary": {},
+        }
+    )
+
+    validated = validate_ai_response(payload)
+
+    assert validated.recommendations[0].nist_standard_reference == "N/A"
+    assert validated.recommendations[0].confidence < payload.recommendations[0].confidence
+    assert "normative reference removed" in (validated.recommendations[0].confidence_reason or "")
+    assert validated.inputs_summary["validation"]["benchmark_only_reference_downgrades"] == 1

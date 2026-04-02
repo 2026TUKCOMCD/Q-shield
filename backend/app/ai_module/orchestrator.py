@@ -19,6 +19,7 @@ from app.ai_module.business_impact import estimate_refactor_cost
 from app.ai_module.confidence import compute_confidence_score
 from app.ai_module.llm.openai_client import generate_grounded_ai_analysis
 from app.ai_module.recommendation_engine import build_recommendations
+from app.ai_module.validator import validate_ai_response
 from app.ai_module.rag.ingest import ingest_corpus
 from app.ai_module.rag.retriever import inspect_rag_corpus, retrieve_relevant_chunks_with_debug
 from app.ai_module.risk_aggregation import compute_risk_metrics, deduplicate_findings, summarize_inputs
@@ -635,6 +636,7 @@ def _fallback_analysis(
         inputs_summary=inputs_summary,
     )
     response = _enrich_recommendations(response, findings)
+    response = validate_ai_response(response)
 
     debug_payload = _build_debug_payload(
         analysis_mode="fallback",
@@ -823,6 +825,7 @@ async def analyze_findings(
         )
         response = AiAnalysisResponse.model_validate(llm_payload)
         response = _enrich_recommendations(response, prepared_findings)
+        response = validate_ai_response(response)
     except Exception as exc:
         return _ensure_real_rag_ready(
             findings=prepared_findings,
@@ -895,6 +898,7 @@ async def compute_and_persist_ai_analysis(scan_uuid: uuid_lib.UUID, db: Session)
         if cached_snapshot is not None and cached_snapshot.scan_uuid != scan_uuid:
             cached_payload = serialize_ai_analysis_snapshot(cached_snapshot)
             cached_payload = _enrich_recommendations(cached_payload, deduped_findings)
+            cached_payload = validate_ai_response(cached_payload)
             cached_payload = _apply_cache_metadata(
                 cached_payload,
                 algorithm_signature=algorithm_signature,
