@@ -162,6 +162,14 @@ const extractPrimaryGuide = (text: string) => {
 }
 
 const getEvidenceCounts = (recommendation: Recommendation) => {
+  const plannerScannerTypes = recommendation.evidence?.scannerTypes ?? []
+  const plannerEvidenceCount = recommendation.evidence?.evidenceCount
+
+  if (plannerScannerTypes.length > 0 && plannerEvidenceCount !== undefined) {
+    const distributed = Math.max(1, Math.ceil(plannerEvidenceCount / Math.max(1, plannerScannerTypes.length)))
+    return plannerScannerTypes.map((scannerType) => `${scannerType.toUpperCase()}=${distributed}`)
+  }
+
   const countsByScannerType = recommendation.inputsSummary?.counts_by_scanner_type
 
   if (countsByScannerType && typeof countsByScannerType === 'object' && !Array.isArray(countsByScannerType)) {
@@ -364,6 +372,8 @@ export const AIDetailView = ({
   const analysisMode = recommendation.analysisMode ?? structuredTrust?.analysisMode
   const citationsAvailable = recommendation.citationsAvailable ?? structuredTrust?.citationsAvailable ?? hasCitations
   const ragCorpusLoaded = recommendation.ragCorpusLoaded ?? structuredTrust?.ragCorpusLoaded ?? false
+  const normativeEvidenceCount =
+    plannerEvidence?.normativeEvidenceCount ?? structuredTrust?.normativeEvidenceCount ?? 0
   const analysisModeConfig = getAnalysisModeConfig(analysisMode)
   const priorityFactors = (plannerEvidence?.priorityFactors ?? [])
     .filter((factor) => factor.score > 0)
@@ -676,7 +686,7 @@ export const AIDetailView = ({
                                 <p className="mt-1 text-xs text-slate-400">{factor.sourceBasis}</p>
                               </div>
                               <span className="rounded-full border border-indigo-400/20 bg-indigo-500/10 px-2.5 py-1 text-xs font-medium text-indigo-300">
-                                +{factor.score}
+                                {factor.score > 0 ? `+${factor.score}` : String(factor.score)}
                               </span>
                             </div>
                             <div className="mt-3 flex flex-wrap gap-2">
@@ -934,6 +944,11 @@ export const AIDetailView = ({
                         </span>
                       )}
                     </div>
+                    {normativeEvidenceCount === 0 && (
+                      <p className="mt-3 text-xs text-amber-300">
+                        Planning reference only. No normative excerpt is attached to this recommendation yet.
+                      </p>
+                    )}
                   </div>
                 )}
 
