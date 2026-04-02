@@ -9,6 +9,7 @@ sys.path.insert(0, str(ROOT))
 
 from app.ai_module.llm.prompts import build_user_prompt
 from app.ai_module.rag.loader import infer_document_metadata
+from app.ai_module.rag.retriever import _sort_chunks_for_query
 
 
 def test_infer_document_metadata_for_nist_and_benchmark_sources():
@@ -79,3 +80,51 @@ def test_build_user_prompt_includes_chunk_metadata_labels():
     assert "source_type=NIST_GUIDE" in prompt
     assert "claim_type=risk_guidance" in prompt
     assert "topic=tls,interop,performance" in prompt
+    assert "RETRIEVED_NORMATIVE_CONTEXT" in prompt
+    assert "RETRIEVED_BENCHMARK_CONTEXT" in prompt
+
+
+def test_retriever_prefers_normative_chunks_for_migration_queries():
+    chunks = [
+        {
+            "doc_id": "benchmark.pdf",
+            "claim_type": "benchmark",
+            "source_type": "BENCHMARK",
+            "authority_weight": 70,
+            "distance": 0.01,
+        },
+        {
+            "doc_id": "8547.pdf",
+            "claim_type": "risk_guidance",
+            "source_type": "NIST_GUIDE",
+            "authority_weight": 95,
+            "distance": 0.2,
+        },
+    ]
+
+    ranked = _sort_chunks_for_query(chunks, "pqc migration risk guidance for rsa transition", top_k=2)
+
+    assert ranked[0]["doc_id"] == "8547.pdf"
+
+
+def test_retriever_prefers_benchmark_chunks_for_performance_queries():
+    chunks = [
+        {
+            "doc_id": "8547.pdf",
+            "claim_type": "risk_guidance",
+            "source_type": "NIST_GUIDE",
+            "authority_weight": 95,
+            "distance": 0.01,
+        },
+        {
+            "doc_id": "38c.pdf",
+            "claim_type": "benchmark_guidance",
+            "source_type": "NIST_GUIDE",
+            "authority_weight": 95,
+            "distance": 0.2,
+        },
+    ]
+
+    ranked = _sort_chunks_for_query(chunks, "benchmark handshake latency and interoperability for pqc tls", top_k=2)
+
+    assert ranked[0]["doc_id"] == "38c.pdf"
