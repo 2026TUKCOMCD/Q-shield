@@ -42,6 +42,12 @@ logger = logging.getLogger(__name__)
 SEVERITY_RANK = {"CRITICAL": 4, "HIGH": 3, "MEDIUM": 2, "LOW": 1, "INFO": 0}
 
 
+def _location_field(location: Any, field: str) -> Any:
+    if isinstance(location, dict):
+        return location.get(field)
+    return getattr(location, field, None)
+
+
 def _select_affected_locations(findings: list[dict], recommendation_text: str, max_locations: int = 3) -> list[dict]:
     text = recommendation_text.lower()
     ranked: list[tuple[int, dict]] = []
@@ -150,15 +156,15 @@ def _guess_language(file_path: str | None) -> str:
     return "unknown"
 
 
-def _fallback_fix_example(recommendation_text: str, location: dict[str, Any] | None) -> dict[str, Any] | None:
+def _fallback_fix_example(recommendation_text: str, location: Any | None) -> dict[str, Any] | None:
     if not location:
         return None
-    file_path = str(location.get("file_path") or "")
+    file_path = str(_location_field(location, "file_path") or "")
     if not file_path:
         return None
 
     recommendation_lower = recommendation_text.lower()
-    evidence = str(location.get("evidence_excerpt") or "").strip()
+    evidence = str(_location_field(location, "evidence_excerpt") or "").strip()
     before_code = evidence or "# legacy cryptographic usage"
     language = _guess_language(file_path)
 
@@ -205,13 +211,17 @@ def _fallback_fix_example(recommendation_text: str, location: dict[str, Any] | N
 
 def _select_related_findings(
     findings: list[dict],
-    affected_locations: list[dict[str, Any]],
+    affected_locations: list[Any],
     recommendation_text: str,
     *,
     max_findings: int = 12,
 ) -> list[dict]:
     location_keys = {
-        (str(location.get("file_path") or ""), location.get("line_start"), location.get("line_end"))
+        (
+            str(_location_field(location, "file_path") or ""),
+            _location_field(location, "line_start"),
+            _location_field(location, "line_end"),
+        )
         for location in affected_locations
     }
     related = [
@@ -249,11 +259,11 @@ def _select_related_findings(
 
 def _build_validation_checklist(
     recommendation_text: str,
-    affected_locations: list[dict[str, Any]],
+    affected_locations: list[Any],
     scanner_types: list[str],
 ) -> list[str]:
     text = recommendation_text.lower()
-    paths = " ".join(str(location.get("file_path") or "") for location in affected_locations).lower()
+    paths = " ".join(str(_location_field(location, "file_path") or "") for location in affected_locations).lower()
     checklist = [
         "Confirm every affected call site and dependency before changing algorithms.",
         "Validate the migrated path in staging before enabling production rollout.",
@@ -271,9 +281,9 @@ def _build_validation_checklist(
     return list(dict.fromkeys(checklist))
 
 
-def _build_benchmark_notes(recommendation_text: str, scanner_types: list[str], affected_locations: list[dict[str, Any]]) -> list[str]:
+def _build_benchmark_notes(recommendation_text: str, scanner_types: list[str], affected_locations: list[Any]) -> list[str]:
     text = recommendation_text.lower()
-    paths = " ".join(str(location.get("file_path") or "") for location in affected_locations).lower()
+    paths = " ".join(str(_location_field(location, "file_path") or "") for location in affected_locations).lower()
     notes: list[str] = []
 
     if any(token in text or token in paths for token in ("tls", "ssl", "cert", "nginx", "gateway", "quic")):
@@ -298,7 +308,7 @@ def _build_benchmark_notes(recommendation_text: str, scanner_types: list[str], a
 
 def _build_assumptions(
     citation_count: int,
-    affected_locations: list[dict[str, Any]],
+    affected_locations: list[Any],
     scanner_types: list[str],
 ) -> list[str]:
     assumptions = [

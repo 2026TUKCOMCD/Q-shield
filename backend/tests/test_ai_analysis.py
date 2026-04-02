@@ -13,7 +13,7 @@ sys.path.insert(0, str(ROOT))
 
 from app.ai_module.orchestrator import analyze_findings
 import app.ai_module.orchestrator as orchestrator
-from app.ai_module.schemas import AiAnalysisResponse
+from app.ai_module.schemas import AffectedLocation, AiAnalysisResponse
 from app.ai_module.validator import validate_ai_response
 from app.models import Finding, Scan
 import app.routes.scans as scans
@@ -465,3 +465,56 @@ def test_validator_downgrades_benchmark_only_normative_reference():
     assert validated.recommendations[0].confidence < payload.recommendations[0].confidence
     assert "normative reference removed" in (validated.recommendations[0].confidence_reason or "")
     assert validated.inputs_summary["validation"]["benchmark_only_reference_downgrades"] == 1
+
+
+def test_related_finding_selection_accepts_pydantic_affected_locations():
+    findings = [
+        {
+            "type": "jwt_rsa_algorithm",
+            "severity": "HIGH",
+            "algorithm": "RSA",
+            "context": "SAST",
+            "file_path": "src/auth/token_service.py",
+            "line_start": 12,
+            "line_end": 12,
+            "evidence": 'jwt.encode(payload, key, algorithm="RS256")',
+            "meta": {"scanner_type": "SAST", "rule_id": "jwt_rsa_algorithm"},
+        }
+    ]
+    affected_locations = [
+        AffectedLocation(
+            file_path="src/auth/token_service.py",
+            line_start=12,
+            line_end=12,
+            rule_id="jwt_rsa_algorithm",
+            scanner_type="SAST",
+            evidence_excerpt='jwt.encode(payload, key, algorithm="RS256")',
+        )
+    ]
+
+    related = orchestrator._select_related_findings(
+        findings,
+        affected_locations,
+        "Migrate RSA-based JWT signing to a PQC-ready path.",
+    )
+    checklist = orchestrator._build_validation_checklist(
+        "Migrate RSA-based JWT signing to a PQC-ready path.",
+        affected_locations,
+        ["SAST"],
+    )
+    benchmark_notes = orchestrator._build_benchmark_notes(
+        "Migrate RSA-based JWT signing to a PQC-ready path.",
+        ["SAST"],
+        affected_locations,
+    )
+    fix_example = orchestrator._fallback_fix_example(
+        "Migrate RSA-based JWT signing to a PQC-ready path.",
+        affected_locations[0],
+    )
+
+    assert len(related) == 1
+    assert related[0]["file_path"] == "src/auth/token_service.py"
+    assert any("downstream consumers" in item for item in checklist)
+    assert any("sign and verify latency" in item for item in benchmark_notes)
+    assert fix_example is not None
+    assert fix_example["file_path"] == "src/auth/token_service.py"
