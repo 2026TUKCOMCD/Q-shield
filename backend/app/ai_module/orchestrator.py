@@ -510,8 +510,19 @@ def _ensure_real_rag_ready(
 ) -> tuple[AiAnalysisResponse, list[dict], list[str]]:
     if AI_ALLOW_DETERMINISTIC_FALLBACK:
         logger.warning(
-            "ai_analysis fallback_requested_but_disabled failure_reason=%s",
+            "ai_analysis fallback_enabled failure_reason=%s",
             failure_reason,
+        )
+        return _fallback_analysis(
+            findings=findings,
+            inputs_summary=inputs_summary,
+            risk_metrics=risk_metrics,
+            refactor_cost=refactor_cost,
+            priority_rank=priority_rank,
+            corpus_path=corpus_path,
+            failure_reason=failure_reason,
+            rag_debug=rag_debug,
+            algorithm_signature=algorithm_signature,
         )
     return _error_analysis(
         findings=findings,

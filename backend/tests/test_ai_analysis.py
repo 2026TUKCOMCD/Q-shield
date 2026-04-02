@@ -318,7 +318,7 @@ def test_rag_llm_payload_path_uses_mocked_generation(monkeypatch):
     assert references == ["FIPS 203 (ML-KEM)"]
 
 
-def test_rag_failure_returns_error_mode(monkeypatch):
+def test_rag_failure_returns_fallback_mode_when_enabled(monkeypatch):
     monkeypatch.setattr(orchestrator, "AI_ALLOW_DETERMINISTIC_FALLBACK", True)
     finding = {
         "type": "node-rsa",
@@ -339,8 +339,9 @@ def test_rag_failure_returns_error_mode(monkeypatch):
 
     response, citations, references = asyncio.run(analyze_findings([finding], corpus_path="Z:\\missing"))
 
-    assert response.analysis_mode == "error"
+    assert response.analysis_mode == "fallback"
     assert response.citation_missing is True
-    assert response.confidence_score == 0.0
+    assert response.confidence_score > 0.0
+    assert response.recommendations
     assert citations == []
     assert references == ["N/A"]

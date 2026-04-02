@@ -98,7 +98,7 @@ def run_scan_pipeline(scan_uuid: str):
             "inventory_table": _extract_inventory_table(sast_report, sca_report, repo_path),
         }
         heat_data = _build_heatmap_tree(repo_path, analysis_result, sast_report)
-        recommendations = _extract_recommendations(sast_report, sca_report)
+        recommendations = _extract_recommendations(sast_report, sca_report, config_report)
         findings = _normalize_findings(sast_report, sca_report, config_report, repo_path)
 
         # Persist results in a single transaction.
@@ -372,44 +372,191 @@ def _build_heatmap_tree(repo_path, analysis_result, sast_report):
     return root
 
 
-def _extract_recommendations(sast_report, sca_report):
-    """Extract basic recommendations from SAST results."""
+def _extract_recommendations(sast_report, sca_report, config_report):
+    """Build deterministic, class-level recommendations from scanner signals."""
+
+    severity_weight = {
+        "CRITICAL": 4,
+        "HIGH": 3,
+        "MEDIUM": 2,
+        "LOW": 1,
+        "INFO": 0,
+    }
+
+    templates = {
+        "rsa": {
+            "title": "Replace RSA-based cryptography with PQC-safe alternatives",
+            "body": "RSA usage indicates quantum-vulnerable public-key cryptography. Prioritize ML-KEM for key establishment and ML-DSA for signature paths, depending on the usage context.",
+            "algorithm": "RSA",
+            "estimated_effort": "5-8 M/D",
+        },
+        "dh": {
+            "title": "Replace DH/ECDH key exchange with ML-KEM",
+            "body": "Diffie-Hellman style key exchange remains vulnerable to Shor-style attacks. Plan a phased migration to ML-KEM-capable libraries and protocol negotiation paths.",
+            "algorithm": "DH/ECDH",
+            "estimated_effort": "5-8 M/D",
+        },
+        "ecc": {
+            "title": "Replace ECC/ECDSA signature paths with ML-DSA",
+            "body": "ECC and ECDSA-based signatures are not quantum-resistant. Identify signature boundaries first, then migrate verification and signing paths toward ML-DSA-compatible abstractions.",
+            "algorithm": "ECC/ECDSA",
+            "estimated_effort": "4-7 M/D",
+        },
+        "dsa": {
+            "title": "Replace DSA signature usage with ML-DSA",
+            "body": "Legacy DSA usage should be removed from signing workflows and key management paths in favor of PQC-safe signature algorithms.",
+            "algorithm": "DSA",
+            "estimated_effort": "3-5 M/D",
+        },
+        "sha-1": {
+            "title": "Remove weak hash usage before PQC migration",
+            "body": "Weak hash functions such as SHA-1 or MD5 should be eliminated early because they increase migration debt and undermine transition trustworthiness.",
+            "algorithm": "Weak Hash",
+            "estimated_effort": "1-3 M/D",
+        },
+        "library": {
+            "title": "Replace legacy crypto libraries with PQC-capable dependencies",
+            "body": "Some dependencies appear to lack a clear PQC support path. Consolidate crypto abstractions and prioritize libraries with vendor-backed or liboqs-based transition support.",
+            "algorithm": "Legacy Library",
+            "estimated_effort": "3-6 M/D",
+        },
+    }
+
     def _to_text(value) -> str:
-        if value is None:
-            return ""
-        return str(value)
+        return "" if value is None else str(value)
 
     def _cap(value: str, limit: int) -> str:
         return value[:limit]
 
-    recommendations = []
-    details = getattr(sast_report, "detailed_results", []) or []
+    def _match_key(*, algorithm: str | None, library: str | None, rule_id: str | None, usage_type: str | None) -> str:
+        algo_text = _to_text(algorithm).lower()
+        lib_text = _to_text(library).lower()
+        rule_text = _to_text(rule_id).lower()
+        usage_text = _to_text(usage_type).lower()
+        merged = " ".join([algo_text, lib_text, rule_text])
 
-    rank = 1
-    for detail in details:
+        if "rsa" in merged:
+            return "rsa"
+        if any(token in merged for token in ("dh", "diffie")):
+            return "dh"
+        if any(token in merged for token in ("ecc", "ecdsa", "elliptic")):
+            return "ecc"
+        if "dsa" in merged:
+            return "dsa"
+        if any(token in merged for token in ("sha-1", "sha1", "md5", "weak hash")):
+            return "sha-1"
+        if usage_text == "dependency":
+            return "library"
+        return "library"
+
+    grouped: dict[str, dict] = {}
+
+    for detail in getattr(sast_report, "detailed_results", []) or []:
         file_path = _to_text(getattr(detail, "file_path", None))
-        vulns = getattr(detail, "vulnerabilities", []) or []
-
-        for vuln in vulns:
+        for vuln in getattr(detail, "vulnerabilities", []) or []:
             if not isinstance(vuln, dict):
                 continue
-
-            desc = _to_text(vuln.get("description", "Issue detected"))
-            rec_txt = _to_text(vuln.get("recommendation", ""))
-            algo = _cap(_to_text(vuln.get("algorithm", "Unknown")), 50)
-
-            recommendations.append(
-                {
-                    "priority_rank": rank,
-                    "estimated_effort": "1-2 M/D",
-                    "ai_recommendation": f"## {desc}\n{rec_txt}",
-                    "algorithm": algo,
-                    "context": file_path,
-                }
+            key = _match_key(
+                algorithm=vuln.get("algorithm"),
+                library=None,
+                rule_id=vuln.get("type"),
+                usage_type="code",
             )
-            rank += 1
-            if len(recommendations) >= 5:
-                return recommendations
+            bucket = grouped.setdefault(
+                key,
+                {
+                    "max_severity": 0,
+                    "count": 0,
+                    "paths": set(),
+                },
+            )
+            severity = canonicalize_severity(vuln.get("severity"))[0]
+            bucket["max_severity"] = max(bucket["max_severity"], severity_weight.get(severity, 0))
+            bucket["count"] += 1
+            if file_path:
+                bucket["paths"].add(file_path)
+
+    for detail in getattr(sca_report, "detailed_results", []) or []:
+        file_path = _to_text(getattr(detail, "file_path", None))
+        for dep in getattr(detail, "vulnerable_dependencies", []) or []:
+            if not isinstance(dep, dict):
+                continue
+            key = _match_key(
+                algorithm=None,
+                library=dep.get("name") or dep.get("library_name"),
+                rule_id=dep.get("rule_id") or dep.get("name"),
+                usage_type="dependency",
+            )
+            bucket = grouped.setdefault(
+                key,
+                {
+                    "max_severity": 0,
+                    "count": 0,
+                    "paths": set(),
+                },
+            )
+            severity = canonicalize_severity(dep.get("severity"))[0]
+            bucket["max_severity"] = max(bucket["max_severity"], severity_weight.get(severity, 0))
+            bucket["count"] += 1
+            if file_path:
+                bucket["paths"].add(file_path)
+
+    for detail in getattr(config_report, "detailed_results", []) or []:
+        file_path = _to_text(getattr(detail, "file_path", None))
+        for finding in getattr(detail, "findings", []) or []:
+            if not isinstance(finding, dict):
+                continue
+            key = _match_key(
+                algorithm=None,
+                library=None,
+                rule_id=finding.get("type"),
+                usage_type="config",
+            )
+            bucket = grouped.setdefault(
+                key,
+                {
+                    "max_severity": 0,
+                    "count": 0,
+                    "paths": set(),
+                },
+            )
+            severity = canonicalize_severity(finding.get("severity"))[0]
+            bucket["max_severity"] = max(bucket["max_severity"], severity_weight.get(severity, 0))
+            bucket["count"] += 1
+            if file_path:
+                bucket["paths"].add(file_path)
+
+    ordered_groups = sorted(
+        grouped.items(),
+        key=lambda item: (
+            -int(item[1]["max_severity"]),
+            -len(item[1]["paths"]),
+            -int(item[1]["count"]),
+            item[0],
+        ),
+    )
+
+    recommendations = []
+    for rank, (key, bucket) in enumerate(ordered_groups[:5], start=1):
+        template = templates.get(key, templates["library"])
+        context_paths = sorted(str(path) for path in bucket["paths"] if path)
+        context = ", ".join(context_paths[:3]) if context_paths else "repository-wide"
+        affected_files = len(bucket["paths"])
+        issue_count = int(bucket["count"])
+        recommendations.append(
+            {
+                "priority_rank": rank,
+                "estimated_effort": template["estimated_effort"],
+                "ai_recommendation": (
+                    f"## {template['title']}\n"
+                    f"{template['body']}\n\n"
+                    f"Affected files: {affected_files}\n"
+                    f"Detected issues: {issue_count}"
+                ),
+                "algorithm": _cap(template["algorithm"], 50),
+                "context": _cap(context, 1000),
+            }
+        )
 
     return recommendations
 
