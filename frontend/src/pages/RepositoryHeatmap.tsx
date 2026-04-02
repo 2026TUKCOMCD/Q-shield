@@ -1,6 +1,6 @@
 ﻿import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { heatmapService, type HeatmapResponse } from '../services/heatmapService'
+import { heatmapService, summarizeHeatmapRisk, type HeatmapResponse } from '../services/heatmapService'
 import { scanService } from '../services/scanService'
 import { FileTree } from '../components/FileTree'
 import { logError } from '../utils/logger'
@@ -14,6 +14,21 @@ import {
   Info,
   CheckCircle2,
 } from 'lucide-react'
+
+const HeatmapSummaryCard = ({
+  label,
+  value,
+  className,
+}: {
+  label: string
+  value: number
+  className: string
+}) => (
+  <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+    <p className="mb-2 text-[11px] uppercase tracking-[0.18em] text-slate-500">{label}</p>
+    <p className={`text-lg font-semibold ${className}`}>{value}</p>
+  </div>
+)
 
 export const RepositoryHeatmap = () => {
   const { uuid } = useParams<{ uuid: string }>()
@@ -111,6 +126,8 @@ export const RepositoryHeatmap = () => {
     )
   }
 
+  const heatmapSummary = summarizeHeatmapRisk(heatmapData)
+
   return (
     <div className="min-h-screen bg-[#020617] text-white">
       <div className="fixed inset-0 bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900 pointer-events-none" />
@@ -161,6 +178,13 @@ export const RepositoryHeatmap = () => {
           )}
 
           <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-xl p-6">
+            <div className="mb-6 grid gap-3 md:grid-cols-5">
+              <HeatmapSummaryCard label="Critical Files" value={heatmapSummary.critical} className="text-red-300" />
+              <HeatmapSummaryCard label="High Files" value={heatmapSummary.high} className="text-orange-300" />
+              <HeatmapSummaryCard label="Medium Files" value={heatmapSummary.medium} className="text-yellow-300" />
+              <HeatmapSummaryCard label="Low Files" value={heatmapSummary.low} className="text-blue-300" />
+              <HeatmapSummaryCard label="Safe Files" value={heatmapSummary.safe} className="text-slate-300" />
+            </div>
             <h2 className="text-lg font-semibold text-white mb-4">Risk Level Legend</h2>
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
               <div className="flex items-center gap-3">
@@ -200,6 +224,14 @@ export const RepositoryHeatmap = () => {
               Folders display the highest risk level found within their children. Click folders to
               expand or collapse.
             </p>
+            <div className="mt-4 rounded-r-lg border-l-4 border-indigo-500/50 bg-gradient-to-r from-indigo-500/5 to-purple-600/5 p-4">
+              <p className="text-sm leading-relaxed text-slate-300">
+                <strong className="text-white">How to read this view</strong>
+                <br />
+                Heatmap scores come from static scan evidence and are useful for triage, not proof of runtime exploitability.
+                Use auth, TLS, token, and certificate paths as migration planning hotspots.
+              </p>
+            </div>
           </div>
 
           <FileTree data={heatmapData} />

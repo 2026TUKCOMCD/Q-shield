@@ -33,6 +33,13 @@ export interface InventoryResponse {
   inventory: CryptographicAsset[]
 }
 
+export interface InventorySignals {
+  classLabel: string
+  classReason: string
+  boundaryLabel: string
+  trustLabel: string
+}
+
 const isAppError = (error: unknown): error is AppError => {
   return typeof error === 'object' && error !== null && 'type' in error && 'message' in error
 }
@@ -119,6 +126,62 @@ const fallbackAssetDetails: Record<string, Partial<AssetDetail>> = {
     migrationComplexity: 'Low',
     estimatedEffort: '1-2 M/D',
   },
+}
+
+export const inferInventorySignals = (asset: CryptographicAsset): InventorySignals => {
+  const algorithm = asset.algorithmType.toLowerCase()
+  const filePath = asset.filePath.toLowerCase()
+  const lineHitCount = asset.lineNumbers.length
+
+  let classLabel = 'Legacy crypto signal'
+  let classReason = 'Review this asset during migration planning.'
+
+  if (
+    algorithm.includes('rsa') ||
+    algorithm.includes('ecc') ||
+    algorithm.includes('ecdsa') ||
+    algorithm.includes('dsa') ||
+    algorithm.includes('dh')
+  ) {
+    classLabel = 'Quantum-vulnerable public-key'
+    classReason = 'Public-key algorithms are primary PQC migration targets.'
+  } else if (algorithm.includes('sha-1') || algorithm.includes('sha1') || algorithm.includes('md5')) {
+    classLabel = 'Weak hash debt'
+    classReason = 'Weak hash usage should be removed early to reduce migration debt.'
+  } else if (algorithm.includes('aes') || algorithm.includes('chacha')) {
+    classLabel = 'Symmetric path'
+    classReason = 'Symmetric crypto is not the primary PQC replacement target, but still affects readiness.'
+  }
+
+  let boundaryLabel = 'Internal code path'
+  if (
+    filePath.includes('auth') ||
+    filePath.includes('token') ||
+    filePath.includes('login') ||
+    filePath.includes('jwt')
+  ) {
+    boundaryLabel = 'Auth/token boundary'
+  } else if (
+    filePath.includes('tls') ||
+    filePath.includes('ssl') ||
+    filePath.includes('cert') ||
+    filePath.includes('nginx') ||
+    filePath.includes('gateway')
+  ) {
+    boundaryLabel = 'TLS/certificate boundary'
+  } else if (filePath.includes('config')) {
+    boundaryLabel = 'Configuration boundary'
+  }
+
+  const trustLabel =
+    lineHitCount > 1 ? `Static evidence across ${lineHitCount} lines` : 'Single static evidence location'
+
+  return {
+    classLabel,
+    classReason,
+    boundaryLabel,
+    trustLabel,
+  }
 }
 
 export const inventoryService = {

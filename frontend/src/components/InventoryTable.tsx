@@ -1,5 +1,5 @@
 ﻿import { useNavigate } from 'react-router-dom'
-import { type CryptographicAsset } from '../services/inventoryService'
+import { inferInventorySignals, type CryptographicAsset } from '../services/inventoryService'
 import { FileCode, AlertCircle, CheckCircle2, AlertTriangle } from 'lucide-react'
 
 interface InventoryTableProps {
@@ -62,6 +62,7 @@ export const InventoryTable = ({ inventory, scanUuid }: InventoryTableProps) => 
             {inventory.map((asset) => {
               const riskConfig = getRiskColor(asset.riskScore)
               const RiskIcon = getRiskIcon(asset.riskScore)
+              const signals = inferInventorySignals(asset)
 
               return (
                 <tr
@@ -78,11 +79,24 @@ export const InventoryTable = ({ inventory, scanUuid }: InventoryTableProps) => 
                       </div>
                       <span className="text-white font-medium">{asset.algorithmType}</span>
                     </div>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <span className="rounded-full border border-indigo-400/20 bg-indigo-500/10 px-2.5 py-1 text-[11px] text-indigo-300">
+                        {signals.classLabel}
+                      </span>
+                    </div>
+                    <p className="mt-2 max-w-xs text-xs leading-relaxed text-slate-400">
+                      {signals.classReason}
+                    </p>
                   </td>
                   <td className="px-6 py-4">
                     <code className="text-sm text-slate-300 font-mono bg-white/5 px-2 py-1 rounded">
                       {asset.filePath}
                     </code>
+                    <div className="mt-2">
+                      <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-slate-300">
+                        {signals.boundaryLabel}
+                      </span>
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex flex-wrap gap-1">
@@ -110,6 +124,7 @@ export const InventoryTable = ({ inventory, scanUuid }: InventoryTableProps) => 
                         </span>
                       </div>
                     </div>
+                    <p className="mt-2 text-xs text-slate-400">{signals.trustLabel}</p>
                   </td>
                 </tr>
               )

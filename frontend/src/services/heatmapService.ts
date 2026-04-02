@@ -16,6 +16,14 @@ export interface RepositoryFile {
 
 export type HeatmapResponse = RepositoryFile[]
 
+export interface HeatmapRiskSummary {
+  critical: number
+  high: number
+  medium: number
+  low: number
+  safe: number
+}
+
 const isAppError = (error: unknown): error is AppError => {
   return typeof error === 'object' && error !== null && 'type' in error && 'message' in error
 }
@@ -141,6 +149,62 @@ export const calculateVulnerabilityCount = (folder: RepositoryFile): number => {
     count += calculateVulnerabilityCount(child)
   }
   return count
+}
+
+export const summarizeHeatmapRisk = (nodes: HeatmapResponse): HeatmapRiskSummary => {
+  const summary: HeatmapRiskSummary = {
+    critical: 0,
+    high: 0,
+    medium: 0,
+    low: 0,
+    safe: 0,
+  }
+
+  const walk = (node: RepositoryFile) => {
+    if (node.fileType === 'file') {
+      const level = getRiskLevel(node.aggregatedRiskScore)
+      if (level === 'CRITICAL') summary.critical += 1
+      else if (level === 'HIGH') summary.high += 1
+      else if (level === 'MEDIUM') summary.medium += 1
+      else if (level === 'LOW') summary.low += 1
+      else summary.safe += 1
+      return
+    }
+
+    for (const child of node.children ?? []) {
+      walk(child)
+    }
+  }
+
+  nodes.forEach(walk)
+  return summary
+}
+
+export const inferHeatmapBoundary = (node: RepositoryFile): string | null => {
+  const path = node.filePath.toLowerCase()
+  if (path.includes('auth') || path.includes('token') || path.includes('login') || path.includes('jwt')) {
+    return 'Auth/token path'
+  }
+  if (
+    path.includes('tls') ||
+    path.includes('ssl') ||
+    path.includes('cert') ||
+    path.includes('nginx') ||
+    path.includes('gateway')
+  ) {
+    return 'TLS/certificate path'
+  }
+  if (path.includes('config')) {
+    return 'Config path'
+  }
+  return null
+}
+
+export const getHeatmapTrustNote = (node: RepositoryFile): string => {
+  if (node.fileType === 'folder') {
+    return 'Folder score shows the highest-risk child path.'
+  }
+  return 'File score is based on static scanner evidence, not runtime validation.'
 }
 
 export const heatmapService = {
