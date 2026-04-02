@@ -1,152 +1,152 @@
 # Q-shield Fix Plan
 
-프로젝트 방향: Q-shield는 일반 취약점 스캐너가 아니라 `PQC 전환 우선순위 진단 플랫폼`으로 정렬한다.
+프로젝트 방향:
+Q-shield는 일반 취약점 스캐너가 아니라 `PQC 전환 우선순위 진단 플랫폼`으로 정렬한다.
 
-이 계획은 다음 문서의 핵심 요구를 반영한다.
+이 문서는 다음 입력을 반영한다.
+- 초기 프로젝트 목표 정의
+- 교수 피드백
 - `deep-research-report.md`
 - `deep-research-report (1).md`
 - `deep-research-report (2).md`
+- NIST IR 8547
+- FIPS 203/204/205
+- NIST SP 1800-38B
+- NIST SP 1800-38C
 
-핵심 반영 사항:
-- NIST IR 8547, FIPS 203/204/205, NIST SP 1800-38B/38C에 맞는 표현과 평가 체계를 사용한다.
-- `보안이 몇 % 향상된다`는 식의 과장 표현은 기본 지표로 쓰지 않는다.
-- 우선순위는 severity만이 아니라 `발견 범위`, `외부 노출`, `전환 비용`, `상호운용성`, `운영 성능 영향`까지 포함한다.
-- 스캐너 결과는 단순 finding 목록이 아니라 `정규화된 cryptographic inventory / CBOM 성격의 데이터`로 수렴해야 한다.
-- AI는 근거를 요약하고 설명하는 계층이지, scanner 사실을 대체하는 계층이 아니다.
+핵심 원칙:
+- scanner facts와 AI reasoning은 분리한다.
+- AI는 recommendation을 발명하지 않고, planner 결과를 설명하고 보강한다.
+- `% 보안 향상` 같은 과장 표현은 기본 지표로 사용하지 않는다.
+- 우선순위는 severity만이 아니라 노출 범위, 영향 반경, 전환 비용, 운영 영향까지 포함한다.
+- 결과물은 finding 목록이 아니라 cryptographic inventory / migration roadmap이어야 한다.
 
 ## Guiding Rules
 
-- PQC 효과는 기본적으로 `NIST security category`, `quantum-vulnerable exposure reduction`, `attack-cost/risk reduction`, `migration readiness`로 표현한다.
-- `%` 지표가 필요하면 반드시 정의를 명시한다.
-  - 예: `양자 취약 노출 감소율`
-  - 예: `가정 기반 위험 감소율`
-- `%`를 쓰더라도 `NIST가 직접 제공한 수치`처럼 보이게 표현하지 않는다.
-- 하이브리드 구성은 임시 전환 수단으로 본다.
-- 2030/2035 전환 타임라인과 HNDL 위험을 고려한 우선순위 설명이 가능해야 한다.
+- PQC 효과는 기본적으로 다음 언어로 표현한다.
+  - `NIST security category`
+  - `quantum-vulnerable exposure reduction`
+  - `migration readiness`
+  - `interoperability / performance trade-off`
+- 퍼센트 기반 지표를 쓸 경우 반드시 정의와 계산식을 함께 제시한다.
+- 하이브리드는 최종 상태가 아니라 단계적 전환 수단으로 표현한다.
+- 2030/2035 timeline과 HNDL risk를 우선순위 설명에 반영한다.
 
 ## Completed
 
-- [x] 스캔 API 계약 불일치 1차 축소
-- [x] AI 분석 자동 enqueue
-- [x] recommendation 흐름 1차 통합
-- [x] recommendation 중복 제거 및 distinct class 저장
-- [x] SCA manifest 파싱 범위 확장
+- [x] 프론트/백엔드 scan contract 1차 정렬
+- [x] scan 완료 후 AI analysis 자동 enqueue
+- [x] recommendation 흐름 단일화
+- [x] findings dedup 및 distinct vulnerability class 기반 recommendation 생성
+- [x] SCA manifest parsing 확대
 - [x] JWT/JOSE 관련 SCA 탐지 보강
 - [x] JWT/JOSE 관련 SAST 탐지 보강
 - [x] findings 기반 recommendation planner 도입
-- [x] vulnerability class 단위 정규화
-- [x] recommendation에 `priorityReason`, `evidenceCount`, `affectedFilesCount` 계산
+- [x] `priorityReason`, `evidenceCount`, `affectedFilesCount`, `scannerTypes` 추가
+- [x] AI recommendation에 `validationChecklist`, `benchmarkNotes`, `assumptions`, `confidenceReason` 추가
+- [x] RAG source metadata 분류
+- [x] normative vs benchmark evidence 분리 retrieval
+- [x] unsupported claim validator 추가
+- [x] 프론트 evidence UI 분리
+- [x] structured recommendation DTO (`evidence/guidance/trust`) 도입
 
 ## Priority 1
 
-목표: `발견 -> 정규화 -> 우선순위화`를 제품 핵심 가치로 고정한다.
+목표:
+`발견 -> 정규화 -> inventory -> recommendation`을 제품의 단일 사실 흐름으로 고정한다.
 
-- [ ] findings를 `cryptographic inventory / CBOM 성격의 공통 스키마`로 정리
-- [ ] scanner 결과를 SARIF 또는 SARIF-유사 구조로 내보낼 수 있게 설계
-- [ ] 동일 자산을 SAST/SCA/Config에서 교차 상관하는 correlation layer 강화
-- [ ] recommendation 화면에서 `normalizedClass`, `priorityReason`, `evidenceCount`, `affectedFilePaths`, `scannerTypes` 노출
-- [ ] scan status와 ai-analysis status 분리
-  - `SCAN_PENDING`, `SCAN_RUNNING`, `SCAN_COMPLETED`
-  - `AI_PENDING`, `AI_READY`, `AI_FAILED`
-- [ ] transaction 실패 시 partial state 정리 강화
+- [ ] findings를 cryptographic inventory / CBOM 성격의 공통 스키마로 정리
+- [ ] scanner 결과를 SARIF 또는 SARIF-유사 구조와 매핑 가능하게 정리
+- [ ] 동일 자산에 대한 SAST/SCA/Config correlation layer 강화
+- [ ] scan status와 ai-analysis status 완전 분리
+- [ ] partial failure 시 transaction/state 정합성 강화
 
 ## Priority 2
 
-목표: 교수 피드백에 답할 수 있는 `방어 가능한 prioritization model`을 만든다.
+목표:
+교수 피드백에 대응 가능한 우선순위 모델을 고정한다.
 
-- [ ] 우선순위 점수 공식을 명시 문서화
-  - severity
-  - public-key 여부
-  - auth/tls/pki/token 노출 여부
-  - affected files / blast radius
-  - scanner source 다양성
-  - migration cost
-  - operational compatibility risk
-- [ ] `priorityReason`을 규칙 기반 문장으로 고정
-- [ ] recommendation 1개 = vulnerability class 1개 = 근거 finding N개 구조를 명확화
-- [ ] findings, inventory, recommendations 간 ID 연결 강화
-- [ ] `HNDL risk`, `external exposure`, `time-to-migrate`를 별도 신호로 관리
+- [x] recommendation priority factor를 코드 모듈로 분리
+- [x] 우선순위 공식과 factor 정의 문서화
+- [ ] HNDL risk factor 추가
+- [ ] migration complexity factor 추가
+- [ ] performance/interoperability factor를 planner score에 직접 반영
+- [ ] `priorityReason`을 factor breakdown 기반으로 더 구조화
+- [ ] recommendation 1개 = vulnerability class 1개 = 근거 finding N개 구조를 DB/응답에서 더 명확히 연결
 
 ## Priority 3
 
-목표: PQC 전환 플랫폼답게 `운영 성능 / 상호운용성 리스크`를 함께 진단한다.
+목표:
+PQC 전환 플랫폼답게 운영 성능과 상호운용 위험을 같이 진단한다.
 
-문서 반영 근거:
+주요 근거:
 - NIST SP 1800-38C
-- 운영 성능 리서치 문서들
 
-- [ ] TLS/QUIC 설정에서 PQC 적용 시 성능 병목 가능성 규칙 추가
-  - certificate chain 크기
-  - QUIC amplification / initcwnd / initial RTT 민감도
-  - keep-alive / connection reuse 여부
-  - handshake-heavy API 경로
-- [ ] PKI/인증서/서명 경로에서 `ML-DSA`, `SLH-DSA` 적용 시 크기 증가 리스크 표기
+- [ ] TLS/QUIC 경로에 대한 structured config parsing 강화
+- [ ] certificate chain size, handshake-heavy path, keep-alive reuse 관련 signal 추가
+- [ ] PKI / certificate / signature path에서 ML-DSA, SLH-DSA migration friction 표시
 - [ ] HSM / PKCS#11 / digest-then-sign 경로 탐지 규칙 추가
-- [ ] 추천 결과에 `성능 영향 가능성`과 `상호운용성 영향 가능성` 필드 추가
-- [ ] heatmap에서 security risk와 migration friction을 분리해서 볼 수 있게 설계
+- [ ] recommendation에 `performance impact risk`와 `interop risk`를 별도 필드로 추가
+- [ ] heatmap에서 security risk와 migration friction을 분리 시각화
 
 ## Priority 4
 
-목표: AI 신뢰성과 근거성을 강화한다.
+목표:
+AI 출력의 근거성과 감사 가능성을 강화한다.
 
-- [ ] recommendation마다 scanner evidence와 NIST citation 연결
-- [ ] fallback/real mode를 API와 UI에서 명확히 구분
-- [ ] citation 부족 시 confidence 하향 규칙 명시
-- [ ] AI 출력에 다음 필드 추가
-  - `priority_reason`
-  - `confidence_reason`
-  - `evidence_count`
-  - `citations_count`
-  - `nist_reference`
-  - `assumptions`
-- [ ] AI가 unsupported metric을 만들지 못하게 prompt / validator 강화
+- [x] source_type 기반 citation metadata 저장
+- [x] normative evidence와 benchmark evidence 분리 노출
+- [x] unsupported claim validator 추가
+- [ ] citation missing penalty를 더 정교하게 조정
+- [ ] benchmark-only evidence가 normative claim에 섞이지 않도록 후처리 강화
+- [ ] recommendation마다 scanner evidence id와 citation id 연결
+- [ ] fallback mode / real mode / cached mode를 UI에서 명시
 
 ## Priority 5
 
-목표: 평가와 발표에 필요한 `benchmark / methodology / trust justification`을 완성한다.
+목표:
+평가와 발표에 필요한 benchmark / methodology / trust justification을 완성한다.
 
 - [ ] 평가 지표 문서화
-  - 탐지 정확도
+  - detection accuracy
   - distinct class coverage
-  - 중복 recommendation 감소율
-  - inventory completeness
+  - duplicate recommendation reduction
+  - citation coverage
   - priority explanation consistency
-- [ ] `%` 기반 대체 지표 정의
-  - `양자 취약 노출 감소율`
-  - `가정 기반 위험 감소율`
-  - 정의와 계산식, 한계를 함께 표기
+  - expert review acceptance
+- [ ] `%` 기반 지표가 필요한 경우 정의와 계산식 문서화
 - [ ] authoritative benchmark set 구성
   - NIST 문서 기반 시나리오
-  - 공개 GitHub 레포 기반 시나리오
-  - hand-crafted fixture 기반 회귀 테스트
+  - 공개 GitHub repo 기반 시나리오
+  - hand-crafted fixture 기반 시나리오
 - [ ] 결과 보고서 템플릿에 다음 섹션 추가
-  - `왜 이 항목이 우선인가`
-  - `근거 문서`
-  - `운영 영향`
-  - `전환 난이도`
-  - `권장 단계적 로드맵`
+  - 왜 이 항목이 우선인가
+  - 근거 문서
+  - 운영 영향
+  - 검증 체크리스트
+  - 전환 로드맵
 
 ## Architecture Fixes
 
-- [ ] backend에서 `sys.path` 기반 scanner import 제거
+- [ ] backend의 `sys.path` 기반 scanner import 제거
 - [ ] scanner adapter / service layer 분리
-- [ ] recommendation planner와 ai orchestrator 책임 분리
+- [ ] recommendation planner와 AI orchestrator 책임 분리 유지
 - [ ] stored findings를 single source of truth로 고정
 - [ ] frontend mock fallback을 데모 전용으로 제한
 
 ## Research Alignment Checklist
 
-- [ ] NIST IR 8547의 category/timeline 언어와 충돌하지 않는가
-- [ ] FIPS 203/204/205의 알고리즘/크기/카테고리 설명을 왜곡하지 않는가
+- [ ] NIST IR 8547의 transition framing과 충돌하지 않는가
+- [ ] FIPS 203/204/205의 algorithm scope 설명과 충돌하지 않는가
 - [ ] SP 1800-38B의 discovery-normalization-inventory 흐름을 반영하는가
 - [ ] SP 1800-38C의 interoperability/performance lesson을 반영하는가
-- [ ] `security + performance + interoperability`를 함께 설명하는가
-- [ ] `% 향상` 수치가 있으면 정의와 한계를 같이 보여주는가
+- [ ] security + performance + interoperability를 함께 설명하는가
+- [ ] 퍼센트 지표를 사용할 때 정의와 한계를 함께 보여주는가
 
-## Current Next Step
+## Current Next Steps
 
-1. 프론트 recommendation 화면에 구조화 필드 표시
-2. scan / ai-analysis 상태 분리
-3. inventory를 CBOM 성격의 공통 스키마로 정리
-4. TLS/QUIC/HSM 성능 리스크 규칙 추가
-5. 평가 지표와 보고서 템플릿 문서화
+1. prioritization factor를 planner score와 AI summary에 모두 반영
+2. HNDL / migration complexity / interop risk factor 추가
+3. findings/inventory/heatmap 화면에도 trust/evidence 표시 확대
+4. benchmark-aware citation linking 강화
+5. evaluation methodology 문서 추가
