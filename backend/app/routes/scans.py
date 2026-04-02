@@ -125,6 +125,8 @@ def _build_recommendation_evidence(
     normative_evidence_count: int = 0,
     benchmark_evidence_count: int = 0,
     priority_factors: list[dict] | None = None,
+    related_asset_refs: list[str] | None = None,
+    correlation_refs: list[str] | None = None,
 ) -> RecommendationEvidence:
     paths = list(affected_paths or [])
     scanners = list(scanner_types or [])
@@ -138,6 +140,8 @@ def _build_recommendation_evidence(
         normativeEvidenceCount=normative_evidence_count,
         benchmarkEvidenceCount=benchmark_evidence_count,
         priorityFactors=_build_priority_factors(priority_factors),
+        relatedAssetRefs=list(related_asset_refs or []),
+        correlationRefs=list(correlation_refs or []),
     )
 
 
@@ -219,6 +223,9 @@ def _build_inventory_assets(inv: InventorySnapshot, include_detail: bool = False
                     filePath="unknown",
                     lineNumbers=[],
                     riskScore=entry_risk_score,
+                    assetRef=entry.get("asset_ref"),
+                    correlationRef=entry.get("correlation_ref"),
+                    algorithmFamily=entry.get("algorithm_family"),
                 )
             )
             continue
@@ -256,6 +263,9 @@ def _build_inventory_assets(inv: InventorySnapshot, include_detail: bool = False
                     filePath=file_path,
                     lineNumbers=line_numbers,
                     riskScore=entry_risk_score,
+                    assetRef=entry.get("asset_ref"),
+                    correlationRef=entry.get("correlation_ref"),
+                    algorithmFamily=entry.get("algorithm_family"),
                     codeSnippet=code_snippet if include_detail else None,
                     codeSnippetStartLine=code_snippet_start_line if include_detail else None,
                     detectedPattern=detected_pattern if include_detail else None,
@@ -637,6 +647,8 @@ def get_recommendations(
                         affected_paths=affected_paths,
                         scanner_types=list(plan.get("scanner_types") or []),
                         priority_factors=list(plan.get("priority_factors") or []),
+                        related_asset_refs=list(plan.get("related_asset_refs") or []),
+                        correlation_refs=list(plan.get("correlation_refs") or []),
                     ),
                     guidance=_build_recommendation_guidance(
                         summary=str(plan["ai_recommendation"]),
@@ -678,6 +690,8 @@ def get_recommendations(
                         affected_paths=[file_path] if file_path else [],
                         scanner_types=[],
                         priority_factors=[],
+                        related_asset_refs=[],
+                        correlation_refs=[],
                     ),
                     guidance=_build_recommendation_guidance(
                         summary=r.ai_recommendation or "",

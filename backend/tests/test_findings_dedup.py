@@ -44,6 +44,8 @@ def test_dedup_drops_exact_duplicates_and_counts():
     assert len(findings) == 1
     meta = findings[0].get("meta") or {}
     assert meta.get("duplicate_count") == 2
+    assert meta.get("asset_ref") == "code:rsa-public-key:src/app.py"
+    assert meta.get("correlation_ref") == "rsa-public-key:general"
 
 
 def test_dedup_keeps_distinct_rule_ids():
@@ -263,6 +265,9 @@ def test_recommendation_plan_adds_priority_reason_and_evidence_summary():
     assert set(rsa_item["scanner_types"]) == {"SAST", "SCA"}
     assert len(rsa_item["priority_factors"]) == 9
     assert any(factor["key"] == "hndl_bonus" for factor in rsa_item["priority_factors"])
+    assert "code:rsa-public-key:src/auth/token_service.py" in rsa_item["related_asset_refs"]
+    assert "dependency:rsa-public-key:pyproject.toml#python-jose" in rsa_item["related_asset_refs"]
+    assert "rsa-public-key:auth-token" in rsa_item["correlation_refs"]
     assert "RSA class risk" in rsa_item["priority_reason"]
     assert "auth/tls-facing usage" in rsa_item["priority_reason"]
     assert "possible HNDL-sensitive path" in rsa_item["priority_reason"]

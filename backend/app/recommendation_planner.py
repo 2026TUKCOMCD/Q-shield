@@ -92,6 +92,8 @@ def build_recommendation_plan(findings: Iterable[dict]) -> list[dict]:
                 "max_severity": "INFO",
                 "issue_count": 0,
                 "paths": set(),
+                "asset_refs": set(),
+                "correlation_refs": set(),
                 "scanner_types": set(),
                 "messages": set(),
                 "contexts": set(),
@@ -102,6 +104,10 @@ def build_recommendation_plan(findings: Iterable[dict]) -> list[dict]:
         bucket["issue_count"] += int(meta.get("duplicate_count", 1) or 1)
         if file_path:
             bucket["paths"].add(file_path)
+        if meta.get("asset_ref"):
+            bucket["asset_refs"].add(str(meta["asset_ref"]))
+        if meta.get("correlation_ref"):
+            bucket["correlation_refs"].add(str(meta["correlation_ref"]))
         if scanner_type:
             bucket["scanner_types"].add(scanner_type)
         if meta.get("message"):
@@ -113,6 +119,8 @@ def build_recommendation_plan(findings: Iterable[dict]) -> list[dict]:
     for key, bucket in grouped.items():
         template = bucket["template"]
         affected_paths = sorted(bucket["paths"])
+        asset_refs = sorted(bucket["asset_refs"])
+        correlation_refs = sorted(bucket["correlation_refs"])
         scanner_types = sorted(bucket["scanner_types"])
         score, reason, breakdown = _compute_priority_score(
             key=key,
@@ -137,6 +145,8 @@ def build_recommendation_plan(findings: Iterable[dict]) -> list[dict]:
                 "evidence_count": bucket["issue_count"],
                 "affected_files_count": len(affected_paths),
                 "affected_file_paths": affected_paths,
+                "related_asset_refs": asset_refs,
+                "correlation_refs": correlation_refs,
                 "scanner_types": scanner_types,
                 "context": ", ".join(affected_paths[:3]) if affected_paths else "repository-wide",
                 "ai_recommendation": _build_recommendation_markdown(

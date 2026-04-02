@@ -12,6 +12,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.celery_app import celery_app
 from app.config import DATABASE_URL_SYNC
+from app.crypto_asset_ref import build_asset_ref, build_correlation_ref, canonical_algorithm_family
 from app.models import Finding, HeatmapSnapshot, InventorySnapshot, Recommendation, Scan
 from app.recommendation_planner import build_recommendation_plan
 from app.scoring import build_score_signals_from_reports, compute_pqc_readiness_score
@@ -265,6 +266,16 @@ def _extract_inventory_table(sast_report, sca_report, repo_path: str):
             }
 
             existing = next((i for i in inventory if i["algorithm"] == algo), None)
+            algorithm_family = canonical_algorithm_family(algo)
+            asset_ref = build_asset_ref(
+                usage_type="code",
+                algorithm_family=algorithm_family,
+                file_path=normalized_path,
+            )
+            correlation_ref = build_correlation_ref(
+                algorithm_family=algorithm_family,
+                file_path=normalized_path,
+            )
             if existing:
                 existing["count"] += 1
                 existing["locations"].append(location)
@@ -276,6 +287,9 @@ def _extract_inventory_table(sast_report, sca_report, repo_path: str):
                         "count": 1,
                         "locations": [location],
                         "risk_score": min(10.0, risk_points),
+                        "asset_ref": asset_ref,
+                        "correlation_ref": correlation_ref,
+                        "algorithm_family": algorithm_family,
                     }
                 )
 
@@ -524,6 +538,28 @@ def _normalize_findings(sast_report, sca_report, config_report, repo_path: str |
                 "rule_id": rule_id,
                 "message": message or "",
                 "severity_score": severity_score,
+            }
+        )
+        usage_type = str(payload["meta"].get("usage_type") or "unknown")
+        algorithm_family = canonical_algorithm_family(
+            algorithm,
+            rule_id=rule_id,
+            library=payload["meta"].get("library"),
+            message=message,
+        )
+        payload["meta"].update(
+            {
+                "algorithm_family": algorithm_family,
+                "asset_ref": build_asset_ref(
+                    usage_type=usage_type,
+                    algorithm_family=algorithm_family,
+                    file_path=payload["file_path"],
+                    library=payload["meta"].get("library"),
+                ),
+                "correlation_ref": build_correlation_ref(
+                    algorithm_family=algorithm_family,
+                    file_path=payload["file_path"],
+                ),
             }
         )
         if _validate_finding(payload):

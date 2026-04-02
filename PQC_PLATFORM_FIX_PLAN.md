@@ -51,6 +51,7 @@ Q-shield는 일반 취약점 스캐너가 아니라 `PQC 전환 우선순위 진
 - [x] structured recommendation DTO (`evidence/guidance/trust`) 도입
 - [x] planner score를 factor 모듈로 분리
 - [x] HNDL / migration complexity / interop risk 초기 factor 반영
+- [x] asset_ref / correlation_ref 기반 cross-layer correlation 초안 도입
 
 ## Priority 1
 
@@ -58,6 +59,7 @@ Q-shield는 일반 취약점 스캐너가 아니라 `PQC 전환 우선순위 진
 `발견 -> 정규화 -> inventory -> recommendation`을 제품의 단일 사실 흐름으로 고정한다.
 
 - [ ] findings를 cryptographic inventory / CBOM 성격의 공통 스키마로 정리
+- [ ] inventory, findings, recommendation을 asset_ref 기준으로 화면에서 직접 연결
 - [ ] scanner 결과를 SARIF 또는 SARIF-유사 구조와 매핑 가능하게 정리
 - [ ] 동일 자산에 대한 SAST/SCA/Config correlation layer 강화
 - [ ] scan status와 ai-analysis status 완전 분리

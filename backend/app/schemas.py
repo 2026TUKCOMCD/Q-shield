@@ -61,6 +61,9 @@ class InventoryAsset(BaseModel):
     filePath: str
     lineNumbers: List[int]
     riskScore: float
+    assetRef: Optional[str] = None
+    correlationRef: Optional[str] = None
+    algorithmFamily: Optional[str] = None
     keySize: Optional[int] = None
     modeOfOperation: Optional[str] = None
     implementation: Optional[str] = None
@@ -92,6 +95,8 @@ class FindingItem(BaseModel):
     line_start: Optional[int] = None
     line_end: Optional[int] = None
     evidence: Optional[str] = None
+    assetRef: Optional[str] = None
+    correlationRef: Optional[str] = None
     meta: Dict = Field(default_factory=dict)
 
 
@@ -123,6 +128,8 @@ class RecommendationEvidence(BaseModel):
     normativeEvidenceCount: int = 0
     benchmarkEvidenceCount: int = 0
     priorityFactors: List[PriorityFactorItem] = Field(default_factory=list)
+    relatedAssetRefs: List[str] = Field(default_factory=list)
+    correlationRefs: List[str] = Field(default_factory=list)
 
 
 class RecommendationGuidance(BaseModel):
