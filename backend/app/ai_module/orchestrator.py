@@ -334,6 +334,78 @@ def _build_confidence_reason(
     return ", ".join(reasons)
 
 
+def _build_benchmark_support(
+    benchmark_notes: list[str],
+    citations: list[Any],
+) -> list[dict[str, Any]]:
+    benchmark_citations = []
+    for citation in citations or []:
+        source_type = str(getattr(citation, "source_type", None) or "").upper()
+        if source_type not in {"BENCHMARK", "ACADEMIC_PAPER"}:
+            continue
+        citation_key = f"{getattr(citation, 'doc_id', 'unknown')}:{getattr(citation, 'page', 'na')}"
+        benchmark_citations.append(
+            {
+                "key": citation_key,
+                "title": str(getattr(citation, "title", "") or ""),
+                "topic": str(getattr(citation, "topic", "") or ""),
+                "snippet": str(getattr(citation, "snippet", "") or ""),
+            }
+        )
+
+    if not benchmark_notes or not benchmark_citations:
+        return []
+
+    support_items: list[dict[str, Any]] = []
+    for note in benchmark_notes:
+        note_text = str(note).lower()
+        matched = [
+            citation
+            for citation in benchmark_citations
+            if any(
+                token in note_text
+                for token in (
+                    str(citation["title"]).lower(),
+                    str(citation["topic"]).lower(),
+                )
+                if token
+            )
+        ]
+
+        if not matched:
+            keyword_map = {
+                "latency": ("latency", "handshake", "rtt"),
+                "certificate": ("certificate", "chain", "cert"),
+                "interoperability": ("interoperability", "interop", "compatibility"),
+                "hsm": ("hsm", "pkcs11"),
+                "signature": ("signature", "verify", "sign"),
+            }
+            note_tokens = set()
+            for values in keyword_map.values():
+                for value in values:
+                    if value in note_text:
+                        note_tokens.add(value)
+            matched = [
+                citation
+                for citation in benchmark_citations
+                if any(
+                    token in str(citation["snippet"]).lower() or token in str(citation["title"]).lower()
+                    for token in note_tokens
+                )
+            ]
+
+        chosen = matched or benchmark_citations
+        support_items.append(
+            {
+                "note": str(note),
+                "citation_keys": [str(citation["key"]) for citation in chosen],
+                "citation_titles": [str(citation["title"]) for citation in chosen],
+            }
+        )
+
+    return support_items
+
+
 def _enrich_recommendations(
     response: AiAnalysisResponse,
     findings: list[dict],
@@ -393,6 +465,7 @@ def _enrich_recommendations(
         priority_factors = list(recommendation.priority_factors or [])
         if not priority_factors and planner_item is not None:
             priority_factors = list(planner_item.get("priority_factors") or [])
+        benchmark_support = _build_benchmark_support(benchmark_notes, list(recommendation.citations or []))
 
         updated_recommendations.append(
             recommendation.model_copy(
@@ -405,6 +478,7 @@ def _enrich_recommendations(
                     "assumptions": assumptions,
                     "confidence_reason": confidence_reason,
                     "priority_factors": priority_factors,
+                    "benchmark_support": benchmark_support,
                 }
             )
         )

@@ -51,6 +51,12 @@ class PriorityFactor(BaseModel):
     evidence_type: str
 
 
+class BenchmarkSupportItem(BaseModel):
+    note: str
+    citation_keys: list[str] = Field(default_factory=list)
+    citation_titles: list[str] = Field(default_factory=list)
+
+
 class RecommendationPayload(BaseModel):
     title: str
     description: str
@@ -65,6 +71,7 @@ class RecommendationPayload(BaseModel):
     assumptions: list[str] = Field(default_factory=list)
     confidence_reason: str | None = None
     priority_factors: list[PriorityFactor] = Field(default_factory=list)
+    benchmark_support: list[BenchmarkSupportItem] = Field(default_factory=list)
 
 
 class AiAnalysisResponse(BaseModel):
