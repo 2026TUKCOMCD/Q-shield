@@ -5,12 +5,22 @@ import {
   type AiAnalysisRecommendation,
   type AiCitation,
   type AiCodeFixExample,
+  type AiPriorityFactor,
 } from './aiAnalysisService'
 import { config } from '../config'
 import { handleError, type AppError, ErrorType } from '../utils/errorHandler'
 import { logError } from '../utils/logger'
 
 export type Priority = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'
+
+export interface RecommendationPriorityFactor {
+  key: string
+  label: string
+  score: number
+  formula: string
+  sourceBasis: string
+  evidenceType: string
+}
 
 export interface RecommendationEvidence {
   normalizedClass?: string
@@ -21,6 +31,7 @@ export interface RecommendationEvidence {
   scannerTypes: string[]
   normativeEvidenceCount: number
   benchmarkEvidenceCount: number
+  priorityFactors: RecommendationPriorityFactor[]
 }
 
 export interface RecommendationGuidance {
@@ -133,6 +144,7 @@ const generateMockRecommendations = (): Recommendation[] => {
         scannerTypes: ['SAST'],
         normativeEvidenceCount: 0,
         benchmarkEvidenceCount: 0,
+        priorityFactors: [],
       },
       guidance: {
         summary: '## Replace RSA-1024 with Kyber-768\n\nMigrate quantum-vulnerable key exchange to ML-KEM.',
@@ -179,6 +191,7 @@ const generateMockRecommendations = (): Recommendation[] => {
         scannerTypes: ['SAST'],
         normativeEvidenceCount: 0,
         benchmarkEvidenceCount: 0,
+        priorityFactors: [],
       },
       guidance: {
         summary: '## Replace SHA-1 with SHA-3\n\nRemove weak hash usage and adopt SHA-3-compatible paths.',
@@ -345,6 +358,18 @@ const countCitationsBySourceType = (citations: AiCitation[]) => {
   return { normativeEvidenceCount, benchmarkEvidenceCount }
 }
 
+const mapPriorityFactors = (
+  factors?: AiPriorityFactor[] | RecommendationPriorityFactor[],
+): RecommendationPriorityFactor[] =>
+  (factors ?? []).map((factor) => ({
+    key: factor.key,
+    label: factor.label,
+    score: factor.score,
+    formula: factor.formula,
+    sourceBasis: 'source_basis' in factor ? factor.source_basis : factor.sourceBasis,
+    evidenceType: 'evidence_type' in factor ? factor.evidence_type : factor.evidenceType,
+  }))
+
 const getAiFindingSummary = (recommendation: AiAnalysisRecommendation) => {
   const affectedLocations = recommendation.affected_locations ?? []
   const affectedFilePaths = uniq(affectedLocations.map((location) => location.file_path))
@@ -411,6 +436,7 @@ const mapAiAnalysisToRecommendations = (
         scannerTypes: summary.scannerTypes,
         normativeEvidenceCount: citationCounts.normativeEvidenceCount,
         benchmarkEvidenceCount: citationCounts.benchmarkEvidenceCount,
+        priorityFactors: mapPriorityFactors(recommendation.priority_factors),
       },
       guidance: {
         summary: recommendation.description,
@@ -520,6 +546,10 @@ const mergeRecommendationData = (
           scannerTypes: plannerRecommendation.scannerTypes ?? [],
           normativeEvidenceCount: aiRecommendation.evidence?.normativeEvidenceCount ?? 0,
           benchmarkEvidenceCount: aiRecommendation.evidence?.benchmarkEvidenceCount ?? 0,
+          priorityFactors:
+            (plannerRecommendation.evidence?.priorityFactors ?? []).length > 0
+              ? plannerRecommendation.evidence?.priorityFactors ?? []
+              : mapPriorityFactors(aiRecommendation.evidence?.priorityFactors),
         },
         guidance: {
           summary: plannerRecommendation.aiRecommendation,

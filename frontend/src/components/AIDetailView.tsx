@@ -345,6 +345,9 @@ export const AIDetailView = ({
   const priorityReason =
     recommendation.priorityReason ?? plannerEvidence?.priorityReason ?? 'Deterministic priority rationale not available'
   const confidenceReason = recommendation.confidenceReason ?? structuredTrust?.confidenceReason
+  const priorityFactors = (plannerEvidence?.priorityFactors ?? [])
+    .filter((factor) => factor.score > 0)
+    .sort((left, right) => right.score - left.score)
   const affectedFilesCount =
     recommendation.affectedFilesCount ?? plannerEvidence?.affectedFilesCount ?? affectedFilePaths.length
   const citationEvidenceRows = (recommendation.citations ?? []).map((citation) => {
@@ -590,6 +593,40 @@ export const AIDetailView = ({
                       </div>
                     </div>
                   </div>
+                  {priorityFactors.length > 0 && (
+                    <div>
+                      <div className="mb-2 flex items-center gap-2">
+                        <Sparkles className="h-4 w-4 text-indigo-300" />
+                        <p className="text-xs uppercase tracking-[0.15em] text-slate-500">Priority Factors</p>
+                      </div>
+                      <div className="grid gap-3 xl:grid-cols-2">
+                        {priorityFactors.map((factor) => (
+                          <div
+                            key={`${recommendation.id}-${factor.key}`}
+                            className="rounded-lg border border-white/10 bg-white/5 p-3"
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <p className="text-sm font-semibold text-white">{factor.label}</p>
+                                <p className="mt-1 text-xs text-slate-400">{factor.sourceBasis}</p>
+                              </div>
+                              <span className="rounded-full border border-indigo-400/20 bg-indigo-500/10 px-2.5 py-1 text-xs font-medium text-indigo-300">
+                                +{factor.score}
+                              </span>
+                            </div>
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              <span className="rounded-md border border-white/10 bg-slate-900/40 px-2 py-1 text-xs text-slate-300">
+                                {factor.evidenceType}
+                              </span>
+                              <span className="rounded-md border border-white/10 bg-slate-900/40 px-2 py-1 text-xs text-slate-300">
+                                {factor.formula}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 

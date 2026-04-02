@@ -34,6 +34,15 @@ export interface AiCodeFixExample {
   confidence: number
 }
 
+export interface AiPriorityFactor {
+  key: string
+  label: string
+  score: number
+  formula: string
+  source_basis: string
+  evidence_type: string
+}
+
 export interface AiAnalysisRecommendation {
   title: string
   description: string
@@ -47,6 +56,7 @@ export interface AiAnalysisRecommendation {
   benchmark_notes?: string[]
   assumptions?: string[]
   confidence_reason?: string | null
+  priority_factors?: AiPriorityFactor[]
 }
 
 export interface AiRefactorCostEstimate {

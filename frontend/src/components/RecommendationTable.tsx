@@ -96,6 +96,30 @@ const renderSummaryBadges = (recommendation: Recommendation) => {
   )
 }
 
+const renderTopPriorityFactors = (recommendation: Recommendation) => {
+  const factors = (recommendation.evidence?.priorityFactors ?? [])
+    .filter((factor) => factor.score > 0)
+    .sort((left, right) => right.score - left.score)
+    .slice(0, 2)
+
+  if (factors.length === 0) {
+    return null
+  }
+
+  return (
+    <div className="mt-3 flex flex-wrap gap-2">
+      {factors.map((factor) => (
+        <span
+          key={`${recommendation.id}-${factor.key}`}
+          className="inline-flex rounded-full border border-indigo-400/20 bg-indigo-500/10 px-2.5 py-1 text-[11px] text-indigo-300"
+        >
+          {factor.label} +{factor.score}
+        </span>
+      ))}
+    </div>
+  )
+}
+
 export const RecommendationTable = ({
   recommendations,
   onRecommendationClick,
@@ -214,6 +238,7 @@ export const RecommendationTable = ({
                         'Priority rationale not available',
                       )}
                     </p>
+                    {renderTopPriorityFactors(recommendation)}
                   </td>
                   <td className="whitespace-nowrap px-6 py-4 align-top">
                     <span className="text-sm text-slate-300">{recommendation.estimatedEffort}</span>
