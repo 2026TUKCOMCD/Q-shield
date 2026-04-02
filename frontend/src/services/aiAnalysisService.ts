@@ -10,6 +10,10 @@ export interface AiCitation {
   page?: number | null
   url?: string | null
   snippet: string
+  source_type?: string | null
+  claim_type?: string | null
+  topic?: string | null
+  authority_weight?: number | null
 }
 
 export interface AiAffectedLocation {
