@@ -59,6 +59,15 @@ TEMPLATES = {
         "estimated_effort": "1-3 M/D",
         "algorithm_bonus": 8,
     },
+    "private-key": {
+        "normalized_class": "private-key-material",
+        "title": "Review private key material and certificate handling for PQC migration",
+        "body": "Private key material in certificate or deployment paths should be reviewed as part of certificate-chain, key-management, and interoperability planning during PQC transition.",
+        "algorithm": "Private Key Material",
+        "recommended_pqc_algorithm": "Certificate/key-management transition plan",
+        "estimated_effort": "3-6 M/D",
+        "algorithm_bonus": 12,
+    },
     "library": {
         "normalized_class": "legacy-library",
         "title": "Replace legacy crypto libraries with PQC-capable dependencies",
@@ -201,6 +210,8 @@ def classify_vulnerability_class(finding: dict) -> str:
         return "ecc"
     if "dsa" in merged:
         return "dsa"
+    if any(token in merged for token in ("private key", "private_key", "private-key", ".key", "pkcs8")):
+        return "private-key"
     if any(token in merged for token in ("sha-1", "sha1", "md5", "weak hash")):
         return "sha-1"
     return "library"

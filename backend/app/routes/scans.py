@@ -209,16 +209,21 @@ def _scoped_scan_query(db: Session, user_uuid: UUID):
 def _build_inventory_assets(inv: InventorySnapshot, include_detail: bool = False) -> list[InventoryAsset]:
     assets: list[InventoryAsset] = []
     table = inv.inventory_table or []
-    for entry in table:
+    for index, entry in enumerate(table, start=1):
         if not isinstance(entry, dict):
             continue
         algorithm = entry.get("algorithm", "Unknown")
         entry_risk_score = float(entry.get("risk_score", 5.0))
         locations = entry.get("locations") or []
+        entry_id = (
+            entry.get("asset_ref")
+            or entry.get("correlation_ref")
+            or f"{entry.get('algorithm_family') or algorithm}-{index}"
+        )
         if not locations:
             assets.append(
                 InventoryAsset(
-                    id=f"{algorithm}-1",
+                    id=str(entry_id),
                     algorithmType=str(algorithm),
                     filePath="unknown",
                     lineNumbers=[],
@@ -229,48 +234,53 @@ def _build_inventory_assets(inv: InventorySnapshot, include_detail: bool = False
                 )
             )
             continue
-        for idx, loc in enumerate(locations, start=1):
-            file_path = "unknown"
-            line_numbers: list[int] = []
-            code_snippet = None
-            code_snippet_start_line = None
-            detected_pattern = None
+        file_path = "unknown"
+        line_numbers: list[int] = []
+        code_snippet = None
+        code_snippet_start_line = None
+        detected_pattern = None
+        for loc in locations:
             if isinstance(loc, dict):
-                file_path = loc.get("file_path") or loc.get("filePath") or "unknown"
+                file_path = file_path if file_path != "unknown" else (loc.get("file_path") or loc.get("filePath") or "unknown")
                 line_val = loc.get("line")
                 try:
-                    line_numbers = [int(line_val)]
+                    parsed_line = int(line_val)
                 except Exception:
-                    line_numbers = []
-                if include_detail:
+                    parsed_line = None
+                if parsed_line is not None and parsed_line not in line_numbers:
+                    line_numbers.append(parsed_line)
+                if include_detail and code_snippet is None:
                     code_snippet = loc.get("code_snippet")
                     code_snippet_start_line = loc.get("code_snippet_start_line")
                     detected_pattern = loc.get("detected_pattern")
             elif isinstance(loc, str):
                 if ":" in loc:
                     path_part, line_part = loc.rsplit(":", 1)
-                    file_path = path_part or "unknown"
+                    file_path = file_path if file_path != "unknown" else (path_part or "unknown")
                     try:
-                        line_numbers = [int(line_part)]
+                        parsed_line = int(line_part)
                     except ValueError:
-                        line_numbers = []
-                else:
+                        parsed_line = None
+                    if parsed_line is not None and parsed_line not in line_numbers:
+                        line_numbers.append(parsed_line)
+                elif file_path == "unknown":
                     file_path = loc
-            assets.append(
-                InventoryAsset(
-                    id=f"{algorithm}-{idx}",
-                    algorithmType=str(algorithm),
-                    filePath=file_path,
-                    lineNumbers=line_numbers,
-                    riskScore=entry_risk_score,
-                    assetRef=entry.get("asset_ref"),
-                    correlationRef=entry.get("correlation_ref"),
-                    algorithmFamily=entry.get("algorithm_family"),
-                    codeSnippet=code_snippet if include_detail else None,
-                    codeSnippetStartLine=code_snippet_start_line if include_detail else None,
-                    detectedPattern=detected_pattern if include_detail else None,
-                )
+        line_numbers.sort()
+        assets.append(
+            InventoryAsset(
+                id=str(entry_id),
+                algorithmType=str(algorithm),
+                filePath=file_path,
+                lineNumbers=line_numbers,
+                riskScore=entry_risk_score,
+                assetRef=entry.get("asset_ref"),
+                correlationRef=entry.get("correlation_ref"),
+                algorithmFamily=entry.get("algorithm_family"),
+                codeSnippet=code_snippet if include_detail else None,
+                codeSnippetStartLine=code_snippet_start_line if include_detail else None,
+                detectedPattern=detected_pattern if include_detail else None,
             )
+        )
     return assets
 
 

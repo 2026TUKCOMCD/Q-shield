@@ -15,7 +15,7 @@ from app.config import DATABASE_URL_SYNC
 from app.crypto_asset_ref import build_asset_ref, build_correlation_ref, canonical_algorithm_family
 from app.models import Finding, HeatmapSnapshot, InventorySnapshot, Recommendation, Scan
 from app.recommendation_planner import build_recommendation_plan
-from app.scoring import build_score_signals_from_reports, compute_pqc_readiness_score
+from app.scoring import build_score_signals_from_findings, compute_pqc_readiness_score, calculate_weighted_total
 from app.scoring.criteria import score_signal_points
 from app.severity_map import CANONICAL_SEVERITIES, canonicalize_severity
 from app.tasks_ai import run_ai_analysis
@@ -94,13 +94,13 @@ def run_scan_pipeline(scan_uuid: str):
         # 6) Process & Persist
         _update(progress=0.85, message="Processing results...")
 
+        findings = _normalize_findings(sast_report, sca_report, config_report, repo_path)
         inv_data = {
-            "pqc_readiness_score": _calculate_pqc_score(sast_report, sca_report),
-            "algorithm_ratios": _extract_algorithm_ratios(sast_report),
-            "inventory_table": _extract_inventory_table(sast_report, sca_report, repo_path),
+            "pqc_readiness_score": _calculate_pqc_score_from_findings(findings),
+            "algorithm_ratios": _extract_algorithm_ratios_from_findings(findings),
+            "inventory_table": _extract_inventory_table_from_findings(findings, repo_path),
         }
         heat_data = _build_heatmap_tree(repo_path, analysis_result, sast_report)
-        findings = _normalize_findings(sast_report, sca_report, config_report, repo_path)
         recommendations = _extract_recommendations_from_findings(findings)
 
         # Persist results in a single transaction.
@@ -171,16 +171,51 @@ def run_scan_pipeline(scan_uuid: str):
         db.close()
 
 
-def _calculate_pqc_score(sast_report, sca_report) -> int:
-    """Calculate a PQC readiness score (0-10) using shared scoring criteria."""
-    signals = build_score_signals_from_reports(sast_report, sca_report)
+def _calculate_pqc_score_from_findings(findings: list[dict]) -> int:
+    """Calculate a PQC readiness score (0-10) using normalized findings from all scanners."""
+    signals = build_score_signals_from_findings(findings)
     return compute_pqc_readiness_score(signals, scale=10)
 
 
-def _extract_algorithm_ratios(sast_report):
-    """Extract algorithm ratios."""
-    algo_count = getattr(sast_report, "algorithm_breakdown", {}) or {}
-    total = sum(int(v or 0) for v in algo_count.values())
+def _display_algorithm_label_from_finding(finding: dict) -> str:
+    meta = finding.get("meta") or {}
+    family = str(meta.get("algorithm_family") or "").lower()
+    usage_type = str(meta.get("usage_type") or "").lower()
+    algorithm = str(finding.get("algorithm") or "").strip()
+    library = str(meta.get("library") or "").strip()
+
+    if family == "rsa-public-key":
+        return "RSA"
+    if family == "dh-key-exchange":
+        return "DH/ECDH"
+    if family == "ecc-signature":
+        return "ECC/ECDSA"
+    if family == "dsa-signature":
+        return "DSA"
+    if family == "weak-hash":
+        return "Weak Hash"
+    if family == "private-key-material":
+        return "Private Key Material"
+    if usage_type == "dependency" and library:
+        return "Legacy Crypto Dependency"
+    if algorithm:
+        return algorithm
+    return "Legacy Crypto"
+
+
+def _extract_algorithm_ratios_from_findings(findings: list[dict]):
+    """Extract algorithm ratios from normalized findings across all scanners."""
+    algo_count: dict[str, int] = {}
+    total = 0
+    for finding in findings or []:
+        if not isinstance(finding, dict):
+            continue
+        meta = finding.get("meta") or {}
+        count = int(meta.get("duplicate_count", 1) or 1)
+        label = _display_algorithm_label_from_finding(finding)
+        algo_count[label] = algo_count.get(label, 0) + count
+        total += count
+
     if total <= 0:
         return []
 
@@ -227,73 +262,100 @@ def _read_code_snippet(repo_root: Path, file_path: str, line: int, context: int 
     return snippet, start
 
 
-def _extract_inventory_table(sast_report, sca_report, repo_path: str):
-    """Build inventory table from SAST results with code snippets."""
-    inventory = []
-    details = getattr(sast_report, "detailed_results", []) or []
-    repo_root = Path(repo_path)
+def _extract_inventory_table_from_findings(findings: list[dict], repo_path: str | None):
+    """Build inventory table from normalized findings across SAST/SCA/CONFIG."""
+    inventory: dict[str, dict] = {}
+    repo_root = Path(repo_path) if repo_path else None
 
-    for detail in details:
-        vulns = getattr(detail, "vulnerabilities", None)
-        file_path = getattr(detail, "file_path", None)
-
-        if not vulns or not file_path:
+    for finding in findings or []:
+        if not isinstance(finding, dict):
             continue
 
-        for vuln in vulns:
-            if not isinstance(vuln, dict):
-                continue
-
-            algo = vuln.get("algorithm", "Unknown")
-            severity = str(vuln.get("severity", "MEDIUM")).upper()
-            risk_points = score_signal_points(severity, algo)
-            line_raw = vuln.get("line", None)
-            try:
-                line = int(line_raw)
-            except Exception:
-                line = None
-
-            normalized_path = _normalize_repo_path(repo_root, str(file_path))
-            code_snippet, snippet_start = _read_code_snippet(repo_root, str(file_path), line or 0)
-            detected_pattern = vuln.get("pattern") or vuln.get("detected_pattern")
-
-            location = {
-                "file_path": normalized_path,
-                "line": line,
-                "code_snippet": code_snippet,
-                "code_snippet_start_line": snippet_start,
-                "detected_pattern": detected_pattern,
-            }
-
-            existing = next((i for i in inventory if i["algorithm"] == algo), None)
-            algorithm_family = canonical_algorithm_family(algo)
-            asset_ref = build_asset_ref(
-                usage_type="code",
+        meta = finding.get("meta") or {}
+        algorithm_family = str(meta.get("algorithm_family") or canonical_algorithm_family(finding.get("algorithm")))
+        usage_type = str(meta.get("usage_type") or "unknown")
+        file_path = str(finding.get("file_path") or "unknown")
+        asset_ref = str(
+            meta.get("asset_ref")
+            or build_asset_ref(
+                usage_type=usage_type,
                 algorithm_family=algorithm_family,
-                file_path=normalized_path,
+                file_path=file_path,
+                library=meta.get("library"),
             )
-            correlation_ref = build_correlation_ref(
-                algorithm_family=algorithm_family,
-                file_path=normalized_path,
-            )
-            if existing:
-                existing["count"] += 1
-                existing["locations"].append(location)
-                existing["risk_score"] = min(10.0, float(existing.get("risk_score", 0.0)) + risk_points)
-            else:
-                inventory.append(
-                    {
-                        "algorithm": algo,
-                        "count": 1,
-                        "locations": [location],
-                        "risk_score": min(10.0, risk_points),
-                        "asset_ref": asset_ref,
-                        "correlation_ref": correlation_ref,
-                        "algorithm_family": algorithm_family,
-                    }
-                )
+        )
+        correlation_ref = str(
+            meta.get("correlation_ref")
+            or build_correlation_ref(algorithm_family=algorithm_family, file_path=file_path)
+        )
+        inventory_id = asset_ref or f"{algorithm_family}:{file_path}"
+        display_algorithm = _display_algorithm_label_from_finding(finding)
 
-    return inventory
+        line = finding.get("line_start")
+        try:
+            line = int(line) if line is not None else None
+        except Exception:
+            line = None
+
+        normalized_path = _normalize_repo_path(repo_root, file_path) if repo_root else str(file_path)
+        code_snippet = None
+        snippet_start = None
+        detected_pattern = meta.get("detected_pattern")
+        if usage_type == "code" and repo_root and line:
+            code_snippet, snippet_start = _read_code_snippet(repo_root, file_path, line)
+
+        location = {
+            "file_path": normalized_path,
+            "line": line,
+            "code_snippet": code_snippet,
+            "code_snippet_start_line": snippet_start,
+            "detected_pattern": detected_pattern,
+            "scanner_type": meta.get("scanner_type"),
+        }
+
+        bucket = inventory.setdefault(
+            inventory_id,
+            {
+                "algorithm": display_algorithm,
+                "count": 0,
+                "locations": [],
+                "risk_score": 0.0,
+                "asset_ref": asset_ref or None,
+                "correlation_ref": correlation_ref or None,
+                "algorithm_family": algorithm_family or None,
+                "_findings": [],
+                "_location_keys": set(),
+            },
+        )
+        bucket["count"] += int(meta.get("duplicate_count", 1) or 1)
+        bucket["_findings"].append(finding)
+
+        location_key = (
+            location.get("file_path"),
+            location.get("line"),
+            meta.get("rule_id"),
+            meta.get("scanner_type"),
+        )
+        if location_key not in bucket["_location_keys"]:
+            bucket["_location_keys"].add(location_key)
+            bucket["locations"].append(location)
+
+    normalized_inventory: list[dict] = []
+    for bucket in inventory.values():
+        signals = build_score_signals_from_findings(bucket["_findings"])
+        bucket["risk_score"] = min(10.0, round(calculate_weighted_total(signals), 1))
+        bucket.pop("_findings", None)
+        bucket.pop("_location_keys", None)
+        normalized_inventory.append(bucket)
+
+    normalized_inventory.sort(
+        key=lambda item: (
+            -float(item.get("risk_score", 0.0) or 0.0),
+            str(item.get("algorithm", "")),
+            str(item.get("asset_ref", "")),
+        )
+    )
+    return normalized_inventory
 
 
 def _build_heatmap_tree(repo_path, analysis_result, sast_report):

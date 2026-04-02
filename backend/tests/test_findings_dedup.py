@@ -301,3 +301,175 @@ def test_recommendation_plan_specializes_rsa_certificate_paths():
     assert len(plan) == 1
     assert plan[0]["recommended_pqc_algorithm"] == "ML-DSA / SLH-DSA"
     assert "certificate and signature paths" in plan[0]["title"]
+
+
+def test_recommendation_plan_classifies_private_key_material_separately():
+    findings = [
+        {
+            "type": "private_key_file",
+            "severity": "MEDIUM",
+            "algorithm": None,
+            "context": "CONFIG",
+            "file_path": "tests/certs/expired/ca/ca-private.key",
+            "line_start": 1,
+            "line_end": 1,
+            "evidence": "-----BEGIN PRIVATE KEY-----",
+            "meta": {
+                "scanner_type": "CONFIG",
+                "rule_id": "private_key_file",
+                "message": "Private key material detected in certificate path.",
+                "usage_type": "config",
+                "duplicate_count": 1,
+            },
+        }
+    ]
+
+    plan = build_recommendation_plan(findings)
+
+    assert len(plan) == 1
+    assert plan[0]["normalized_class"] == "private-key-material"
+    assert plan[0]["algorithm"] == "Private Key Material"
+
+
+def test_inventory_table_is_grouped_by_asset_across_scanners():
+    findings = [
+        {
+            "type": "weak_hash",
+            "severity": "MEDIUM",
+            "algorithm": "SHA-1",
+            "context": "SAST",
+            "file_path": "src/requests/auth.py",
+            "line_start": 148,
+            "line_end": 148,
+            "evidence": "hashlib.sha1(token)",
+            "meta": {
+                "scanner_type": "SAST",
+                "rule_id": "weak_hash",
+                "message": "Weak hash usage detected.",
+                "usage_type": "code",
+                "duplicate_count": 1,
+                "algorithm_family": "weak-hash",
+                "asset_ref": "code:weak-hash:src/requests/auth.py",
+                "correlation_ref": "weak-hash:auth-token",
+            },
+        },
+        {
+            "type": "weak_hash",
+            "severity": "MEDIUM",
+            "algorithm": "SHA-1",
+            "context": "SAST",
+            "file_path": "src/requests/auth.py",
+            "line_start": 156,
+            "line_end": 156,
+            "evidence": "hashlib.sha1(refresh)",
+            "meta": {
+                "scanner_type": "SAST",
+                "rule_id": "weak_hash",
+                "message": "Weak hash usage detected.",
+                "usage_type": "code",
+                "duplicate_count": 1,
+                "algorithm_family": "weak-hash",
+                "asset_ref": "code:weak-hash:src/requests/auth.py",
+                "correlation_ref": "weak-hash:auth-token",
+            },
+        },
+        {
+            "type": "weak_hash",
+            "severity": "MEDIUM",
+            "algorithm": "SHA-1",
+            "context": "SAST",
+            "file_path": "src/requests/auth.py",
+            "line_start": 205,
+            "line_end": 205,
+            "evidence": "hashlib.sha1(legacy)",
+            "meta": {
+                "scanner_type": "SAST",
+                "rule_id": "weak_hash",
+                "message": "Weak hash usage detected.",
+                "usage_type": "code",
+                "duplicate_count": 1,
+                "algorithm_family": "weak-hash",
+                "asset_ref": "code:weak-hash:src/requests/auth.py",
+                "correlation_ref": "weak-hash:auth-token",
+            },
+        },
+        {
+            "type": "rsa_certificate",
+            "severity": "HIGH",
+            "algorithm": "RSA",
+            "context": "CONFIG",
+            "file_path": "tests/certs/expired/ca/ca.crt",
+            "line_start": 2,
+            "line_end": 2,
+            "evidence": "-----BEGIN CERTIFICATE-----",
+            "meta": {
+                "scanner_type": "CONFIG",
+                "rule_id": "rsa_certificate",
+                "message": "RSA certificate detected in TLS configuration.",
+                "usage_type": "config",
+                "duplicate_count": 1,
+                "algorithm_family": "rsa-public-key",
+                "asset_ref": "config:rsa-public-key:tests/certs/expired/ca/ca.crt",
+                "correlation_ref": "rsa-public-key:tls-cert",
+            },
+        },
+        {
+            "type": "private_key_file",
+            "severity": "MEDIUM",
+            "algorithm": None,
+            "context": "CONFIG",
+            "file_path": "tests/certs/expired/ca/ca-private.key",
+            "line_start": 1,
+            "line_end": 1,
+            "evidence": "-----BEGIN PRIVATE KEY-----",
+            "meta": {
+                "scanner_type": "CONFIG",
+                "rule_id": "private_key_file",
+                "message": "Private key material detected in certificate path.",
+                "usage_type": "config",
+                "duplicate_count": 1,
+                "algorithm_family": "private-key-material",
+                "asset_ref": "config:private-key-material:tests/certs/expired/ca/ca-private.key",
+                "correlation_ref": "private-key-material:tls-cert",
+            },
+        },
+    ]
+
+    inventory = tasks._extract_inventory_table_from_findings(findings, None)
+
+    assert [item["algorithm"] for item in inventory] == ["Weak Hash", "RSA", "Private Key Material"]
+    weak_hash = inventory[0]
+    assert weak_hash["asset_ref"] == "code:weak-hash:src/requests/auth.py"
+    assert len(weak_hash["locations"]) == 3
+    assert weak_hash["risk_score"] == 7.8
+
+
+def test_readiness_score_uses_cross_scanner_findings():
+    findings = [
+        {
+            "type": "weak_hash",
+            "severity": "MEDIUM",
+            "algorithm": "SHA-1",
+            "meta": {"scanner_type": "SAST", "rule_id": "weak_hash"},
+        },
+        {
+            "type": "weak_hash",
+            "severity": "MEDIUM",
+            "algorithm": "SHA-1",
+            "meta": {"scanner_type": "SAST", "rule_id": "weak_hash"},
+        },
+        {
+            "type": "weak_hash",
+            "severity": "MEDIUM",
+            "algorithm": "SHA-1",
+            "meta": {"scanner_type": "SAST", "rule_id": "weak_hash"},
+        },
+        {
+            "type": "rsa_certificate",
+            "severity": "HIGH",
+            "algorithm": "RSA",
+            "meta": {"scanner_type": "CONFIG", "rule_id": "rsa_certificate"},
+        },
+    ]
+
+    assert tasks._calculate_pqc_score_from_findings(findings) == 5

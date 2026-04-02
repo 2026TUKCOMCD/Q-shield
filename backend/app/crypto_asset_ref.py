@@ -25,6 +25,18 @@ def canonical_algorithm_family(
         return "ecc-signature"
     if "dsa" in merged:
         return "dsa-signature"
+    if any(
+        token in merged
+        for token in (
+            "private key",
+            "private_key",
+            "private-key",
+            "pkcs8",
+            ".key",
+            "begin private key",
+        )
+    ):
+        return "private-key-material"
     if any(token in merged for token in ("sha-1", "sha1", "md5", "weak hash")):
         return "weak-hash"
     return "legacy-crypto"

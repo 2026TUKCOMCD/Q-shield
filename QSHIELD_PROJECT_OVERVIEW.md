@@ -339,6 +339,113 @@ recommendation은 **distinct migration target** 단위로 묶인다.
 
 ## 10. 우선순위 factor별 문헌 근거
 
+## 11. Readiness Score와 Risk Score 기준
+
+Q-shield는 `우선순위 점수(priority score)`와 별도로, 저장소 전체 상태를 요약하는 `PQC Readiness Score`와 `Risk Score`를 계산한다.
+
+이 두 점수는 recommendation 순서를 정하기 위한 planning score가 아니라,
+현재 저장소가 얼마나 PQC 전환 준비가 되어 있는지와 얼마나 큰 전환 부채를 갖고 있는지를 보여주는 운영 지표다.
+
+### 11.1 입력 데이터
+
+두 점수는 모두 정규화된 findings를 입력으로 사용한다.
+
+- SAST findings
+- SCA findings
+- Config findings
+
+즉 현재 구현에서는 코드, dependency, config/certificate 자산이 readiness와 risk에 함께 반영된다.
+
+### 11.2 Signal 변환 방식
+
+각 finding은 다음 두 값으로 scoring signal로 변환된다.
+
+- `severity`
+- `algorithm class`
+
+이후 finding별 점수는 대략 다음 구조로 계산된다.
+
+`finding_points = severity_weight * algorithm_weight`
+
+현재 구현에서:
+- 공개키 계열은 더 큰 algorithm weight를 갖는다.
+- weak hash는 migration debt로 간주되어 중간 가중치를 갖는다.
+- symmetric path는 상대적으로 낮은 가중치를 갖는다.
+
+### 11.3 PQC Readiness Score
+
+readiness는 weighted total이 커질수록 감소한다.
+
+의미:
+- 높은 readiness score = PQC 전환 부채가 상대적으로 적음
+- 낮은 readiness score = quantum-vulnerable public-key, weak hash, legacy dependency/config burden이 큼
+
+중요한 점:
+- readiness score는 “보안이 몇 % 향상된다”는 뜻이 아니다.
+- 현재 저장소의 PQC migration readiness를 요약한 값이다.
+
+### 11.4 Risk Score
+
+risk score는 weighted total을 0~100 범위로 정규화한 지표다.
+
+의미:
+- 높은 risk score = 취약 신호가 많고 강도가 큼
+- 낮은 risk score = 취약 신호 수와 강도가 상대적으로 적음
+
+즉 readiness와 risk는 같은 findings를 서로 다른 방향에서 읽는 요약 지표다.
+
+### 11.5 Inventory Risk Score
+
+inventory 각 asset row에도 별도 risk score가 있다.
+
+이 값은 전체 저장소 readiness/risk와 다르며,
+그 asset에 연결된 findings만 다시 모아서 계산한 local risk다.
+
+예:
+- 하나의 `Weak Hash` asset에 line 3개가 연결되면 그 asset row의 risk score가 올라간다.
+- `RSA certificate`, `Private Key Material`, `Legacy Crypto Dependency`도 각자 연결된 findings 기준으로 local risk를 가진다.
+
+### 11.6 Priority와의 차이
+
+readiness/risk score는 저장소 상태를 요약한다.
+
+priority score는 다음 요소까지 포함해 recommendation 순서를 정한다.
+
+- evidence count
+- affected file spread
+- scanner corroboration
+- external exposure
+- HNDL sensitivity
+- migration complexity
+- interoperability risk
+- non-production penalty
+
+즉 역할은 다음처럼 다르다.
+
+- readiness/risk = 상태 요약
+- priority = 전환 순서 결정
+
+### 11.7 문헌 근거와 heuristic 구분
+
+readiness/risk 모델도 우선순위 모델과 마찬가지로 다음 구분을 가진다.
+
+- 문헌/NIST와 연결되는 부분:
+  - 공개키 계열을 더 무겁게 보는 관점
+  - weak hash를 migration debt로 보는 관점
+  - PQC readiness를 상태 요약 지표로 보는 관점
+- heuristic인 부분:
+  - severity weight의 정확한 숫자
+  - algorithm weight의 정확한 숫자
+  - readiness penalty와 risk normalization의 구체적인 수치
+
+따라서 발표 시에는 다음처럼 설명하는 것이 정확하다.
+
+> Readiness Score와 Risk Score는 실제 스캐너 findings를 기반으로 계산하고,
+> 해석 방향은 PQC 전환 문헌과 NIST 가이드를 참고했으며,
+> 구체적인 수치 가중치는 현재 프로토타입 단계의 deterministic heuristic입니다.
+
+세부 계산 기준은 [READINESS_AND_RISK_MODEL_KR.md](C:/Users/KunWoongKyung/Documents/git/git/Q-shield/READINESS_AND_RISK_MODEL_KR.md)에 정리되어 있다.
+
 아래 내용은 현재 구현된 priority factor를 기준으로, 문헌 직접 근거가 강한지 또는 heuristic 성격이 강한지를 구분해 설명한 것이다.
 
 ### 10.1 `class_risk_bonus`
