@@ -8,6 +8,20 @@ PUBLIC_EXPOSURE_KEYWORDS = ("auth", "login", "token", "jwt", "tls", "ssl", "cert
 HNDL_KEYWORDS = ("auth", "login", "token", "jwt", "cert", "certificate", "identity", "session", "gateway")
 INTEROP_KEYWORDS = ("tls", "ssl", "cert", "certificate", "nginx", "gateway", "quic", "pkcs11", "hsm")
 COMPLEXITY_KEYWORDS = ("config", "dependency", "library", "nginx", "gateway", "hsm", "pkcs11", "cert", "tls")
+NON_PRODUCTION_KEYWORDS = (
+    "test",
+    "tests",
+    "fixture",
+    "fixtures",
+    "example",
+    "examples",
+    "sample",
+    "samples",
+    "demo",
+    "demos",
+    "mock",
+    "mocks",
+)
 
 CLASS_RISK_BONUS = {
     "rsa": 18,
@@ -73,6 +87,12 @@ PRIORITY_FACTOR_NOTES = {
         "source_basis": "NIST SP 1800-38C emphasizes protocol and deployment compatibility risk",
         "evidence_type": "nist_guidance_informed",
     },
+    "non_production_penalty": {
+        "label": "Non-production path penalty",
+        "formula": "-24 if all paths look like test/example fixtures, else -12 if mixed",
+        "source_basis": "test and fixture assets should not outrank production migration targets",
+        "evidence_type": "engineering_heuristic",
+    },
 }
 
 PRIORITY_FACTOR_ORDER = (
@@ -85,6 +105,7 @@ PRIORITY_FACTOR_ORDER = (
     "hndl_bonus",
     "migration_complexity_bonus",
     "interop_risk_bonus",
+    "non_production_penalty",
 )
 
 
@@ -100,6 +121,7 @@ def compute_priority_breakdown(
     algorithm_label: str,
 ) -> dict[str, object]:
     normalized_paths = sorted({str(path) for path in affected_paths if path})
+    production_paths = [path for path in normalized_paths if not is_non_production_path(path)]
     normalized_scanners = sorted({str(scanner) for scanner in scanner_types if scanner})
     normalized_contexts = sorted({str(context) for context in contexts if context})
     normalized_messages = sorted({str(message) for message in messages if message})
@@ -109,15 +131,20 @@ def compute_priority_breakdown(
     evidence_bonus = min(18, int(issue_count) * 3)
     spread_bonus = min(15, len(normalized_paths) * 4)
     scanner_bonus = min(12, len(normalized_scanners) * 4)
-    exposure_bonus = public_exposure_bonus(normalized_paths)
-    hndl_bonus = hndl_bonus_score(normalized_paths, normalized_messages)
+    exposure_bonus = public_exposure_bonus(production_paths)
+    hndl_bonus = hndl_bonus_score(production_paths, normalized_messages if production_paths else [])
     migration_complexity_bonus = migration_complexity_bonus_score(
         normalized_paths,
         normalized_scanners,
         normalized_contexts,
         issue_count,
     )
-    interop_risk_bonus = interop_risk_bonus_score(normalized_paths, normalized_messages, normalized_contexts)
+    interop_risk_bonus = interop_risk_bonus_score(
+        production_paths,
+        normalized_messages if production_paths else [],
+        normalized_contexts if production_paths else [],
+    )
+    non_production_penalty = non_production_penalty_score(normalized_paths)
 
     total = (
         severity_base
@@ -129,6 +156,7 @@ def compute_priority_breakdown(
         + hndl_bonus
         + migration_complexity_bonus
         + interop_risk_bonus
+        + non_production_penalty
     )
 
     reasons = [
@@ -148,6 +176,8 @@ def compute_priority_breakdown(
         reasons.append("migration complexity signal")
     if interop_risk_bonus > 0:
         reasons.append("interop-sensitive boundary")
+    if non_production_penalty < 0:
+        reasons.append("test/fixture path de-prioritized")
 
     return {
         "severity_base": severity_base,
@@ -159,6 +189,7 @@ def compute_priority_breakdown(
         "hndl_bonus": hndl_bonus,
         "migration_complexity_bonus": migration_complexity_bonus,
         "interop_risk_bonus": interop_risk_bonus,
+        "non_production_penalty": non_production_penalty,
         "total": total,
         "reason": ", ".join(reasons),
         "priority_factors": build_priority_factors(
@@ -171,6 +202,7 @@ def compute_priority_breakdown(
             hndl_bonus=hndl_bonus,
             migration_complexity_bonus=migration_complexity_bonus,
             interop_risk_bonus=interop_risk_bonus,
+            non_production_penalty=non_production_penalty,
         ),
         "factor_notes": PRIORITY_FACTOR_NOTES,
     }
@@ -208,6 +240,25 @@ def interop_risk_bonus_score(paths: Iterable[str], messages: Iterable[str], cont
         [*(str(path) for path in paths), *(str(message) for message in messages), *(str(context) for context in contexts)]
     ).lower()
     return 8 if any(keyword in joined for keyword in INTEROP_KEYWORDS) else 0
+
+
+def is_non_production_path(path: str) -> bool:
+    normalized = str(path or "").replace("\\", "/").lower()
+    segments = [segment for segment in normalized.split("/") if segment]
+    return any(segment in NON_PRODUCTION_KEYWORDS for segment in segments)
+
+
+def non_production_penalty_score(paths: Iterable[str]) -> int:
+    normalized_paths = [str(path) for path in paths if path]
+    if not normalized_paths:
+        return 0
+
+    non_production_paths = [path for path in normalized_paths if is_non_production_path(path)]
+    if not non_production_paths:
+        return 0
+    if len(non_production_paths) == len(normalized_paths):
+        return -24
+    return -12
 
 
 def build_priority_factors(**scores: int) -> list[dict[str, object]]:

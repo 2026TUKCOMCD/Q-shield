@@ -153,6 +153,8 @@ def _guess_language(file_path: str | None) -> str:
         return "c"
     if path.endswith(".cpp") or path.endswith(".cc") or path.endswith(".hpp"):
         return "cpp"
+    if any(path.endswith(ext) for ext in (".crt", ".pem", ".cer", ".csr", ".key", ".p12", ".pfx", ".conf", ".cnf")):
+        return "config"
     return "unknown"
 
 
@@ -167,6 +169,13 @@ def _fallback_fix_example(recommendation_text: str, location: Any | None) -> dic
     evidence = str(_location_field(location, "evidence_excerpt") or "").strip()
     before_code = evidence or "# legacy cryptographic usage"
     language = _guess_language(file_path)
+    scanner_type = str(_location_field(location, "scanner_type") or "").upper()
+    normalized_path = file_path.lower()
+
+    if scanner_type == "CONFIG" or any(
+        normalized_path.endswith(ext) for ext in (".crt", ".pem", ".cer", ".csr", ".key", ".p12", ".pfx")
+    ):
+        return None
 
     if "rsa" in recommendation_lower and language == "python":
         after_code = (

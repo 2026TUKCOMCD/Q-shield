@@ -70,6 +70,9 @@ TEMPLATES = {
     },
 }
 
+SIGNATURE_PATH_HINTS = ("cert", "certificate", "x509", "x.509", ".crt", ".pem", ".cer", ".csr", "jwt", "token")
+KEY_ESTABLISHMENT_HINTS = ("tls", "ssl", "handshake", "key exchange", "key-establishment", "kex", "dh", "ecdh")
+
 
 def build_recommendation_plan(findings: Iterable[dict]) -> list[dict]:
     grouped: dict[str, dict] = {}
@@ -117,7 +120,14 @@ def build_recommendation_plan(findings: Iterable[dict]) -> list[dict]:
 
     ranked: list[dict] = []
     for key, bucket in grouped.items():
-        template = bucket["template"]
+        template = _specialize_template(
+            key=key,
+            base_template=bucket["template"],
+            affected_paths=sorted(bucket["paths"]),
+            messages=sorted(bucket["messages"]),
+            contexts=sorted(bucket["contexts"]),
+            correlation_refs=sorted(bucket["correlation_refs"]),
+        )
         affected_paths = sorted(bucket["paths"])
         asset_refs = sorted(bucket["asset_refs"])
         correlation_refs = sorted(bucket["correlation_refs"])
@@ -252,3 +262,39 @@ def _build_recommendation_markdown(
 
 def _to_text(value) -> str:
     return "" if value is None else str(value)
+
+
+def _specialize_template(
+    *,
+    key: str,
+    base_template: dict,
+    affected_paths: list[str],
+    messages: list[str],
+    contexts: list[str],
+    correlation_refs: list[str],
+) -> dict:
+    if key != "rsa":
+        return dict(base_template)
+
+    merged = " ".join([*affected_paths, *messages, *contexts, *correlation_refs]).lower()
+    template = dict(base_template)
+
+    if any(token in merged for token in SIGNATURE_PATH_HINTS):
+        template["title"] = "Replace RSA certificate and signature paths with PQC-safe signature algorithms"
+        template["body"] = (
+            "RSA-backed certificate or signature usage should be migrated as a signature-boundary problem. "
+            "Prioritize ML-DSA or SLH-DSA planning for certificate, JWT, and verifier compatibility paths."
+        )
+        template["recommended_pqc_algorithm"] = "ML-DSA / SLH-DSA"
+        return template
+
+    if any(token in merged for token in KEY_ESTABLISHMENT_HINTS):
+        template["title"] = "Replace RSA key-establishment paths with ML-KEM"
+        template["body"] = (
+            "RSA-based key establishment or TLS-style negotiation should be treated as a key-establishment migration. "
+            "Prioritize ML-KEM planning for handshake, negotiation, and compatibility boundaries."
+        )
+        template["recommended_pqc_algorithm"] = "ML-KEM"
+        return template
+
+    return template

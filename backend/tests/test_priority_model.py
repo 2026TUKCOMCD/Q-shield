@@ -31,8 +31,9 @@ def test_priority_breakdown_adds_exposure_and_scanner_corroboration():
     assert breakdown["hndl_bonus"] == 8
     assert breakdown["migration_complexity_bonus"] == 6
     assert breakdown["interop_risk_bonus"] == 8
+    assert breakdown["non_production_penalty"] == 0
     assert breakdown["total"] == 102
-    assert len(breakdown["priority_factors"]) == 9
+    assert len(breakdown["priority_factors"]) == 10
     assert breakdown["priority_factors"][0]["key"] == "severity_base"
     assert "RSA class risk" in breakdown["reason"]
     assert "signals from SAST, SCA" in breakdown["reason"]
@@ -40,3 +41,25 @@ def test_priority_breakdown_adds_exposure_and_scanner_corroboration():
     assert "possible HNDL-sensitive path" in breakdown["reason"]
     assert "migration complexity signal" in breakdown["reason"]
     assert "interop-sensitive boundary" in breakdown["reason"]
+
+
+def test_priority_breakdown_deprioritizes_test_fixture_paths():
+    breakdown = compute_priority_breakdown(
+        class_key="rsa",
+        max_severity="HIGH",
+        issue_count=4,
+        affected_paths=[
+            "tests/certs/expired/ca/ca.crt",
+            "tests/certs/valid/server/server.pem",
+        ],
+        scanner_types=["CONFIG"],
+        contexts=["config"],
+        messages=["RSA certificate fixture detected"],
+        algorithm_label="RSA",
+    )
+
+    assert breakdown["exposure_bonus"] == 0
+    assert breakdown["hndl_bonus"] == 0
+    assert breakdown["interop_risk_bonus"] == 0
+    assert breakdown["non_production_penalty"] == -24
+    assert "test/fixture path de-prioritized" in breakdown["reason"]

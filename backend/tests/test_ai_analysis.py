@@ -518,3 +518,21 @@ def test_related_finding_selection_accepts_pydantic_affected_locations():
     assert any("sign and verify latency" in item for item in benchmark_notes)
     assert fix_example is not None
     assert fix_example["file_path"] == "src/auth/token_service.py"
+
+
+def test_fallback_fix_example_skips_certificate_and_config_assets():
+    config_location = AffectedLocation(
+        file_path="tests/certs/expired/ca/ca.crt",
+        line_start=2,
+        line_end=2,
+        rule_id="rsa_certificate",
+        scanner_type="CONFIG",
+        evidence_excerpt="X.509 with RSA public key",
+    )
+
+    fix_example = orchestrator._fallback_fix_example(
+        "Replace RSA certificate and signature paths with PQC-safe signature algorithms.",
+        config_location,
+    )
+
+    assert fix_example is None

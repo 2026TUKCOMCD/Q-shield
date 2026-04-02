@@ -272,3 +272,32 @@ def test_recommendation_plan_adds_priority_reason_and_evidence_summary():
     assert "auth/tls-facing usage" in rsa_item["priority_reason"]
     assert "possible HNDL-sensitive path" in rsa_item["priority_reason"]
     assert "migration complexity signal" in rsa_item["priority_reason"]
+
+
+def test_recommendation_plan_specializes_rsa_certificate_paths():
+    findings = [
+        {
+            "type": "rsa_certificate",
+            "severity": "HIGH",
+            "algorithm": "RSA",
+            "context": "CONFIG",
+            "file_path": "config/tls/server.crt",
+            "line_start": 2,
+            "line_end": 2,
+            "evidence": "-----BEGIN CERTIFICATE-----",
+            "meta": {
+                "scanner_type": "CONFIG",
+                "rule_id": "rsa_certificate",
+                "message": "RSA certificate detected in TLS configuration.",
+                "usage_type": "config",
+                "duplicate_count": 1,
+                "correlation_ref": "rsa-public-key:tls-cert",
+            },
+        }
+    ]
+
+    plan = build_recommendation_plan(findings)
+
+    assert len(plan) == 1
+    assert plan[0]["recommended_pqc_algorithm"] == "ML-DSA / SLH-DSA"
+    assert "certificate and signature paths" in plan[0]["title"]
