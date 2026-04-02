@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   inferAssetLocationScope,
@@ -10,7 +10,6 @@ import {
   AlertCircle,
   CheckCircle2,
   AlertTriangle,
-  Search,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react'
@@ -53,11 +52,26 @@ const truncatePath = (value: string, limit: number) => {
   return `${value.slice(0, limit - 1)}...`
 }
 
+const buildPagination = (currentPage: number, totalPages: number): Array<number | 'ellipsis'> => {
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1)
+  }
+
+  if (currentPage <= 4) {
+    return [1, 2, 3, 4, 5, 'ellipsis', totalPages]
+  }
+
+  if (currentPage >= totalPages - 3) {
+    return [1, 'ellipsis', totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages]
+  }
+
+  return [1, 'ellipsis', currentPage - 1, currentPage, currentPage + 1, 'ellipsis', totalPages]
+}
+
 export const InventoryTable = ({ inventory, scanUuid }: InventoryTableProps) => {
   const navigate = useNavigate()
   const [searchTerm, setSearchTerm] = useState('')
   const [riskFilter, setRiskFilter] = useState<'ALL' | 'HIGH' | 'MEDIUM' | 'LOW'>('ALL')
-  const [familyFilter, setFamilyFilter] = useState('ALL')
   const [page, setPage] = useState(1)
 
   const handleRowClick = (assetId: string) => {
@@ -67,36 +81,23 @@ export const InventoryTable = ({ inventory, scanUuid }: InventoryTableProps) => 
   }
 
   const search = searchTerm.trim().toLowerCase()
-  const familyOptions = Array.from(
-    new Set(
-      inventory
-        .map((asset) => asset.algorithmFamily)
-        .filter((family): family is string => Boolean(family && family.trim())),
-    ),
-  ).sort((left, right) => left.localeCompare(right))
 
-  const filteredInventory = inventory.filter((asset) => {
-    const riskLabel = asset.riskScore >= 8.0 ? 'HIGH' : asset.riskScore >= 5.0 ? 'MEDIUM' : 'LOW'
-    const matchesRisk = riskFilter === 'ALL' || riskFilter === riskLabel
-    const matchesFamily = familyFilter === 'ALL' || asset.algorithmFamily === familyFilter
+  const filteredInventory = useMemo(() => {
+    return inventory.filter((asset) => {
+      const riskLabel = asset.riskScore >= 8.0 ? 'HIGH' : asset.riskScore >= 5.0 ? 'MEDIUM' : 'LOW'
+      const matchesRisk = riskFilter === 'ALL' || riskFilter === riskLabel
     const matchesSearch =
       !search ||
-      [
-        asset.algorithmType,
-        asset.filePath,
-        asset.assetRef,
-        asset.correlationRef,
-        asset.algorithmFamily,
-      ]
-        .filter((value): value is string => Boolean(value))
-        .some((value) => value.toLowerCase().includes(search))
+      asset.algorithmType.toLowerCase().includes(search)
 
-    return matchesRisk && matchesFamily && matchesSearch
-  })
+      return matchesRisk && matchesSearch
+    })
+  }, [inventory, riskFilter, search])
 
   const totalPages = Math.max(1, Math.ceil(filteredInventory.length / PAGE_SIZE))
   const safePage = Math.min(page, totalPages)
   const pagedInventory = filteredInventory.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
+  const paginationItems = buildPagination(safePage, totalPages)
 
   const setNextPage = (nextPage: number) => {
     setPage(Math.max(1, Math.min(totalPages, nextPage)))
@@ -115,64 +116,60 @@ export const InventoryTable = ({ inventory, scanUuid }: InventoryTableProps) => 
   return (
     <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-xl overflow-hidden">
       <div className="border-b border-white/10 p-4 md:p-5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div className="flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-full border border-indigo-500/30 bg-indigo-500/10 px-3 py-1 text-xs font-medium text-indigo-300">
-                Showing {filteredInventory.length} of {inventory.length}
-              </span>
-              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-300">
-                Page {safePage} / {totalPages}
-              </span>
-            </div>
-            <p className="mt-3 text-sm text-slate-400">
-              Use the table for triage. Open a row to inspect full correlation identifiers and detailed evidence.
-            </p>
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full border border-indigo-500/30 bg-indigo-500/10 px-3 py-1 text-xs font-medium text-indigo-300">
+              Showing {filteredInventory.length} of {inventory.length}
+            </span>
+            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-300">
+              Page {safePage} / {totalPages}
+            </span>
           </div>
 
-          <div className="grid w-full gap-3 md:grid-cols-3 lg:w-auto lg:min-w-[760px]">
-            <label className="relative block">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+          <p className="text-sm text-slate-400">
+            Use the table for triage. Open a row to inspect full correlation identifiers and detailed evidence.
+          </p>
+
+          <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
+            <label className="block">
               <input
                 value={searchTerm}
                 onChange={(event) => {
                   setSearchTerm(event.target.value)
                   setPage(1)
                 }}
-                placeholder="Search file path, family, ref"
-                className="w-full rounded-lg border border-white/10 bg-white/5 py-2.5 pl-10 pr-3 text-sm text-white placeholder:text-slate-500 focus:border-indigo-400/50 focus:outline-none"
+                placeholder="Search algorithm type"
+                className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-indigo-400/50 focus:outline-none"
               />
             </label>
 
-            <select
-              value={familyFilter}
-              onChange={(event) => {
-                setFamilyFilter(event.target.value)
-                setPage(1)
-              }}
-              className="rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white focus:border-indigo-400/50 focus:outline-none"
-            >
-              <option value="ALL">All families</option>
-              {familyOptions.map((family) => (
-                <option key={family} value={family}>
-                  {family}
-                </option>
-              ))}
-            </select>
-
-            <select
-              value={riskFilter}
-              onChange={(event) => {
-                setRiskFilter(event.target.value as 'ALL' | 'HIGH' | 'MEDIUM' | 'LOW')
-                setPage(1)
-              }}
-              className="rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white focus:border-indigo-400/50 focus:outline-none"
-            >
-              <option value="ALL">All risk levels</option>
-              <option value="HIGH">High</option>
-              <option value="MEDIUM">Medium</option>
-              <option value="LOW">Low</option>
-            </select>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { key: 'ALL', label: 'All risk levels' },
+                { key: 'HIGH', label: 'High' },
+                { key: 'MEDIUM', label: 'Medium' },
+                { key: 'LOW', label: 'Low' },
+              ].map((option) => {
+                const isActive = riskFilter === option.key
+                return (
+                  <button
+                    key={option.key}
+                    type="button"
+                    onClick={() => {
+                      setRiskFilter(option.key as 'ALL' | 'HIGH' | 'MEDIUM' | 'LOW')
+                      setPage(1)
+                    }}
+                    className={`rounded-lg border px-3 py-2 text-sm transition ${
+                      isActive
+                        ? 'border-indigo-400/40 bg-indigo-500/15 text-indigo-200'
+                        : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                )
+              })}
+            </div>
           </div>
         </div>
       </div>
@@ -307,7 +304,7 @@ export const InventoryTable = ({ inventory, scanUuid }: InventoryTableProps) => 
           <p className="text-sm text-slate-400">
             Showing rows {(safePage - 1) * PAGE_SIZE + 1}-{Math.min(safePage * PAGE_SIZE, filteredInventory.length)}
           </p>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={() => setNextPage(safePage - 1)}
@@ -317,6 +314,28 @@ export const InventoryTable = ({ inventory, scanUuid }: InventoryTableProps) => 
               <ChevronLeft className="h-4 w-4" />
               Prev
             </button>
+
+            {paginationItems.map((item, index) =>
+              item === 'ellipsis' ? (
+                <span key={`ellipsis-${index}`} className="px-2 text-sm text-slate-500">
+                  ...
+                </span>
+              ) : (
+                <button
+                  key={item}
+                  type="button"
+                  onClick={() => setNextPage(item)}
+                  className={`rounded-lg border px-3 py-2 text-sm transition ${
+                    item === safePage
+                      ? 'border-indigo-400/40 bg-indigo-500/15 text-indigo-200'
+                      : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
+                  }`}
+                >
+                  {item}
+                </button>
+              ),
+            )}
+
             <button
               type="button"
               onClick={() => setNextPage(safePage + 1)}
