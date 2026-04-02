@@ -7,7 +7,8 @@ from urllib.parse import urlparse, unquote
 
 from app.ai_analysis_store import get_ai_analysis_snapshot, serialize_ai_analysis_snapshot
 from app.db import get_db
-from app.models import InventorySnapshot, HeatmapSnapshot, Recommendation, Repository, Scan
+from app.models import Finding, InventorySnapshot, HeatmapSnapshot, Recommendation, Repository, Scan
+from app.recommendation_planner import build_recommendation_plan
 from app.scan_read_service import get_findings_response
 from app.security import require_user_uuid_from_auth_header
 from app.schemas import (
@@ -105,6 +106,13 @@ def _extract_issue_name(ai_recommendation: str, fallback: str) -> str:
     if first_line.startswith("## "):
         return first_line.replace("## ", "").strip() or fallback
     return fallback
+
+
+def _matches_filter(value: str | None, filter_text: str) -> bool:
+    if not filter_text:
+        return True
+    haystack = (value or "").lower()
+    return filter_text.lower() in haystack
 
 
 def get_request_user_uuid(
@@ -484,41 +492,99 @@ def get_recommendations(
     if not scan:
         raise HTTPException(status_code=404, detail="Scan not found")
 
-    q = db.query(Recommendation).filter(Recommendation.scan_uuid == scan_uuid)
-
     algorithm_filter = (algorithm_type or algorithm or "").strip()
     priority_filter = (priority or "").strip().upper()
-
-    # filter
-    if algorithm_filter:
-        q = q.filter(Recommendation.algorithm.ilike(f"%{algorithm_filter}%"))
-    if context:
-        q = q.filter(Recommendation.context.ilike(f"%{context.strip()}%"))
-
-    recs = q.order_by(Recommendation.priority_rank.asc()).all()
-
     items: list[RecommendationItem] = []
-    for r in recs:
-        rank = int(r.priority_rank)
-        mapped_priority = _rank_to_priority(rank)
-        if priority_filter and mapped_priority != priority_filter:
-            continue
-        issue_name = _extract_issue_name(r.ai_recommendation, f"Recommendation {rank}")
-        file_path = r.context if (r.context and ("/" in r.context or "\\" in r.context)) else None
-        items.append(
-            RecommendationItem(
-                id=str(r.id),
-                priorityRank=rank,
-                priority=mapped_priority,
-                issueName=issue_name,
-                estimatedEffort=r.estimated_effort or "TBD",
-                aiRecommendation=r.ai_recommendation or "",
-                recommendedPQCAlgorithm="TBD",
-                targetAlgorithm=r.algorithm or "Unknown",
-                context=r.context or "",
-                filePath=file_path,
+
+    finding_rows = (
+        db.query(Finding)
+        .filter(Finding.scan_uuid == scan_uuid)
+        .order_by(Finding.id.asc())
+        .all()
+    )
+    finding_payloads = [
+        {
+            "type": row.type,
+            "severity": row.severity,
+            "algorithm": row.algorithm,
+            "context": row.context,
+            "file_path": row.file_path,
+            "line_start": row.line_start,
+            "line_end": row.line_end,
+            "evidence": row.evidence,
+            "meta": row.meta or {},
+        }
+        for row in finding_rows
+    ]
+
+    if finding_payloads:
+        for index, plan in enumerate(build_recommendation_plan(finding_payloads), start=1):
+            rank = int(plan["priority_rank"])
+            mapped_priority = str(plan["priority"])
+            if priority_filter and mapped_priority != priority_filter:
+                continue
+            if algorithm_filter and not (
+                _matches_filter(plan.get("algorithm"), algorithm_filter)
+                or _matches_filter(plan.get("normalized_class"), algorithm_filter)
+                or _matches_filter(plan.get("title"), algorithm_filter)
+            ):
+                continue
+            if context and not (
+                _matches_filter(plan.get("context"), context.strip())
+                or any(_matches_filter(path, context.strip()) for path in plan.get("affected_file_paths", []))
+            ):
+                continue
+
+            affected_paths = list(plan.get("affected_file_paths") or [])
+            items.append(
+                RecommendationItem(
+                    id=f"plan-{index}",
+                    priorityRank=rank,
+                    priority=mapped_priority,
+                    issueName=str(plan["title"]),
+                    estimatedEffort=str(plan["estimated_effort"]),
+                    aiRecommendation=str(plan["ai_recommendation"]),
+                    recommendedPQCAlgorithm=str(plan["recommended_pqc_algorithm"]),
+                    targetAlgorithm=str(plan["algorithm"]),
+                    context=str(plan["context"]),
+                    filePath=affected_paths[0] if affected_paths else None,
+                    normalizedClass=str(plan["normalized_class"]),
+                    priorityReason=str(plan["priority_reason"]),
+                    evidenceCount=int(plan["evidence_count"]),
+                    affectedFilesCount=int(plan["affected_files_count"]),
+                    affectedFilePaths=affected_paths,
+                    scannerTypes=list(plan.get("scanner_types") or []),
+                )
             )
-        )
+    else:
+        q = db.query(Recommendation).filter(Recommendation.scan_uuid == scan_uuid)
+        if algorithm_filter:
+            q = q.filter(Recommendation.algorithm.ilike(f"%{algorithm_filter}%"))
+        if context:
+            q = q.filter(Recommendation.context.ilike(f"%{context.strip()}%"))
+
+        recs = q.order_by(Recommendation.priority_rank.asc()).all()
+        for r in recs:
+            rank = int(r.priority_rank)
+            mapped_priority = _rank_to_priority(rank)
+            if priority_filter and mapped_priority != priority_filter:
+                continue
+            issue_name = _extract_issue_name(r.ai_recommendation, f"Recommendation {rank}")
+            file_path = r.context if (r.context and ("/" in r.context or "\\" in r.context)) else None
+            items.append(
+                RecommendationItem(
+                    id=str(r.id),
+                    priorityRank=rank,
+                    priority=mapped_priority,
+                    issueName=issue_name,
+                    estimatedEffort=r.estimated_effort or "TBD",
+                    aiRecommendation=r.ai_recommendation or "",
+                    recommendedPQCAlgorithm="TBD",
+                    targetAlgorithm=r.algorithm or "Unknown",
+                    context=r.context or "",
+                    filePath=file_path,
+                )
+            )
 
     return RecommendationsResponse(uuid=str(scan_uuid), recommendations=items)
 

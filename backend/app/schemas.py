@@ -115,6 +115,12 @@ class RecommendationItem(BaseModel):
     targetAlgorithm: str
     context: str
     filePath: Optional[str] = None
+    normalizedClass: Optional[str] = None
+    priorityReason: Optional[str] = None
+    evidenceCount: Optional[int] = None
+    affectedFilesCount: Optional[int] = None
+    affectedFilePaths: List[str] = Field(default_factory=list)
+    scannerTypes: List[str] = Field(default_factory=list)
 
 
 class RecommendationsResponse(BaseModel):

@@ -9,6 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from app import tasks
+from app.recommendation_planner import build_recommendation_plan
 
 
 def test_dedup_drops_exact_duplicates_and_counts():
@@ -211,3 +212,53 @@ def test_recommendations_store_all_distinct_vulnerability_classes():
     algorithms = {rec["algorithm"] for rec in recommendations}
     assert len(recommendations) == 6
     assert algorithms == {"RSA", "DH/ECDH", "ECC/ECDSA", "DSA", "Weak Hash", "Legacy Library"}
+
+
+def test_recommendation_plan_adds_priority_reason_and_evidence_summary():
+    findings = [
+        {
+            "type": "jwt_rsa_algorithm",
+            "severity": "HIGH",
+            "algorithm": "RSA",
+            "context": "SAST",
+            "file_path": "src/auth/token_service.py",
+            "line_start": 12,
+            "line_end": 12,
+            "evidence": 'jwt.encode(payload, key, algorithm="RS256")',
+            "meta": {
+                "scanner_type": "SAST",
+                "rule_id": "jwt_rsa_algorithm",
+                "message": "RSA-based JWT/JOSE signing algorithm detected.",
+                "usage_type": "code",
+                "duplicate_count": 1,
+            },
+        },
+        {
+            "type": "python-jose",
+            "severity": "HIGH",
+            "algorithm": None,
+            "context": "SCA",
+            "file_path": "pyproject.toml",
+            "line_start": None,
+            "line_end": None,
+            "evidence": "python-jose==3.3.0",
+            "meta": {
+                "scanner_type": "SCA",
+                "rule_id": "python-jose",
+                "message": "JOSE/JWT library built around traditional RSA/ECDSA algorithms without PQC support.",
+                "usage_type": "dependency",
+                "library": "python-jose",
+                "duplicate_count": 1,
+            },
+        },
+    ]
+
+    plan = build_recommendation_plan(findings)
+
+    assert len(plan) == 2
+    rsa_item = next(item for item in plan if item["algorithm"] == "RSA")
+    assert rsa_item["normalized_class"] == "rsa-public-key"
+    assert rsa_item["evidence_count"] == 1
+    assert rsa_item["affected_files_count"] == 1
+    assert "RSA class risk" in rsa_item["priority_reason"]
+    assert "auth/tls-facing usage" in rsa_item["priority_reason"]
