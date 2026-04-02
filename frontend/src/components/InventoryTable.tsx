@@ -1,5 +1,9 @@
 ﻿import { useNavigate } from 'react-router-dom'
-import { inferInventorySignals, type CryptographicAsset } from '../services/inventoryService'
+import {
+  inferAssetLocationScope,
+  inferInventorySignals,
+  type CryptographicAsset,
+} from '../services/inventoryService'
 import { FileCode, AlertCircle, CheckCircle2, AlertTriangle } from 'lucide-react'
 
 interface InventoryTableProps {
@@ -63,6 +67,7 @@ export const InventoryTable = ({ inventory, scanUuid }: InventoryTableProps) => 
               const riskConfig = getRiskColor(asset.riskScore)
               const RiskIcon = getRiskIcon(asset.riskScore)
               const signals = inferInventorySignals(asset)
+              const locationScope = inferAssetLocationScope(asset)
 
               return (
                 <tr
@@ -118,16 +123,22 @@ export const InventoryTable = ({ inventory, scanUuid }: InventoryTableProps) => 
                     )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex flex-wrap gap-1">
-                      {asset.lineNumbers.map((line, idx) => (
-                        <span
-                          key={idx}
-                          className="px-2 py-1 text-xs bg-white/5 text-slate-300 rounded font-mono"
-                        >
-                          {line}
-                        </span>
-                      ))}
-                    </div>
+                    {asset.lineNumbers.length > 0 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {asset.lineNumbers.map((line, idx) => (
+                          <span
+                            key={idx}
+                            className="px-2 py-1 text-xs bg-white/5 text-slate-300 rounded font-mono"
+                          >
+                            {line}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="inline-flex rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] uppercase tracking-[0.12em] text-slate-300">
+                        {locationScope}
+                      </span>
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center gap-2">

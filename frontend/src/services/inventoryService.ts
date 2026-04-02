@@ -43,6 +43,35 @@ export interface InventorySignals {
   trustLabel: string
 }
 
+export const inferAssetLocationScope = (asset: CryptographicAsset): string => {
+  if (asset.lineNumbers.length > 0) {
+    return 'line-level'
+  }
+
+  const assetRef = (asset.assetRef ?? '').toLowerCase()
+  const filePath = asset.filePath.toLowerCase()
+
+  if (assetRef.startsWith('dependency:')) {
+    return 'dependency-level'
+  }
+  if (
+    assetRef.startsWith('config:') ||
+    filePath.endsWith('.crt') ||
+    filePath.endsWith('.pem') ||
+    filePath.endsWith('.key') ||
+    filePath.endsWith('.cer') ||
+    filePath.endsWith('.csr') ||
+    filePath.endsWith('.conf') ||
+    filePath.endsWith('.yaml') ||
+    filePath.endsWith('.yml') ||
+    filePath.endsWith('.properties')
+  ) {
+    return 'file-level'
+  }
+
+  return 'asset-level'
+}
+
 const isAppError = (error: unknown): error is AppError => {
   return typeof error === 'object' && error !== null && 'type' in error && 'message' in error
 }
@@ -160,6 +189,12 @@ export const inferInventorySignals = (asset: CryptographicAsset): InventorySigna
   } else if (algorithm.includes('sha-1') || algorithm.includes('sha1') || algorithm.includes('md5')) {
     classLabel = 'Weak hash debt'
     classReason = 'Weak hash usage should be removed early to reduce migration debt.'
+  } else if (algorithm.includes('private key')) {
+    classLabel = 'Private key material'
+    classReason = 'Private key and certificate material should be reviewed together with certificate-chain and deployment migration plans.'
+  } else if (algorithm.includes('dependency') || algorithm.includes('library')) {
+    classLabel = 'Dependency migration signal'
+    classReason = 'Dependency-level crypto signals should be reviewed for PQC-capable replacement paths.'
   } else if (algorithm.includes('aes') || algorithm.includes('chacha')) {
     classLabel = 'Symmetric path'
     classReason = 'Symmetric crypto is not the primary PQC replacement target, but still affects readiness.'
@@ -181,6 +216,8 @@ export const inferInventorySignals = (asset: CryptographicAsset): InventorySigna
     filePath.includes('gateway')
   ) {
     boundaryLabel = 'TLS/certificate boundary'
+  } else if (filePath.includes('.key') || filePath.includes('private')) {
+    boundaryLabel = 'Key material boundary'
   } else if (filePath.includes('config')) {
     boundaryLabel = 'Configuration boundary'
   }

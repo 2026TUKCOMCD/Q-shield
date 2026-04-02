@@ -9,6 +9,8 @@ import {
   ExternalLink,
 } from 'lucide-react'
 
+import { inferAssetLocationScope } from '../services/inventoryService'
+
 interface AssetDetailListProps {
   asset: AssetDetail
 }
@@ -88,6 +90,7 @@ const renderCodeSnippet = (code: string, lineNumbers: number[], startLine?: numb
 
 export const AssetDetailList = ({ asset }: AssetDetailListProps) => {
   const riskConfig = getRiskColor(asset.riskScore)
+  const locationScope = inferAssetLocationScope(asset)
 
   return (
     <div className="space-y-6">
@@ -180,16 +183,27 @@ export const AssetDetailList = ({ asset }: AssetDetailListProps) => {
           </div>
           <div>
             <div className="text-sm text-slate-400 mb-2">Line Numbers</div>
-            <div className="flex flex-wrap gap-2">
-              {asset.lineNumbers.map((line, idx) => (
-                <span
-                  key={idx}
-                  className="px-3 py-1 text-sm bg-yellow-500/10 border border-yellow-500/30 text-yellow-300 rounded font-mono"
-                >
-                  {line}
+            {asset.lineNumbers.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {asset.lineNumbers.map((line, idx) => (
+                  <span
+                    key={idx}
+                    className="px-3 py-1 text-sm bg-yellow-500/10 border border-yellow-500/30 text-yellow-300 rounded font-mono"
+                  >
+                    {line}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs uppercase tracking-[0.14em] text-slate-300">
+                  {locationScope}
                 </span>
-              ))}
-            </div>
+                <p className="text-sm text-slate-400">
+                  This asset was detected at the {locationScope} rather than a specific code line.
+                </p>
+              </div>
+            )}
           </div>
           {asset.detectedPattern && (
             <div>
