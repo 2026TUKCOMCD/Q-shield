@@ -239,6 +239,47 @@ const SummaryCard = ({
   </div>
 )
 
+const getSourceBadgeConfig = (sourceType?: string | null) => {
+  switch ((sourceType || '').toUpperCase()) {
+    case 'NIST_STANDARD':
+      return {
+        label: 'NIST Standard',
+        className: 'border-emerald-400/20 bg-emerald-500/10 text-emerald-300',
+      }
+    case 'NIST_GUIDE':
+      return {
+        label: 'NIST Guide',
+        className: 'border-indigo-400/20 bg-indigo-500/10 text-indigo-300',
+      }
+    case 'BENCHMARK':
+      return {
+        label: 'Benchmark',
+        className: 'border-amber-400/20 bg-amber-500/10 text-amber-300',
+      }
+    case 'ACADEMIC_PAPER':
+      return {
+        label: 'Paper',
+        className: 'border-fuchsia-400/20 bg-fuchsia-500/10 text-fuchsia-300',
+      }
+    default:
+      return {
+        label: sourceType || 'Source',
+        className: 'border-white/10 bg-white/5 text-slate-300',
+      }
+  }
+}
+
+const normalizeCitationGroup = (sourceType?: string | null) => {
+  const normalized = (sourceType || '').toUpperCase()
+  if (normalized === 'NIST_STANDARD' || normalized === 'NIST_GUIDE') {
+    return 'normative'
+  }
+  if (normalized === 'BENCHMARK' || normalized === 'ACADEMIC_PAPER') {
+    return 'benchmark'
+  }
+  return 'other'
+}
+
 export const AIDetailView = ({
   recommendation,
   isOpen,
@@ -302,8 +343,15 @@ export const AIDetailView = ({
       key: `${citation.doc_id}:${citation.page ?? 'na'}:${sectionText}`,
       title: getDisplayValue(citation.title, 'NIST citation'),
       location: `${sectionText}${pageText}`,
+      sourceType: citation.source_type ?? 'UNKNOWN',
+      claimType: citation.claim_type ?? 'unknown',
+      topic: citation.topic ?? 'general',
+      authorityWeight: citation.authority_weight ?? null,
     }
   })
+  const normativeCitationRows = citationEvidenceRows.filter((row) => normalizeCitationGroup(row.sourceType) === 'normative')
+  const benchmarkCitationRows = citationEvidenceRows.filter((row) => normalizeCitationGroup(row.sourceType) === 'benchmark')
+  const otherCitationRows = citationEvidenceRows.filter((row) => normalizeCitationGroup(row.sourceType) === 'other')
   const canRetryCitations = typeof onRetryCitations === 'function'
 
   const handleRetryCitations = async () => {
@@ -322,6 +370,63 @@ export const AIDetailView = ({
     } finally {
       setIsRetrying(false)
     }
+  }
+
+  const renderCitationGroup = (
+    title: string,
+    description: string,
+    rows: typeof citationEvidenceRows,
+  ) => {
+    if (rows.length === 0) {
+      return null
+    }
+
+    return (
+      <div className="space-y-3 rounded-xl border border-white/10 bg-white/5 p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold text-white">{title}</p>
+            <p className="mt-1 text-xs text-slate-400">{description}</p>
+          </div>
+          <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-slate-300">
+            {rows.length}
+          </span>
+        </div>
+        <div className="space-y-3">
+          {rows.map((row) => {
+            const badge = getSourceBadgeConfig(row.sourceType)
+            return (
+              <div key={row.key} className="rounded-lg border border-white/10 bg-white/5 p-3">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-white">{row.title}</p>
+                    <p className="mt-1 text-xs text-indigo-300">{row.location}</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <span className={`rounded-full border px-2.5 py-1 text-[11px] ${badge.className}`}>
+                      {badge.label}
+                    </span>
+                    <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-slate-300">
+                      {row.claimType}
+                    </span>
+                  </div>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <span className="rounded-md border border-white/10 bg-slate-900/40 px-2 py-1 text-xs text-slate-300">
+                    topic: {row.topic}
+                  </span>
+                  {row.authorityWeight !== null && (
+                    <span className="rounded-md border border-white/10 bg-slate-900/40 px-2 py-1 text-xs text-slate-300">
+                      authority: {row.authorityWeight}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -645,7 +750,7 @@ export const AIDetailView = ({
               <div className="space-y-4 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
                 <div className="flex items-center gap-2">
                   <Sparkles className="h-5 w-5 text-indigo-300" />
-                  <h3 className="text-lg font-semibold text-white">NIST Evidence</h3>
+                  <h3 className="text-lg font-semibold text-white">Evidence</h3>
                 </div>
 
                 {!hasNistReference && (
@@ -687,24 +792,44 @@ export const AIDetailView = ({
                     <p className="text-sm font-medium text-slate-100">
                       {getDisplayValue(recommendation.nistStandardReference)}
                     </p>
-                    {citationEvidenceRows.length > 0 ? (
-                      <div className="mt-3 space-y-3">
-                        {citationEvidenceRows.map((row) => (
-                          <div
-                            key={row.key}
-                            className="rounded-lg border border-white/10 bg-white/5 p-3"
-                          >
-                            <p className="text-sm font-semibold text-white">{row.title}</p>
-                            <p className="mt-1 text-xs text-indigo-300">{row.location}</p>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="mt-2 text-xs text-slate-400">
-                        Supporting excerpts were not attached to this result.
-                      </p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <span className="rounded-full border border-indigo-400/20 bg-indigo-500/10 px-2.5 py-1 text-xs text-indigo-300">
+                        Normative evidence {normativeCitationRows.length}
+                      </span>
+                      <span className="rounded-full border border-amber-400/20 bg-amber-500/10 px-2.5 py-1 text-xs text-amber-300">
+                        Benchmark evidence {benchmarkCitationRows.length}
+                      </span>
+                      {otherCitationRows.length > 0 && (
+                        <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-slate-300">
+                          Other evidence {otherCitationRows.length}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {citationEvidenceRows.length > 0 ? (
+                  <div className="space-y-4">
+                    {renderCitationGroup(
+                      'Normative Evidence',
+                      'Use this group for migration requirements, risk framing, and standard conformance claims.',
+                      normativeCitationRows,
+                    )}
+                    {renderCitationGroup(
+                      'Benchmark Evidence',
+                      'Use this group for latency, interoperability, certificate size, and deployment tradeoff notes.',
+                      benchmarkCitationRows,
+                    )}
+                    {renderCitationGroup(
+                      'Other Evidence',
+                      'Auxiliary evidence that does not clearly map to normative or benchmark guidance.',
+                      otherCitationRows,
                     )}
                   </div>
+                ) : (
+                  <p className="text-xs text-slate-400">
+                    Supporting excerpts were not attached to this result.
+                  </p>
                 )}
               </div>
 
