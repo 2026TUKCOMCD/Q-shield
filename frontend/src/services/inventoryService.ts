@@ -9,6 +9,9 @@ export interface CryptographicAsset {
   filePath: string
   lineNumbers: number[]
   riskScore: number
+  assetRef?: string
+  correlationRef?: string
+  algorithmFamily?: string
 }
 
 export interface AssetDetail extends CryptographicAsset {
@@ -74,6 +77,9 @@ const generateMockInventory = (uuid: string): InventoryResponse => {
         filePath: 'src/auth.c',
         lineNumbers: [15, 23, 45],
         riskScore: 9.2,
+        assetRef: 'code:rsa-public-key:src/auth.c',
+        correlationRef: 'rsa-public-key:auth-token',
+        algorithmFamily: 'rsa-public-key',
       },
       {
         id: '2',
@@ -81,6 +87,9 @@ const generateMockInventory = (uuid: string): InventoryResponse => {
         filePath: 'src/utils/hash.py',
         lineNumbers: [12, 34, 56],
         riskScore: 7.5,
+        assetRef: 'code:weak-hash:src/utils/hash.py',
+        correlationRef: 'weak-hash:internal-code',
+        algorithmFamily: 'weak-hash',
       },
       {
         id: '3',
@@ -88,6 +97,9 @@ const generateMockInventory = (uuid: string): InventoryResponse => {
         filePath: 'config/settings.json',
         lineNumbers: [8],
         riskScore: 4.8,
+        assetRef: 'config:symmetric-crypto:config/settings.json',
+        correlationRef: 'symmetric-crypto:configuration',
+        algorithmFamily: 'symmetric-crypto',
       },
     ],
   }

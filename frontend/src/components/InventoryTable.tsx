@@ -92,11 +92,30 @@ export const InventoryTable = ({ inventory, scanUuid }: InventoryTableProps) => 
                     <code className="text-sm text-slate-300 font-mono bg-white/5 px-2 py-1 rounded">
                       {asset.filePath}
                     </code>
-                    <div className="mt-2">
+                    <div className="mt-2 flex flex-wrap gap-2">
                       <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-slate-300">
                         {signals.boundaryLabel}
                       </span>
+                      {asset.algorithmFamily && (
+                        <span className="rounded-full border border-emerald-400/20 bg-emerald-500/10 px-2.5 py-1 text-[11px] uppercase tracking-[0.14em] text-emerald-300">
+                          {asset.algorithmFamily}
+                        </span>
+                      )}
                     </div>
+                    {(asset.assetRef || asset.correlationRef) && (
+                      <div className="mt-2 space-y-1">
+                        {asset.assetRef && (
+                          <code className="block rounded bg-slate-900/40 px-2 py-1 text-[11px] text-slate-400">
+                            asset_ref: {asset.assetRef}
+                          </code>
+                        )}
+                        {asset.correlationRef && (
+                          <code className="block rounded bg-slate-900/40 px-2 py-1 text-[11px] text-slate-400">
+                            correlation_ref: {asset.correlationRef}
+                          </code>
+                        )}
+                      </div>
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex flex-wrap gap-1">

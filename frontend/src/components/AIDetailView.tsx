@@ -370,6 +370,8 @@ export const AIDetailView = ({
     .sort((left, right) => right.score - left.score)
   const affectedFilesCount =
     recommendation.affectedFilesCount ?? plannerEvidence?.affectedFilesCount ?? affectedFilePaths.length
+  const relatedAssetRefs = plannerEvidence?.relatedAssetRefs ?? []
+  const correlationRefs = plannerEvidence?.correlationRefs ?? []
   const citationEvidenceRows = (recommendation.citations ?? []).map((citation) => {
     const sectionText = hasMeaningfulValue(citation.section)
       ? citation.section.trim()
@@ -616,6 +618,44 @@ export const AIDetailView = ({
                           <span className="text-sm text-slate-500">Affected files were not returned</span>
                         )}
                       </div>
+                      {(relatedAssetRefs.length > 0 || correlationRefs.length > 0) && (
+                        <div className="mt-3 space-y-3">
+                          {relatedAssetRefs.length > 0 && (
+                            <div>
+                              <p className="mb-2 text-[11px] uppercase tracking-[0.15em] text-slate-500">
+                                Related Asset Refs
+                              </p>
+                              <div className="flex flex-wrap gap-2">
+                                {relatedAssetRefs.map((assetRef) => (
+                                  <code
+                                    key={`${recommendation.id}-asset-ref-${assetRef}`}
+                                    className="rounded-md border border-emerald-400/20 bg-emerald-500/10 px-2 py-1 text-xs text-emerald-300"
+                                  >
+                                    {assetRef}
+                                  </code>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {correlationRefs.length > 0 && (
+                            <div>
+                              <p className="mb-2 text-[11px] uppercase tracking-[0.15em] text-slate-500">
+                                Correlation Refs
+                              </p>
+                              <div className="flex flex-wrap gap-2">
+                                {correlationRefs.map((correlationRef) => (
+                                  <code
+                                    key={`${recommendation.id}-correlation-ref-${correlationRef}`}
+                                    className="rounded-md border border-sky-400/20 bg-sky-500/10 px-2 py-1 text-xs text-sky-300"
+                                  >
+                                    {correlationRef}
+                                  </code>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                   {priorityFactors.length > 0 && (

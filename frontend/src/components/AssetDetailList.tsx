@@ -207,6 +207,56 @@ export const AssetDetailList = ({ asset }: AssetDetailListProps) => {
           )}
         </div>
       </div>
+      {(asset.assetRef || asset.correlationRef || asset.algorithmFamily) && (
+        <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-xl p-6">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-2 bg-gradient-to-br from-emerald-500/20 to-teal-600/20 rounded-lg border border-emerald-500/30">
+              <ExternalLink className="w-5 h-5 text-emerald-400" />
+            </div>
+            <h2 className="text-2xl font-semibold text-white">Correlation Identity</h2>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4">
+            {asset.algorithmFamily && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm text-slate-400">
+                  <Shield className="w-4 h-4" />
+                  <span>Algorithm Family</span>
+                </div>
+                <code className="text-sm text-emerald-300 font-mono bg-white/5 px-3 py-2 rounded block uppercase tracking-[0.14em]">
+                  {asset.algorithmFamily}
+                </code>
+              </div>
+            )}
+            {asset.assetRef && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm text-slate-400">
+                  <ExternalLink className="w-4 h-4" />
+                  <span>Asset Ref</span>
+                </div>
+                <code className="text-sm text-slate-300 font-mono bg-white/5 px-3 py-2 rounded block break-all">
+                  {asset.assetRef}
+                </code>
+              </div>
+            )}
+            {asset.correlationRef && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm text-slate-400">
+                  <ExternalLink className="w-4 h-4" />
+                  <span>Correlation Ref</span>
+                </div>
+                <code className="text-sm text-slate-300 font-mono bg-white/5 px-3 py-2 rounded block break-all">
+                  {asset.correlationRef}
+                </code>
+              </div>
+            )}
+            <p className="text-sm leading-relaxed text-slate-400">
+              These identifiers link findings, inventory assets, and migration recommendations to the same
+              PQC migration target across the scan.
+            </p>
+          </div>
+        </div>
+      )}
       {asset.suggestedPQCAlternatives && asset.suggestedPQCAlternatives.length > 0 && (
         <div className="bg-gradient-to-r from-indigo-500/10 to-purple-600/10 backdrop-blur-md border border-indigo-500/30 rounded-xl p-6">
           <div className="flex items-center gap-3 mb-6">

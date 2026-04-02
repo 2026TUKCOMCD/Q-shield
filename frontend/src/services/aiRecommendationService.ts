@@ -30,6 +30,8 @@ export interface RecommendationEvidence {
   affectedFilesCount: number
   affectedFilePaths: string[]
   scannerTypes: string[]
+  relatedAssetRefs: string[]
+  correlationRefs: string[]
   normativeEvidenceCount: number
   benchmarkEvidenceCount: number
   priorityFactors: RecommendationPriorityFactor[]
@@ -159,6 +161,8 @@ const generateMockRecommendations = (): Recommendation[] => {
         affectedFilesCount: 1,
         affectedFilePaths: ['src/auth.c'],
         scannerTypes: ['SAST'],
+        relatedAssetRefs: ['code:rsa-public-key:src/auth.c'],
+        correlationRefs: ['rsa-public-key:auth-token'],
         normativeEvidenceCount: 0,
         benchmarkEvidenceCount: 0,
         priorityFactors: [],
@@ -213,6 +217,8 @@ const generateMockRecommendations = (): Recommendation[] => {
         affectedFilesCount: 1,
         affectedFilePaths: ['src/utils/hash.py'],
         scannerTypes: ['SAST'],
+        relatedAssetRefs: ['code:weak-hash:src/utils/hash.py'],
+        correlationRefs: ['weak-hash:internal-code'],
         normativeEvidenceCount: 0,
         benchmarkEvidenceCount: 0,
         priorityFactors: [],
@@ -474,6 +480,8 @@ const mapAiAnalysisToRecommendations = (
         affectedFilesCount: summary.affectedFilesCount,
         affectedFilePaths: summary.affectedFilePaths,
         scannerTypes: summary.scannerTypes,
+        relatedAssetRefs: [],
+        correlationRefs: [],
         normativeEvidenceCount: citationCounts.normativeEvidenceCount,
         benchmarkEvidenceCount: citationCounts.benchmarkEvidenceCount,
         priorityFactors: mapPriorityFactors(recommendation.priority_factors),
@@ -591,6 +599,8 @@ const mergeRecommendationData = (
           affectedFilesCount: plannerRecommendation.affectedFilesCount ?? 0,
           affectedFilePaths: plannerRecommendation.affectedFilePaths ?? [],
           scannerTypes: plannerRecommendation.scannerTypes ?? [],
+          relatedAssetRefs: plannerRecommendation.evidence?.relatedAssetRefs ?? [],
+          correlationRefs: plannerRecommendation.evidence?.correlationRefs ?? [],
           normativeEvidenceCount: aiRecommendation.evidence?.normativeEvidenceCount ?? 0,
           benchmarkEvidenceCount: aiRecommendation.evidence?.benchmarkEvidenceCount ?? 0,
           priorityFactors:
