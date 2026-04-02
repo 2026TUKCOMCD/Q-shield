@@ -303,6 +303,21 @@ const getAnalysisModeConfig = (mode?: 'real' | 'fallback' | 'mock' | 'error') =>
   }
 }
 
+const isCertificateOrConfigPath = (path?: string | null) => {
+  const normalized = (path || '').toLowerCase()
+  return (
+    normalized.endsWith('.crt') ||
+    normalized.endsWith('.pem') ||
+    normalized.endsWith('.cer') ||
+    normalized.endsWith('.csr') ||
+    normalized.endsWith('.key') ||
+    normalized.endsWith('.conf') ||
+    normalized.endsWith('.cnf') ||
+    normalized.endsWith('.yaml') ||
+    normalized.endsWith('.yml')
+  )
+}
+
 export const AIDetailView = ({
   recommendation,
   isOpen,
@@ -335,7 +350,6 @@ export const AIDetailView = ({
   const PriorityIcon = getPriorityIcon(recommendation.priority)
   const hasNistReference = hasMeaningfulValue(recommendation.nistStandardReference)
   const hasCitations = (recommendation.citations?.length ?? 0) > 0
-  const hasNistEvidence = hasNistReference || hasCitations
   const plannerEvidence = recommendation.evidence
   const structuredGuidance = recommendation.guidance
   const structuredTrust = recommendation.trust
@@ -402,6 +416,12 @@ export const AIDetailView = ({
   const normativeCitationRows = citationEvidenceRows.filter((row) => normalizeCitationGroup(row.sourceType) === 'normative')
   const benchmarkCitationRows = citationEvidenceRows.filter((row) => normalizeCitationGroup(row.sourceType) === 'benchmark')
   const otherCitationRows = citationEvidenceRows.filter((row) => normalizeCitationGroup(row.sourceType) === 'other')
+  const hasNormativeEvidence = normativeCitationRows.length > 0 || normativeEvidenceCount > 0
+  const isPlanningReferenceOnly = hasNistReference && !hasNormativeEvidence
+  const suppressCodeFixExamples =
+    scannerTypes.some((scannerType) => scannerType.toUpperCase() === 'CONFIG') ||
+    affectedLocations.some((location) => isCertificateOrConfigPath(location.file_path)) ||
+    affectedFilePaths.some((path) => isCertificateOrConfigPath(path))
   const canRetryCitations = typeof onRetryCitations === 'function'
 
   const handleRetryCitations = async () => {
@@ -847,7 +867,7 @@ export const AIDetailView = ({
                   <Code className="h-5 w-5 text-indigo-300" />
                   <h3 className="text-lg font-semibold text-white">Suggested Code Fixes</h3>
                 </div>
-                {codeFixExamples.length > 0 ? (
+                {codeFixExamples.length > 0 && !suppressCodeFixExamples ? (
                   <div className="space-y-4">
                     {codeFixExamples.slice(0, 6).map((fix, index) => (
                       <div
@@ -881,7 +901,9 @@ export const AIDetailView = ({
                   </div>
                 ) : (
                   <p className="text-sm text-slate-400">
-                    No concrete before/after patch examples were returned by the AI response.
+                    {suppressCodeFixExamples
+                      ? 'Conceptual code patches are intentionally hidden for certificate/config assets. Use the validation checklist and benchmark notes for migration planning.'
+                      : 'No concrete before/after patch examples were returned by the AI response.'}
                   </p>
                 )}
               </div>
@@ -926,7 +948,7 @@ export const AIDetailView = ({
                 {hasNistReference && (
                   <div className="rounded-xl border border-white/10 bg-white/5 p-4">
                     <p className="mb-2 text-xs uppercase tracking-[0.2em] text-slate-500">
-                      NIST Standard Reference
+                      {isPlanningReferenceOnly ? 'NIST Planning Reference' : 'NIST Standard Reference'}
                     </p>
                     <p className="text-sm font-medium text-slate-100">
                       {getDisplayValue(recommendation.nistStandardReference)}
@@ -944,7 +966,7 @@ export const AIDetailView = ({
                         </span>
                       )}
                     </div>
-                    {normativeEvidenceCount === 0 && (
+                    {isPlanningReferenceOnly && (
                       <p className="mt-3 text-xs text-amber-300">
                         Planning reference only. No normative excerpt is attached to this recommendation yet.
                       </p>
@@ -1057,14 +1079,18 @@ export const AIDetailView = ({
                     </span>
                   </li>
                   <li className="flex items-start gap-2">
-                    {hasNistEvidence ? (
+                    {hasNormativeEvidence ? (
                       <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-300" />
                     ) : (
                       <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-300" />
                     )}
                     <span>
                       Standards evidence:{' '}
-                      {hasNistEvidence ? 'NIST reference or citations are attached' : 'not available'}
+                      {hasNormativeEvidence
+                        ? 'normative NIST evidence is attached'
+                        : hasNistReference
+                          ? 'planning reference only, normative excerpt not attached'
+                          : 'not available'}
                     </span>
                   </li>
                 </ul>
