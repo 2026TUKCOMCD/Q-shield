@@ -280,6 +280,21 @@ const normalizeCitationGroup = (sourceType?: string | null) => {
   return 'other'
 }
 
+const getAnalysisModeConfig = (mode?: 'real' | 'fallback' | 'mock' | 'error') => {
+  switch (mode) {
+    case 'real':
+      return { label: 'Real Analysis', className: 'border-emerald-400/20 bg-emerald-500/10 text-emerald-300' }
+    case 'fallback':
+      return { label: 'Fallback Analysis', className: 'border-amber-400/20 bg-amber-500/10 text-amber-300' }
+    case 'mock':
+      return { label: 'Mock Analysis', className: 'border-sky-400/20 bg-sky-500/10 text-sky-300' }
+    case 'error':
+      return { label: 'Error State', className: 'border-rose-400/20 bg-rose-500/10 text-rose-300' }
+    default:
+      return null
+  }
+}
+
 export const AIDetailView = ({
   recommendation,
   isOpen,
@@ -346,6 +361,10 @@ export const AIDetailView = ({
   const priorityReason =
     recommendation.priorityReason ?? plannerEvidence?.priorityReason ?? 'Deterministic priority rationale not available'
   const confidenceReason = recommendation.confidenceReason ?? structuredTrust?.confidenceReason
+  const analysisMode = recommendation.analysisMode ?? structuredTrust?.analysisMode
+  const citationsAvailable = recommendation.citationsAvailable ?? structuredTrust?.citationsAvailable ?? hasCitations
+  const ragCorpusLoaded = recommendation.ragCorpusLoaded ?? structuredTrust?.ragCorpusLoaded ?? false
+  const analysisModeConfig = getAnalysisModeConfig(analysisMode)
   const priorityFactors = (plannerEvidence?.priorityFactors ?? [])
     .filter((factor) => factor.score > 0)
     .sort((left, right) => right.score - left.score)
@@ -471,6 +490,11 @@ export const AIDetailView = ({
                     <span className="rounded-full border border-indigo-500/30 bg-indigo-500/10 px-3 py-1 text-sm font-medium text-indigo-400">
                       {recommendation.priority}
                     </span>
+                    {analysisModeConfig && (
+                      <span className={`rounded-full border px-3 py-1 text-xs ${analysisModeConfig.className}`}>
+                        {analysisModeConfig.label}
+                      </span>
+                    )}
                     {recommendation.normalizedClass && (
                       <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs uppercase tracking-[0.14em] text-slate-300">
                         {recommendation.normalizedClass}
@@ -905,6 +929,26 @@ export const AIDetailView = ({
                 </div>
 
                 <div className="space-y-2">
+                  <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                    <p className="mb-2 text-xs uppercase tracking-[0.2em] text-slate-500">Analysis Status</p>
+                    <div className="flex flex-wrap gap-2">
+                      {analysisModeConfig ? (
+                        <span className={`rounded-full border px-2.5 py-1 text-xs ${analysisModeConfig.className}`}>
+                          {analysisModeConfig.label}
+                        </span>
+                      ) : (
+                        <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-slate-300">
+                          Analysis mode unknown
+                        </span>
+                      )}
+                      <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-slate-300">
+                        RAG corpus {ragCorpusLoaded ? 'loaded' : 'not loaded'}
+                      </span>
+                      <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-slate-300">
+                        Citations {citationsAvailable ? 'available' : 'missing'}
+                      </span>
+                    </div>
+                  </div>
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-slate-300">Recommendation confidence</span>
                     <span className="font-semibold text-white">

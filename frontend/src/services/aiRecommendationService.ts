@@ -55,6 +55,9 @@ export interface RecommendationTrust {
   citationMissing?: boolean
   normativeEvidenceCount: number
   benchmarkEvidenceCount: number
+  analysisMode?: 'real' | 'fallback' | 'mock' | 'error'
+  citationsAvailable?: boolean
+  ragCorpusLoaded?: boolean
 }
 
 export interface Recommendation {
@@ -86,6 +89,9 @@ export interface Recommendation {
   benchmarkNotes?: string[]
   assumptions?: string[]
   confidenceReason?: string
+  analysisMode?: 'real' | 'fallback' | 'mock' | 'error'
+  citationsAvailable?: boolean
+  ragCorpusLoaded?: boolean
   evidence?: RecommendationEvidence
   guidance?: RecommendationGuidance
   trust?: RecommendationTrust
@@ -143,6 +149,9 @@ const generateMockRecommendations = (): Recommendation[] => {
       affectedFilesCount: 1,
       affectedFilePaths: ['src/auth.c'],
       scannerTypes: ['SAST'],
+      analysisMode: 'mock',
+      citationsAvailable: false,
+      ragCorpusLoaded: false,
       evidence: {
         normalizedClass: 'rsa-public-key',
         priorityReason: 'RSA class risk, auth-facing usage, development fallback data',
@@ -167,6 +176,9 @@ const generateMockRecommendations = (): Recommendation[] => {
         citationMissing: true,
         normativeEvidenceCount: 0,
         benchmarkEvidenceCount: 0,
+        analysisMode: 'mock',
+        citationsAvailable: false,
+        ragCorpusLoaded: false,
       },
     },
     {
@@ -191,6 +203,9 @@ const generateMockRecommendations = (): Recommendation[] => {
       affectedFilesCount: 1,
       affectedFilePaths: ['src/utils/hash.py'],
       scannerTypes: ['SAST'],
+      analysisMode: 'mock',
+      citationsAvailable: false,
+      ragCorpusLoaded: false,
       evidence: {
         normalizedClass: 'weak-hash',
         priorityReason: 'Weak hash usage remains migration debt and lowers trust',
@@ -215,6 +230,9 @@ const generateMockRecommendations = (): Recommendation[] => {
         citationMissing: true,
         normativeEvidenceCount: 0,
         benchmarkEvidenceCount: 0,
+        analysisMode: 'mock',
+        citationsAvailable: false,
+        ragCorpusLoaded: false,
       },
     },
   ]
@@ -446,6 +464,9 @@ const mapAiAnalysisToRecommendations = (
       benchmarkNotes: recommendation.benchmark_notes ?? [],
       assumptions: recommendation.assumptions ?? [],
       confidenceReason: recommendation.confidence_reason ?? undefined,
+      analysisMode: payload.analysis_mode,
+      citationsAvailable: payload.citations_available,
+      ragCorpusLoaded: payload.rag_corpus_loaded,
       evidence: {
         normalizedClass,
         priorityReason: recommendation.priority_reason ?? undefined,
@@ -470,6 +491,9 @@ const mapAiAnalysisToRecommendations = (
         citationMissing: payload.citation_missing,
         normativeEvidenceCount: citationCounts.normativeEvidenceCount,
         benchmarkEvidenceCount: citationCounts.benchmarkEvidenceCount,
+        analysisMode: payload.analysis_mode,
+        citationsAvailable: payload.citations_available,
+        ragCorpusLoaded: payload.rag_corpus_loaded,
       },
     }
   })
@@ -557,6 +581,9 @@ const mergeRecommendationData = (
         benchmarkNotes: aiRecommendation.benchmarkNotes,
         assumptions: aiRecommendation.assumptions,
         confidenceReason: aiRecommendation.confidenceReason,
+        analysisMode: aiRecommendation.analysisMode,
+        citationsAvailable: aiRecommendation.citationsAvailable,
+        ragCorpusLoaded: aiRecommendation.ragCorpusLoaded,
         evidence: {
           normalizedClass: plannerRecommendation.normalizedClass,
           priorityReason: plannerRecommendation.priorityReason,
@@ -584,6 +611,9 @@ const mergeRecommendationData = (
           citationMissing: aiRecommendation.citationMissing,
           normativeEvidenceCount: aiRecommendation.evidence?.normativeEvidenceCount ?? 0,
           benchmarkEvidenceCount: aiRecommendation.evidence?.benchmarkEvidenceCount ?? 0,
+          analysisMode: aiRecommendation.analysisMode,
+          citationsAvailable: aiRecommendation.citationsAvailable,
+          ragCorpusLoaded: aiRecommendation.ragCorpusLoaded,
         },
       }
     }),
