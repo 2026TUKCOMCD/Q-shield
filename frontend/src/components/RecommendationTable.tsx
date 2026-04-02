@@ -65,16 +65,47 @@ const getPriorityConfig = (priority: Priority) => {
   }
 }
 
+const renderSummaryBadges = (recommendation: Recommendation) => {
+  const items: string[] = []
+
+  if (recommendation.evidenceCount !== undefined) {
+    items.push(`Evidence ${recommendation.evidenceCount}`)
+  }
+  if (recommendation.affectedFilesCount !== undefined) {
+    items.push(`Files ${recommendation.affectedFilesCount}`)
+  }
+  if ((recommendation.scannerTypes?.length ?? 0) > 0) {
+    items.push(recommendation.scannerTypes!.join(', '))
+  }
+
+  if (items.length === 0) {
+    return <span className="text-xs text-slate-500">Planner summary not available</span>
+  }
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      {items.map((item) => (
+        <span
+          key={`${recommendation.id}-${item}`}
+          className="inline-flex rounded-md bg-white/5 px-2 py-1 text-xs text-slate-300"
+        >
+          {item}
+        </span>
+      ))}
+    </div>
+  )
+}
+
 export const RecommendationTable = ({
   recommendations,
   onRecommendationClick,
 }: RecommendationTableProps) => {
   if (recommendations.length === 0) {
     return (
-      <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-xl p-12 text-center">
-        <Sparkles className="w-12 h-12 mx-auto mb-4 text-slate-400" />
-        <p className="text-slate-300 text-lg mb-2 font-medium">No recommendations found</p>
-        <p className="text-slate-500 text-sm">
+      <div className="rounded-xl border border-white/10 bg-white/5 p-12 text-center backdrop-blur-md">
+        <Sparkles className="mx-auto mb-4 h-12 w-12 text-slate-400" />
+        <p className="mb-2 text-lg font-medium text-slate-300">No recommendations found</p>
+        <p className="text-sm text-slate-500">
           Try adjusting your filters to see more recommendations.
         </p>
       </div>
@@ -82,27 +113,27 @@ export const RecommendationTable = ({
   }
 
   return (
-    <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-xl overflow-hidden">
+    <div className="overflow-hidden rounded-xl border border-white/10 bg-white/5 backdrop-blur-md">
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
             <tr className="border-b border-white/10">
-              <th className="px-6 py-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">
+              <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
                 Priority
               </th>
-              <th className="px-6 py-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                Issue
+              <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
+                Migration Target
               </th>
-              <th className="px-6 py-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                Target Algorithm
+              <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
+                Algorithms
               </th>
-              <th className="px-6 py-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                Recommended PQC
+              <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
+                Evidence
               </th>
-              <th className="px-6 py-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                Findings Summary
+              <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
+                Priority Reason
               </th>
-              <th className="px-6 py-4 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">
+              <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
                 Effort
               </th>
             </tr>
@@ -116,67 +147,76 @@ export const RecommendationTable = ({
                 <tr
                   key={recommendation.id}
                   onClick={() => onRecommendationClick(recommendation)}
-                  className="hover:bg-white/5 transition-colors duration-200 cursor-pointer group"
+                  className="group cursor-pointer transition-colors duration-200 hover:bg-white/5"
                 >
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="whitespace-nowrap px-6 py-4 align-top">
                     <div
-                      className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg ${priorityConfig.bg} ${priorityConfig.border} border`}
+                      className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 ${priorityConfig.bg} ${priorityConfig.border}`}
                     >
-                      <PriorityIcon className={`w-4 h-4 ${priorityConfig.color}`} />
+                      <PriorityIcon className={`h-4 w-4 ${priorityConfig.color}`} />
                       <span className={`text-sm font-semibold ${priorityConfig.color}`}>
                         {priorityConfig.label}
                       </span>
                     </div>
+                    <p className="mt-2 text-xs text-slate-500">Rank #{recommendation.priorityRank}</p>
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-6 py-4 align-top">
                     <div className="flex items-center gap-2">
-                      <div className="p-1.5 bg-indigo-500/10 rounded border border-indigo-500/20">
-                        <FileCode className="w-4 h-4 text-indigo-400" />
+                      <div className="rounded border border-indigo-500/20 bg-indigo-500/10 p-1.5">
+                        <FileCode className="h-4 w-4 text-indigo-400" />
                       </div>
-                      <span className="text-white font-medium group-hover:text-indigo-400 transition-colors">
+                      <span className="font-medium text-white transition-colors group-hover:text-indigo-400">
                         {recommendation.issueName}
                       </span>
                     </div>
+                    {recommendation.normalizedClass && (
+                      <span className="mt-2 inline-flex rounded-full border border-indigo-400/20 bg-indigo-500/10 px-2.5 py-1 text-[11px] uppercase tracking-[0.12em] text-indigo-300">
+                        {recommendation.normalizedClass}
+                      </span>
+                    )}
                     {recommendation.filePath && (
-                      <code className="text-xs text-slate-400 font-mono mt-1 block">
+                      <code className="mt-2 block font-mono text-xs text-slate-400">
                         {recommendation.filePath}
                       </code>
                     )}
                     {recommendation.nistStandardReference && (
-                      <p className="text-xs text-indigo-300 mt-1">
+                      <p className="mt-1 text-xs text-indigo-300">
                         {getDisplayValue(recommendation.nistStandardReference)}
                       </p>
                     )}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="text-red-300 font-mono text-sm">{recommendation.targetAlgorithm}</span>
+                  <td className="px-6 py-4 align-top">
+                    <div className="space-y-2">
+                      <div>
+                        <p className="text-[11px] uppercase tracking-[0.12em] text-slate-500">Current</p>
+                        <span className="font-mono text-sm text-red-300">{recommendation.targetAlgorithm}</span>
+                      </div>
+                      <div>
+                        <p className="text-[11px] uppercase tracking-[0.12em] text-slate-500">Recommended</p>
+                        <span
+                          className="font-mono text-sm text-green-300"
+                          title={
+                            hasDisplayValue(recommendation.recommendedPQCAlgorithm)
+                              ? undefined
+                              : 'A specific PQC replacement was not returned by the analysis.'
+                          }
+                        >
+                          {getDisplayValue(recommendation.recommendedPQCAlgorithm, 'Not specified')}
+                        </span>
+                      </div>
+                    </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span
-                      className="text-green-300 font-mono text-sm"
-                      title={
-                        hasDisplayValue(recommendation.recommendedPQCAlgorithm)
-                          ? undefined
-                          : 'A specific PQC replacement was not returned by the AI analysis.'
-                      }
-                    >
-                      {getDisplayValue(recommendation.recommendedPQCAlgorithm, '—')}
-                    </span>
+                  <td className="px-6 py-4 align-top">{renderSummaryBadges(recommendation)}</td>
+                  <td className="px-6 py-4 align-top">
+                    <p className="max-w-[24rem] text-sm leading-relaxed text-slate-300">
+                      {getDisplayValue(
+                        recommendation.priorityReason || recommendation.analysisSummary || recommendation.context,
+                        'Priority rationale not available',
+                      )}
+                    </p>
                   </td>
-                  <td className="px-6 py-4">
-                    <span
-                      className="inline-flex max-w-[24rem] px-2 py-1 text-xs bg-white/5 text-slate-300 rounded"
-                      title={
-                        hasDisplayValue(recommendation.analysisSummary || recommendation.context)
-                          ? undefined
-                          : 'The backend did not return a findings summary for this item.'
-                      }
-                    >
-                      {getDisplayValue(recommendation.analysisSummary || recommendation.context, '—')}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="text-slate-300 text-sm">{recommendation.estimatedEffort}</span>
+                  <td className="whitespace-nowrap px-6 py-4 align-top">
+                    <span className="text-sm text-slate-300">{recommendation.estimatedEffort}</span>
                   </td>
                 </tr>
               )

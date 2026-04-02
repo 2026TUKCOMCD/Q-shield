@@ -31,6 +31,12 @@ export interface Recommendation {
   analysisSummary?: string
   citationMissing?: boolean
   inputsSummary?: Record<string, unknown>
+  normalizedClass?: string
+  priorityReason?: string
+  evidenceCount?: number
+  affectedFilesCount?: number
+  affectedFilePaths?: string[]
+  scannerTypes?: string[]
 }
 
 export interface RecommendationsResponse {
@@ -77,7 +83,14 @@ const generateMockRecommendations = (): Recommendation[] => {
       citations: [],
       confidence: 0.7,
       analysisSummary: 'Development fallback response.',
-      aiRecommendation: '## Replace RSA-1024 with Kyber-768\n\nMigrate quantum-vulnerable key exchange to ML-KEM.',
+      aiRecommendation:
+        '## Replace RSA-1024 with Kyber-768\n\nMigrate quantum-vulnerable key exchange to ML-KEM.',
+      normalizedClass: 'rsa-public-key',
+      priorityReason: 'RSA class risk, auth-facing usage, development fallback data',
+      evidenceCount: 2,
+      affectedFilesCount: 1,
+      affectedFilePaths: ['src/auth.c'],
+      scannerTypes: ['SAST'],
     },
     {
       id: 'rec-2',
@@ -93,7 +106,14 @@ const generateMockRecommendations = (): Recommendation[] => {
       citations: [],
       confidence: 0.68,
       analysisSummary: 'Development fallback response.',
-      aiRecommendation: '## Replace SHA-1 with SHA-3\n\nRemove weak hash usage and adopt SHA-3-compatible paths.',
+      aiRecommendation:
+        '## Replace SHA-1 with SHA-3\n\nRemove weak hash usage and adopt SHA-3-compatible paths.',
+      normalizedClass: 'weak-hash',
+      priorityReason: 'Weak hash usage remains migration debt and lowers trust',
+      evidenceCount: 1,
+      affectedFilesCount: 1,
+      affectedFilePaths: ['src/utils/hash.py'],
+      scannerTypes: ['SAST'],
     },
   ]
 }
@@ -136,7 +156,7 @@ const inferTargetAlgorithm = (recommendation: AiAnalysisRecommendation): string 
   if (text.includes('rsa')) {
     return 'RSA'
   }
-  if (text.includes('ecc') || text.includes('ecdsa')) {
+  if (text.includes('ecc') || text.includes('ecdsa') || text.includes('elliptic')) {
     return 'ECC/ECDSA'
   }
   if (text.includes('dsa')) {
@@ -162,6 +182,26 @@ const inferRecommendedPqc = (recommendation: AiAnalysisRecommendation): string =
   return hasMeaningfulText(recommendation.nist_standard_reference)
     ? recommendation.nist_standard_reference
     : 'PQC Migration'
+}
+
+const inferNormalizedClass = (targetAlgorithm: string): string => {
+  const normalized = targetAlgorithm.toLowerCase()
+  if (normalized.includes('rsa')) {
+    return 'rsa-public-key'
+  }
+  if (normalized.includes('dh')) {
+    return 'dh-key-exchange'
+  }
+  if (normalized.includes('ecc') || normalized.includes('ecdsa')) {
+    return 'ecc-signature'
+  }
+  if (normalized === 'dsa' || normalized.includes('dsa')) {
+    return 'dsa-signature'
+  }
+  if (normalized.includes('weak hash') || normalized.includes('sha-1') || normalized.includes('md5')) {
+    return 'weak-hash'
+  }
+  return 'legacy-library'
 }
 
 const formatAiRecommendation = (
@@ -198,6 +238,29 @@ const formatAiRecommendation = (
   return lines.join('\n')
 }
 
+const uniq = (values: Array<string | null | undefined>): string[] => {
+  return Array.from(
+    new Set(
+      values
+        .map((value) => (value ?? '').trim())
+        .filter(Boolean),
+    ),
+  )
+}
+
+const getAiFindingSummary = (recommendation: AiAnalysisRecommendation) => {
+  const affectedLocations = recommendation.affected_locations ?? []
+  const affectedFilePaths = uniq(affectedLocations.map((location) => location.file_path))
+  const scannerTypes = uniq(affectedLocations.map((location) => location.scanner_type))
+
+  return {
+    affectedLocations,
+    affectedFilePaths,
+    affectedFilesCount: affectedFilePaths.length,
+    scannerTypes,
+  }
+}
+
 const mapAiAnalysisToRecommendations = (
   uuid: string,
   payload: Awaited<ReturnType<typeof aiAnalysisService.ensureAnalysis>>,
@@ -209,8 +272,10 @@ const mapAiAnalysisToRecommendations = (
   const recommendations: Recommendation[] = payload.recommendations.map((recommendation, index) => {
     const priorityRank = payload.priority_rank + index
     const confidence = recommendation.confidence || payload.confidence_score
-    const affectedLocations = recommendation.affected_locations ?? []
-    const primaryLocation = affectedLocations[0]
+    const targetAlgorithm = inferTargetAlgorithm(recommendation)
+    const normalizedClass = inferNormalizedClass(targetAlgorithm)
+    const summary = getAiFindingSummary(recommendation)
+    const primaryLocation = summary.affectedLocations[0]
 
     return {
       id: `${uuid}-ai-${index + 1}`,
@@ -220,17 +285,21 @@ const mapAiAnalysisToRecommendations = (
       estimatedEffort: getEffortFromCostLevel(payload.refactor_cost_estimate.level),
       aiRecommendation: formatAiRecommendation(recommendation, payload.analysis_summary, confidence),
       recommendedPQCAlgorithm: inferRecommendedPqc(recommendation),
-      targetAlgorithm: inferTargetAlgorithm(recommendation),
+      targetAlgorithm,
       context: payload.analysis_summary,
       filePath: primaryLocation?.file_path,
       nistStandardReference: recommendation.nist_standard_reference,
-      affectedLocations,
+      affectedLocations: summary.affectedLocations,
       codeFixExamples: recommendation.code_fix_examples ?? [],
       citations: recommendation.citations,
       confidence,
       analysisSummary: payload.analysis_summary,
       citationMissing: payload.citation_missing,
       inputsSummary: payload.inputs_summary,
+      normalizedClass,
+      affectedFilesCount: summary.affectedFilesCount,
+      affectedFilePaths: summary.affectedFilePaths,
+      scannerTypes: summary.scannerTypes,
     }
   })
 
@@ -270,6 +339,59 @@ const applyFilters = (
   }
 }
 
+const getCanonicalClassKey = (recommendation: Recommendation): string => {
+  if (hasMeaningfulText(recommendation.normalizedClass)) {
+    return recommendation.normalizedClass.trim().toLowerCase()
+  }
+  return inferNormalizedClass(recommendation.targetAlgorithm)
+}
+
+const mergeRecommendationData = (
+  plannerResponse: RecommendationsResponse,
+  aiResponse: RecommendationsResponse,
+): RecommendationsResponse => {
+  if (plannerResponse.recommendations.length === 0) {
+    return aiResponse
+  }
+
+  const aiByClass = new Map<string, Recommendation>()
+  aiResponse.recommendations.forEach((recommendation) => {
+    const classKey = getCanonicalClassKey(recommendation)
+    if (!aiByClass.has(classKey)) {
+      aiByClass.set(classKey, recommendation)
+    }
+  })
+
+  return {
+    uuid: plannerResponse.uuid,
+    recommendations: plannerResponse.recommendations.map((plannerRecommendation) => {
+      const aiRecommendation = aiByClass.get(getCanonicalClassKey(plannerRecommendation))
+      if (!aiRecommendation) {
+        return plannerRecommendation
+      }
+
+      return {
+        ...plannerRecommendation,
+        aiRecommendation: aiRecommendation.aiRecommendation || plannerRecommendation.aiRecommendation,
+        nistStandardReference:
+          aiRecommendation.nistStandardReference || plannerRecommendation.nistStandardReference,
+        affectedLocations: aiRecommendation.affectedLocations,
+        codeFixExamples: aiRecommendation.codeFixExamples,
+        citations: aiRecommendation.citations,
+        confidence: aiRecommendation.confidence,
+        analysisSummary: aiRecommendation.analysisSummary || plannerRecommendation.analysisSummary,
+        citationMissing: aiRecommendation.citationMissing,
+        inputsSummary: aiRecommendation.inputsSummary,
+      }
+    }),
+  }
+}
+
+const getPlannerRecommendations = async (uuid: string): Promise<RecommendationsResponse> => {
+  const response = await apiClient.get<RecommendationsResponse>(`/scans/${uuid}/recommendations`)
+  return response.data
+}
+
 export const aiRecommendationService = {
   async getRecommendations(
     uuid: string,
@@ -281,26 +403,31 @@ export const aiRecommendationService = {
       forceAnalysisRefresh?: boolean
     },
   ): Promise<RecommendationsResponse> {
+    let plannerResponse: RecommendationsResponse | null = null
+
+    try {
+      plannerResponse = await getPlannerRecommendations(uuid)
+    } catch (error) {
+      const appError = toAppError(error)
+      logError('Failed to get canonical recommendations', appError)
+      if (!shouldUseDevFallback(appError) && !(appError.type === ErrorType.API_ERROR && appError.statusCode === 404)) {
+        throw appError
+      }
+    }
+
     try {
       const aiAnalysis = await aiAnalysisService.ensureAnalysis(uuid, {
         forceRefresh: Boolean(options?.forceAnalysisRefresh),
       })
-      return applyFilters(mapAiAnalysisToRecommendations(uuid, aiAnalysis), filters)
+      const aiResponse = mapAiAnalysisToRecommendations(uuid, aiAnalysis)
+      const merged = plannerResponse ? mergeRecommendationData(plannerResponse, aiResponse) : aiResponse
+      return applyFilters(merged, filters)
     } catch (error) {
       const appError = toAppError(error)
       logError('Failed to get AI recommendations', appError)
 
-      if (config.enableDevFallbacks && appError.type === ErrorType.API_ERROR && appError.statusCode === 404) {
-        try {
-          const response = await apiClient.get<RecommendationsResponse>(`/scans/${uuid}/recommendations`)
-          return applyFilters(response.data, filters)
-        } catch (legacyError) {
-          const legacyAppError = toAppError(legacyError)
-          logError('Failed to get legacy recommendations', legacyAppError)
-          if (!shouldUseDevFallback(legacyAppError)) {
-            throw legacyAppError
-          }
-        }
+      if (plannerResponse) {
+        return applyFilters(plannerResponse, filters)
       }
 
       if (shouldUseDevFallback(appError)) {
@@ -311,4 +438,3 @@ export const aiRecommendationService = {
     }
   },
 }
-
