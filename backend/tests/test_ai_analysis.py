@@ -461,10 +461,58 @@ def test_validator_downgrades_benchmark_only_normative_reference():
 
     validated = validate_ai_response(payload)
 
-    assert validated.recommendations[0].nist_standard_reference == "N/A"
+    assert validated.recommendations[0].nist_standard_reference == "Planning reference only: FIPS 203 (ML-KEM)"
     assert validated.recommendations[0].confidence < payload.recommendations[0].confidence
-    assert "normative reference removed" in (validated.recommendations[0].confidence_reason or "")
+    assert "planning reference only" in (validated.recommendations[0].confidence_reason or "")
     assert validated.inputs_summary["validation"]["benchmark_only_reference_downgrades"] == 1
+
+
+def test_validator_marks_reference_as_planning_only_without_normative_citation():
+    payload = AiAnalysisResponse.model_validate(
+        {
+            "risk_score": 42,
+            "pqc_readiness_score": 58,
+            "severity_weighted_index": 1.7,
+            "refactor_cost_estimate": {
+                "level": "LOW",
+                "explanation": "1 file affected.",
+                "affected_files": 1,
+            },
+            "priority_rank": 2,
+            "recommendations": [
+                {
+                    "title": "Review RSA certificate migration path",
+                    "description": "Plan certificate migration around verifier compatibility.",
+                    "nist_standard_reference": "NIST SP 1800-38B",
+                    "citations": [
+                        {
+                            "doc_id": "migration.pdf",
+                            "title": "Migration to Post-Quantum Cryptography",
+                            "section": "page 40",
+                            "page": 40,
+                            "url": None,
+                            "snippet": "Transition planning overview.",
+                            "source_type": "UNKNOWN",
+                            "claim_type": "unknown",
+                            "topic": "general",
+                            "authority_weight": 50,
+                        }
+                    ],
+                    "confidence": 0.75,
+                }
+            ],
+            "analysis_summary": "Planning summary",
+            "confidence_score": 0.75,
+            "citation_missing": False,
+            "inputs_summary": {},
+        }
+    )
+
+    validated = validate_ai_response(payload)
+
+    assert validated.recommendations[0].nist_standard_reference == "Planning reference only: NIST SP 1800-38B"
+    assert "no normative citation was attached" in (validated.recommendations[0].confidence_reason or "")
+    assert validated.inputs_summary["validation"]["planning_reference_downgrades"] == 1
 
 
 def test_related_finding_selection_accepts_pydantic_affected_locations():
@@ -536,3 +584,56 @@ def test_fallback_fix_example_skips_certificate_and_config_assets():
     )
 
     assert fix_example is None
+
+
+def test_enrich_recommendations_suppresses_code_fix_examples_for_certificate_assets():
+    payload = AiAnalysisResponse.model_validate(
+        {
+            "risk_score": 61,
+            "pqc_readiness_score": 44,
+            "severity_weighted_index": 2.9,
+            "refactor_cost_estimate": {
+                "level": "MEDIUM",
+                "explanation": "certificate migration path",
+                "affected_files": 2,
+            },
+            "priority_rank": 1,
+            "recommendations": [
+                {
+                    "title": "Replace RSA certificate and signature paths with PQC-safe signature algorithms",
+                    "description": "Plan certificate migration around verifier compatibility.",
+                    "nist_standard_reference": "NIST SP 1800-38B",
+                    "affected_locations": [
+                        {
+                            "file_path": "tests/certs/expired/ca/ca.crt",
+                            "line_start": 2,
+                            "line_end": 2,
+                            "rule_id": "rsa_certificate",
+                            "scanner_type": "CONFIG",
+                            "evidence_excerpt": "X.509 with RSA public key",
+                        }
+                    ],
+                    "code_fix_examples": [
+                        {
+                            "file_path": "tests/certs/expired/ca/ca.crt",
+                            "language": "config",
+                            "rationale": "placeholder",
+                            "before_code": "X.509 with RSA public key",
+                            "after_code": "X.509 with lattice-based public key",
+                            "confidence": 0.85,
+                        }
+                    ],
+                    "citations": [],
+                    "confidence": 0.8,
+                }
+            ],
+            "analysis_summary": "Certificate path detected",
+            "confidence_score": 0.8,
+            "citation_missing": True,
+            "inputs_summary": {},
+        }
+    )
+
+    enriched = orchestrator._enrich_recommendations(payload, [])
+
+    assert enriched.recommendations[0].code_fix_examples == []

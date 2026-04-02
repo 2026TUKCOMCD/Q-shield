@@ -40,12 +40,30 @@ from app.config import (
 logger = logging.getLogger(__name__)
 
 SEVERITY_RANK = {"CRITICAL": 4, "HIGH": 3, "MEDIUM": 2, "LOW": 1, "INFO": 0}
+CONFIG_LIKE_EXTENSIONS = (".crt", ".pem", ".cer", ".csr", ".key", ".p12", ".pfx", ".conf", ".cnf", ".yaml", ".yml")
 
 
 def _location_field(location: Any, field: str) -> Any:
     if isinstance(location, dict):
         return location.get(field)
     return getattr(location, field, None)
+
+
+def _is_config_or_certificate_location(location: Any) -> bool:
+    file_path = str(_location_field(location, "file_path") or "").lower()
+    scanner_type = str(_location_field(location, "scanner_type") or "").upper()
+    if scanner_type == "CONFIG":
+        return True
+    return any(file_path.endswith(extension) for extension in CONFIG_LIKE_EXTENSIONS)
+
+
+def _should_suppress_code_fix_examples(recommendation_text: str, affected_locations: list[Any], scanner_types: list[str]) -> bool:
+    text = recommendation_text.lower()
+    if any(scanner.upper() == "CONFIG" for scanner in scanner_types):
+        return True
+    if any(_is_config_or_certificate_location(location) for location in affected_locations):
+        return True
+    return any(token in text for token in ("certificate", "x.509", "x509", "pem", "crt"))
 
 
 def _select_affected_locations(findings: list[dict], recommendation_text: str, max_locations: int = 3) -> list[dict]:
@@ -172,9 +190,7 @@ def _fallback_fix_example(recommendation_text: str, location: Any | None) -> dic
     scanner_type = str(_location_field(location, "scanner_type") or "").upper()
     normalized_path = file_path.lower()
 
-    if scanner_type == "CONFIG" or any(
-        normalized_path.endswith(ext) for ext in (".crt", ".pem", ".cer", ".csr", ".key", ".p12", ".pfx")
-    ):
+    if _is_config_or_certificate_location(location):
         return None
 
     if "rsa" in recommendation_lower and language == "python":
@@ -451,7 +467,9 @@ def _enrich_recommendations(
         )
 
         primary_location = affected_locations[0] if affected_locations else None
-        if not code_fix_examples:
+        if _should_suppress_code_fix_examples(recommendation_text, affected_locations, scanner_types):
+            code_fix_examples = []
+        elif not code_fix_examples:
             generated_fix = _fallback_fix_example(recommendation_text, primary_location)
             if generated_fix:
                 code_fix_examples = [generated_fix]

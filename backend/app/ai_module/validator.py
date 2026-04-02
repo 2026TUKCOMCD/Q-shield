@@ -9,6 +9,11 @@ NORMATIVE_CLAIM_TYPES = {"normative", "migration_guidance", "risk_guidance"}
 BENCHMARK_CLAIM_TYPES = {"benchmark", "benchmark_guidance"}
 
 
+def _has_reference_text(reference: str | None) -> bool:
+    value = str(reference or "").strip()
+    return bool(value) and value.upper() != "N/A"
+
+
 def _sanitize_percentage_claims(text: str | None) -> tuple[str, int]:
     raw = str(text or "")
     matches = list(PERCENTAGE_SENTENCE_PATTERN.finditer(raw))
@@ -44,6 +49,7 @@ def validate_ai_response(response: AiAnalysisResponse) -> AiAnalysisResponse:
     validation_report = {
         "percentage_claims_removed": summary_claims_removed,
         "benchmark_only_reference_downgrades": 0,
+        "planning_reference_downgrades": 0,
         "recommendations_reviewed": len(response.recommendations),
     }
 
@@ -62,13 +68,15 @@ def validate_ai_response(response: AiAnalysisResponse) -> AiAnalysisResponse:
         confidence_reason_parts = [part.strip() for part in str(recommendation.confidence_reason or "").split(",") if part.strip()]
 
         nist_standard_reference = recommendation.nist_standard_reference
-        if recommendation.citations and _has_only_benchmark_citations(recommendation):
-            nist_standard_reference = "N/A"
+        if _has_reference_text(nist_standard_reference) and recommendation.citations and _has_only_benchmark_citations(recommendation):
+            nist_standard_reference = f"Planning reference only: {nist_standard_reference}"
             confidence = round(max(0.0, confidence - 0.15), 4)
             validation_report["benchmark_only_reference_downgrades"] += 1
-            confidence_reason_parts.append("normative reference removed because only benchmark citations were attached")
-        elif recommendation.citations and not _has_normative_citation(recommendation):
+            confidence_reason_parts.append("planning reference only because only benchmark citations were attached")
+        elif _has_reference_text(nist_standard_reference) and not _has_normative_citation(recommendation):
+            nist_standard_reference = f"Planning reference only: {nist_standard_reference}"
             confidence = round(max(0.0, confidence - 0.1), 4)
+            validation_report["planning_reference_downgrades"] += 1
             confidence_reason_parts.append("confidence reduced because no normative citation was attached")
 
         removed_total = description_claims_removed + benchmark_claims_removed
