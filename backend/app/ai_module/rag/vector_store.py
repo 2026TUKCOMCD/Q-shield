@@ -69,6 +69,10 @@ class VectorStore:
                     "section": chunk.get("section"),
                     "url": chunk.get("url"),
                     "source_path": chunk.get("source_path"),
+                    "source_type": chunk.get("source_type"),
+                    "claim_type": chunk.get("claim_type"),
+                    "topic": chunk.get("topic"),
+                    "authority_weight": chunk.get("authority_weight"),
                 }
             )
 
@@ -106,6 +110,10 @@ class VectorStore:
                     "page": int(meta["page"]) if meta.get("page") is not None else None,
                     "url": meta.get("url"),
                     "source_path": meta.get("source_path"),
+                    "source_type": meta.get("source_type"),
+                    "claim_type": meta.get("claim_type"),
+                    "topic": meta.get("topic"),
+                    "authority_weight": int(meta["authority_weight"]) if meta.get("authority_weight") is not None else None,
                     "distance": distance,
                 }
             )

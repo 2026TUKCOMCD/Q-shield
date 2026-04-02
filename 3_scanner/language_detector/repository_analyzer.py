@@ -87,7 +87,7 @@ class RepositoryAnalyzer:
         """Analyze a single file and return metadata."""
         try:
             stat = os.stat(file_path)
-            rel_path = os.path.relpath(file_path, repo_path)
+            rel_path = os.path.relpath(file_path, repo_path).replace("\\", "/")
             
             # Binary check
             is_binary = self._is_binary(file_path)
@@ -119,7 +119,7 @@ class RepositoryAnalyzer:
             metadata.category = self.classifier.classify(metadata)
             # Dependency manifests: override language for SCA
             if metadata.category == FileCategory.DEPENDENCY_MANIFEST:
-                dep_lang = DEPENDENCY_LANGUAGE_MAP.get(metadata.file_name)
+                dep_lang = DEPENDENCY_LANGUAGE_MAP.get(metadata.file_name.lower())
                 if dep_lang:
                     metadata.language = dep_lang
 

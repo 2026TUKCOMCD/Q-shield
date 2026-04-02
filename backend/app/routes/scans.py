@@ -7,7 +7,8 @@ from urllib.parse import urlparse, unquote
 
 from app.ai_analysis_store import get_ai_analysis_snapshot, serialize_ai_analysis_snapshot
 from app.db import get_db
-from app.models import InventorySnapshot, HeatmapSnapshot, Recommendation, Repository, Scan
+from app.models import Finding, InventorySnapshot, HeatmapSnapshot, Recommendation, Repository, Scan
+from app.recommendation_planner import build_recommendation_plan
 from app.scan_read_service import get_findings_response
 from app.security import require_user_uuid_from_auth_header
 from app.schemas import (
@@ -16,7 +17,7 @@ from app.schemas import (
     ScanBulkDeleteRequest, ScanBulkDeleteResponse,
     FindingsResponse,
     InventoryResponse, InventoryAsset,
-    RecommendationsResponse, RecommendationItem,
+    RecommendationsResponse, RecommendationItem, RecommendationEvidence, RecommendationGuidance, RecommendationTrust, PriorityFactorItem,
     AiAnalysisResponse, AiAnalysisStartResponse,
     HeatmapResponse, HeatmapNode,
 )
@@ -107,6 +108,93 @@ def _extract_issue_name(ai_recommendation: str, fallback: str) -> str:
     return fallback
 
 
+def _matches_filter(value: str | None, filter_text: str) -> bool:
+    if not filter_text:
+        return True
+    haystack = (value or "").lower()
+    return filter_text.lower() in haystack
+
+
+def _build_recommendation_evidence(
+    *,
+    normalized_class: str | None,
+    priority_reason: str | None,
+    evidence_count: int | None,
+    affected_paths: list[str] | None,
+    scanner_types: list[str] | None,
+    normative_evidence_count: int = 0,
+    benchmark_evidence_count: int = 0,
+    priority_factors: list[dict] | None = None,
+    related_asset_refs: list[str] | None = None,
+    correlation_refs: list[str] | None = None,
+) -> RecommendationEvidence:
+    paths = list(affected_paths or [])
+    scanners = list(scanner_types or [])
+    return RecommendationEvidence(
+        normalizedClass=normalized_class,
+        priorityReason=priority_reason,
+        evidenceCount=int(evidence_count or 0),
+        affectedFilesCount=len(paths),
+        affectedFilePaths=paths,
+        scannerTypes=scanners,
+        normativeEvidenceCount=normative_evidence_count,
+        benchmarkEvidenceCount=benchmark_evidence_count,
+        priorityFactors=_build_priority_factors(priority_factors),
+        relatedAssetRefs=list(related_asset_refs or []),
+        correlationRefs=list(correlation_refs or []),
+    )
+
+
+def _build_priority_factors(factors: list[dict] | None) -> list[PriorityFactorItem]:
+    built: list[PriorityFactorItem] = []
+    for factor in factors or []:
+        if not isinstance(factor, dict):
+            continue
+        built.append(
+            PriorityFactorItem(
+                key=str(factor.get("key") or ""),
+                label=str(factor.get("label") or ""),
+                score=int(factor.get("score") or 0),
+                formula=str(factor.get("formula") or ""),
+                sourceBasis=str(factor.get("source_basis") or factor.get("sourceBasis") or ""),
+                evidenceType=str(factor.get("evidence_type") or factor.get("evidenceType") or ""),
+            )
+        )
+    return built
+
+
+def _build_recommendation_guidance(
+    *,
+    summary: str | None,
+    validation_checklist: list[str] | None = None,
+    benchmark_notes: list[str] | None = None,
+    assumptions: list[str] | None = None,
+) -> RecommendationGuidance:
+    return RecommendationGuidance(
+        summary=summary,
+        validationChecklist=list(validation_checklist or []),
+        benchmarkNotes=list(benchmark_notes or []),
+        assumptions=list(assumptions or []),
+    )
+
+
+def _build_recommendation_trust(
+    *,
+    confidence: float | None = None,
+    confidence_reason: str | None = None,
+    citation_missing: bool | None = None,
+    normative_evidence_count: int = 0,
+    benchmark_evidence_count: int = 0,
+) -> RecommendationTrust:
+    return RecommendationTrust(
+        confidence=confidence,
+        confidenceReason=confidence_reason,
+        citationMissing=citation_missing,
+        normativeEvidenceCount=normative_evidence_count,
+        benchmarkEvidenceCount=benchmark_evidence_count,
+    )
+
+
 def get_request_user_uuid(
     authorization: str | None = Header(default=None, alias="Authorization"),
 ) -> UUID:
@@ -121,62 +209,78 @@ def _scoped_scan_query(db: Session, user_uuid: UUID):
 def _build_inventory_assets(inv: InventorySnapshot, include_detail: bool = False) -> list[InventoryAsset]:
     assets: list[InventoryAsset] = []
     table = inv.inventory_table or []
-    for entry in table:
+    for index, entry in enumerate(table, start=1):
         if not isinstance(entry, dict):
             continue
         algorithm = entry.get("algorithm", "Unknown")
         entry_risk_score = float(entry.get("risk_score", 5.0))
         locations = entry.get("locations") or []
+        entry_id = (
+            entry.get("asset_ref")
+            or entry.get("correlation_ref")
+            or f"{entry.get('algorithm_family') or algorithm}-{index}"
+        )
         if not locations:
             assets.append(
                 InventoryAsset(
-                    id=f"{algorithm}-1",
+                    id=str(entry_id),
                     algorithmType=str(algorithm),
                     filePath="unknown",
                     lineNumbers=[],
                     riskScore=entry_risk_score,
+                    assetRef=entry.get("asset_ref"),
+                    correlationRef=entry.get("correlation_ref"),
+                    algorithmFamily=entry.get("algorithm_family"),
                 )
             )
             continue
-        for idx, loc in enumerate(locations, start=1):
-            file_path = "unknown"
-            line_numbers: list[int] = []
-            code_snippet = None
-            code_snippet_start_line = None
-            detected_pattern = None
+        file_path = "unknown"
+        line_numbers: list[int] = []
+        code_snippet = None
+        code_snippet_start_line = None
+        detected_pattern = None
+        for loc in locations:
             if isinstance(loc, dict):
-                file_path = loc.get("file_path") or loc.get("filePath") or "unknown"
+                file_path = file_path if file_path != "unknown" else (loc.get("file_path") or loc.get("filePath") or "unknown")
                 line_val = loc.get("line")
                 try:
-                    line_numbers = [int(line_val)]
+                    parsed_line = int(line_val)
                 except Exception:
-                    line_numbers = []
-                if include_detail:
+                    parsed_line = None
+                if parsed_line is not None and parsed_line not in line_numbers:
+                    line_numbers.append(parsed_line)
+                if include_detail and code_snippet is None:
                     code_snippet = loc.get("code_snippet")
                     code_snippet_start_line = loc.get("code_snippet_start_line")
                     detected_pattern = loc.get("detected_pattern")
             elif isinstance(loc, str):
                 if ":" in loc:
                     path_part, line_part = loc.rsplit(":", 1)
-                    file_path = path_part or "unknown"
+                    file_path = file_path if file_path != "unknown" else (path_part or "unknown")
                     try:
-                        line_numbers = [int(line_part)]
+                        parsed_line = int(line_part)
                     except ValueError:
-                        line_numbers = []
-                else:
+                        parsed_line = None
+                    if parsed_line is not None and parsed_line not in line_numbers:
+                        line_numbers.append(parsed_line)
+                elif file_path == "unknown":
                     file_path = loc
-            assets.append(
-                InventoryAsset(
-                    id=f"{algorithm}-{idx}",
-                    algorithmType=str(algorithm),
-                    filePath=file_path,
-                    lineNumbers=line_numbers,
-                    riskScore=entry_risk_score,
-                    codeSnippet=code_snippet if include_detail else None,
-                    codeSnippetStartLine=code_snippet_start_line if include_detail else None,
-                    detectedPattern=detected_pattern if include_detail else None,
-                )
+        line_numbers.sort()
+        assets.append(
+            InventoryAsset(
+                id=str(entry_id),
+                algorithmType=str(algorithm),
+                filePath=file_path,
+                lineNumbers=line_numbers,
+                riskScore=entry_risk_score,
+                assetRef=entry.get("asset_ref"),
+                correlationRef=entry.get("correlation_ref"),
+                algorithmFamily=entry.get("algorithm_family"),
+                codeSnippet=code_snippet if include_detail else None,
+                codeSnippetStartLine=code_snippet_start_line if include_detail else None,
+                detectedPattern=detected_pattern if include_detail else None,
             )
+        )
     return assets
 
 
@@ -470,7 +574,9 @@ def get_recommendations(
     uuid: str,
     db: Session = Depends(get_db),
     algorithm: str | None = Query(default=None),
+    algorithm_type: str | None = Query(default=None, alias="algorithmType"),
     context: str | None = Query(default=None),
+    priority: str | None = Query(default=None),
     user_uuid: UUID = Depends(get_request_user_uuid),
 ):
     try:
@@ -482,35 +588,127 @@ def get_recommendations(
     if not scan:
         raise HTTPException(status_code=404, detail="Scan not found")
 
-    q = db.query(Recommendation).filter(Recommendation.scan_uuid == scan_uuid)
-
-    # filter
-    if algorithm:
-        q = q.filter(Recommendation.algorithm == algorithm)
-    if context:
-        q = q.filter(Recommendation.context == context)
-
-    recs = q.order_by(Recommendation.priority_rank.asc()).all()
-
+    algorithm_filter = (algorithm_type or algorithm or "").strip()
+    priority_filter = (priority or "").strip().upper()
     items: list[RecommendationItem] = []
-    for r in recs:
-        rank = int(r.priority_rank)
-        issue_name = _extract_issue_name(r.ai_recommendation, f"Recommendation {rank}")
-        file_path = r.context if (r.context and ("/" in r.context or "\\" in r.context)) else None
-        items.append(
-            RecommendationItem(
-                id=str(r.id),
-                priorityRank=rank,
-                priority=_rank_to_priority(rank),
-                issueName=issue_name,
-                estimatedEffort=r.estimated_effort or "TBD",
-                aiRecommendation=r.ai_recommendation or "",
-                recommendedPQCAlgorithm="TBD",
-                targetAlgorithm=r.algorithm or "Unknown",
-                context=r.context or "",
-                filePath=file_path,
+
+    finding_rows = (
+        db.query(Finding)
+        .filter(Finding.scan_uuid == scan_uuid)
+        .order_by(Finding.id.asc())
+        .all()
+    )
+    finding_payloads = [
+        {
+            "type": row.type,
+            "severity": row.severity,
+            "algorithm": row.algorithm,
+            "context": row.context,
+            "file_path": row.file_path,
+            "line_start": row.line_start,
+            "line_end": row.line_end,
+            "evidence": row.evidence,
+            "meta": row.meta or {},
+        }
+        for row in finding_rows
+    ]
+
+    if finding_payloads:
+        for index, plan in enumerate(build_recommendation_plan(finding_payloads), start=1):
+            rank = int(plan["priority_rank"])
+            mapped_priority = str(plan["priority"])
+            if priority_filter and mapped_priority != priority_filter:
+                continue
+            if algorithm_filter and not (
+                _matches_filter(plan.get("algorithm"), algorithm_filter)
+                or _matches_filter(plan.get("normalized_class"), algorithm_filter)
+                or _matches_filter(plan.get("title"), algorithm_filter)
+            ):
+                continue
+            if context and not (
+                _matches_filter(plan.get("context"), context.strip())
+                or any(_matches_filter(path, context.strip()) for path in plan.get("affected_file_paths", []))
+            ):
+                continue
+
+            affected_paths = list(plan.get("affected_file_paths") or [])
+            items.append(
+                RecommendationItem(
+                    id=f"plan-{index}",
+                    priorityRank=rank,
+                    priority=mapped_priority,
+                    issueName=str(plan["title"]),
+                    estimatedEffort=str(plan["estimated_effort"]),
+                    aiRecommendation=str(plan["ai_recommendation"]),
+                    recommendedPQCAlgorithm=str(plan["recommended_pqc_algorithm"]),
+                    targetAlgorithm=str(plan["algorithm"]),
+                    context=str(plan["context"]),
+                    filePath=affected_paths[0] if affected_paths else None,
+                    normalizedClass=str(plan["normalized_class"]),
+                    priorityReason=str(plan["priority_reason"]),
+                    evidenceCount=int(plan["evidence_count"]),
+                    affectedFilesCount=int(plan["affected_files_count"]),
+                    affectedFilePaths=affected_paths,
+                    scannerTypes=list(plan.get("scanner_types") or []),
+                    evidence=_build_recommendation_evidence(
+                        normalized_class=str(plan["normalized_class"]),
+                        priority_reason=str(plan["priority_reason"]),
+                        evidence_count=int(plan["evidence_count"]),
+                        affected_paths=affected_paths,
+                        scanner_types=list(plan.get("scanner_types") or []),
+                        priority_factors=list(plan.get("priority_factors") or []),
+                        related_asset_refs=list(plan.get("related_asset_refs") or []),
+                        correlation_refs=list(plan.get("correlation_refs") or []),
+                    ),
+                    guidance=_build_recommendation_guidance(
+                        summary=str(plan["ai_recommendation"]),
+                    ),
+                    trust=_build_recommendation_trust(),
+                )
             )
-        )
+    else:
+        q = db.query(Recommendation).filter(Recommendation.scan_uuid == scan_uuid)
+        if algorithm_filter:
+            q = q.filter(Recommendation.algorithm.ilike(f"%{algorithm_filter}%"))
+        if context:
+            q = q.filter(Recommendation.context.ilike(f"%{context.strip()}%"))
+
+        recs = q.order_by(Recommendation.priority_rank.asc()).all()
+        for r in recs:
+            rank = int(r.priority_rank)
+            mapped_priority = _rank_to_priority(rank)
+            if priority_filter and mapped_priority != priority_filter:
+                continue
+            issue_name = _extract_issue_name(r.ai_recommendation, f"Recommendation {rank}")
+            file_path = r.context if (r.context and ("/" in r.context or "\\" in r.context)) else None
+            items.append(
+                RecommendationItem(
+                    id=str(r.id),
+                    priorityRank=rank,
+                    priority=mapped_priority,
+                    issueName=issue_name,
+                    estimatedEffort=r.estimated_effort or "TBD",
+                    aiRecommendation=r.ai_recommendation or "",
+                    recommendedPQCAlgorithm="TBD",
+                    targetAlgorithm=r.algorithm or "Unknown",
+                    context=r.context or "",
+                    filePath=file_path,
+                    evidence=_build_recommendation_evidence(
+                        normalized_class=None,
+                        priority_reason=None,
+                        evidence_count=None,
+                        affected_paths=[file_path] if file_path else [],
+                        scanner_types=[],
+                        priority_factors=[],
+                        related_asset_refs=[],
+                        correlation_refs=[],
+                    ),
+                    guidance=_build_recommendation_guidance(
+                        summary=r.ai_recommendation or "",
+                    ),
+                    trust=_build_recommendation_trust(),
+                )
+            )
 
     return RecommendationsResponse(uuid=str(scan_uuid), recommendations=items)
 

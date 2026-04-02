@@ -4,25 +4,48 @@ import json
 from collections import Counter
 from typing import Any
 
+NORMATIVE_CLAIM_TYPES = {"normative", "migration_guidance", "risk_guidance"}
+BENCHMARK_CLAIM_TYPES = {"benchmark", "benchmark_guidance"}
 
-def _format_context_blocks(retrieved_chunks: list[dict[str, Any]]) -> str:
+
+def _format_context_blocks(retrieved_chunks: list[dict[str, Any]], *, limit: int = 4) -> str:
     if not retrieved_chunks:
         return "(no retrieved context)"
 
     blocks: list[str] = []
-    for index, chunk in enumerate(retrieved_chunks[:4], start=1):
+    for index, chunk in enumerate(retrieved_chunks[:limit], start=1):
         title = chunk.get("title") or "Unknown"
         page = chunk.get("page")
         doc_id = chunk.get("doc_id") or "unknown"
         section = chunk.get("section") or "N/A"
+        source_type = chunk.get("source_type") or "UNKNOWN"
+        claim_type = chunk.get("claim_type") or "unknown"
+        topic = chunk.get("topic") or "general"
         text = str(chunk.get("text") or "").strip()[:700]
         blocks.append(
             (
-                f"[DOC {index}] title={title} | section={section} | page={page} | source={doc_id}\n"
+                f"[DOC {index}] title={title} | section={section} | page={page} | source={doc_id} | source_type={source_type} | claim_type={claim_type} | topic={topic}\n"
                 f"{text}"
             )
         )
     return "\n\n".join(blocks)
+
+
+def _split_context_chunks(retrieved_chunks: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
+    normative: list[dict[str, Any]] = []
+    benchmark: list[dict[str, Any]] = []
+    other: list[dict[str, Any]] = []
+
+    for chunk in retrieved_chunks:
+        claim_type = str(chunk.get("claim_type") or "").strip()
+        if claim_type in NORMATIVE_CLAIM_TYPES:
+            normative.append(chunk)
+        elif claim_type in BENCHMARK_CLAIM_TYPES:
+            benchmark.append(chunk)
+        else:
+            other.append(chunk)
+
+    return normative, benchmark, other
 
 
 def _compact_findings(findings: list[dict[str, Any]]) -> dict[str, Any]:
@@ -137,7 +160,9 @@ def build_user_prompt(
     inputs_summary: dict[str, Any],
 ) -> str:
     compact_findings = _compact_findings(findings)
-    context_blocks = _format_context_blocks(retrieved_chunks)
+    normative_chunks, benchmark_chunks, other_chunks = _split_context_chunks(retrieved_chunks)
+    normative_blocks = _format_context_blocks(normative_chunks + other_chunks[:1], limit=4)
+    benchmark_blocks = _format_context_blocks(benchmark_chunks, limit=3)
     baseline = {
         "risk_metrics": risk_metrics,
         "refactor_cost_estimate": refactor_cost_estimate,
@@ -147,8 +172,10 @@ def build_user_prompt(
     return (
         "SCAN_FINDINGS_COMPACT_JSON:\n"
         f"{json.dumps(compact_findings, ensure_ascii=False, indent=2)}\n\n"
-        "RETRIEVED_NIST_CONTEXT:\n"
-        f"{context_blocks}\n\n"
+        "RETRIEVED_NORMATIVE_CONTEXT:\n"
+        f"{normative_blocks}\n\n"
+        "RETRIEVED_BENCHMARK_CONTEXT:\n"
+        f"{benchmark_blocks}\n\n"
         "BASELINE_METRICS_JSON:\n"
         f"{json.dumps(baseline, ensure_ascii=False, indent=2)}\n\n"
         "Requirements:\n"
@@ -160,5 +187,8 @@ def build_user_prompt(
         "6. For each recommendation include at least 1 code_fix_examples item with before_code/after_code.\n"
         "7. Use actual finding evidence and file paths. If exact code is limited, provide conservative patch-style snippets.\n"
         "8. Include citation snippets exactly from retrieved context when used.\n"
-        "9. Return JSON only.\n"
+        "9. Use RETRIEVED_NORMATIVE_CONTEXT for risk, migration, and standard-conformance claims.\n"
+        "10. Use RETRIEVED_BENCHMARK_CONTEXT only for performance, interoperability, or operational tradeoff notes.\n"
+        "11. Do not use benchmark-only chunks to justify normative migration requirements.\n"
+        "12. Return JSON only.\n"
     )

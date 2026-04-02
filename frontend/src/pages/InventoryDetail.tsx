@@ -226,6 +226,15 @@ export const InventoryDetail = () => {
               </div>
             </div>
           </div>
+          {(asset.assetRef || asset.correlationRef) && (
+            <div className="rounded-xl border border-emerald-400/20 bg-emerald-500/10 p-5">
+              <p className="text-sm font-semibold text-emerald-200">Cross-layer correlation enabled</p>
+              <p className="mt-2 text-sm leading-relaxed text-emerald-100/90">
+                This asset carries stable correlation identifiers so the same PQC migration target can be
+                traced across findings, inventory, and recommendation views.
+              </p>
+            </div>
+          )}
           <AssetDetailList asset={asset} />
           <div className="flex justify-center">
             <Link

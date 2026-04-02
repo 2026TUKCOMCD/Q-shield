@@ -9,6 +9,9 @@ export interface CryptographicAsset {
   filePath: string
   lineNumbers: number[]
   riskScore: number
+  assetRef?: string
+  correlationRef?: string
+  algorithmFamily?: string
 }
 
 export interface AssetDetail extends CryptographicAsset {
@@ -31,6 +34,42 @@ export interface InventoryResponse {
   pqcReadinessScore: number
   algorithmRatios: Record<string, number>
   inventory: CryptographicAsset[]
+}
+
+export interface InventorySignals {
+  classLabel: string
+  classReason: string
+  boundaryLabel: string
+  trustLabel: string
+}
+
+export const inferAssetLocationScope = (asset: CryptographicAsset): string => {
+  if (asset.lineNumbers.length > 0) {
+    return 'line-level'
+  }
+
+  const assetRef = (asset.assetRef ?? '').toLowerCase()
+  const filePath = asset.filePath.toLowerCase()
+
+  if (assetRef.startsWith('dependency:')) {
+    return 'dependency-level'
+  }
+  if (
+    assetRef.startsWith('config:') ||
+    filePath.endsWith('.crt') ||
+    filePath.endsWith('.pem') ||
+    filePath.endsWith('.key') ||
+    filePath.endsWith('.cer') ||
+    filePath.endsWith('.csr') ||
+    filePath.endsWith('.conf') ||
+    filePath.endsWith('.yaml') ||
+    filePath.endsWith('.yml') ||
+    filePath.endsWith('.properties')
+  ) {
+    return 'file-level'
+  }
+
+  return 'asset-level'
 }
 
 const isAppError = (error: unknown): error is AppError => {
@@ -67,6 +106,9 @@ const generateMockInventory = (uuid: string): InventoryResponse => {
         filePath: 'src/auth.c',
         lineNumbers: [15, 23, 45],
         riskScore: 9.2,
+        assetRef: 'code:rsa-public-key:src/auth.c',
+        correlationRef: 'rsa-public-key:auth-token',
+        algorithmFamily: 'rsa-public-key',
       },
       {
         id: '2',
@@ -74,6 +116,9 @@ const generateMockInventory = (uuid: string): InventoryResponse => {
         filePath: 'src/utils/hash.py',
         lineNumbers: [12, 34, 56],
         riskScore: 7.5,
+        assetRef: 'code:weak-hash:src/utils/hash.py',
+        correlationRef: 'weak-hash:internal-code',
+        algorithmFamily: 'weak-hash',
       },
       {
         id: '3',
@@ -81,6 +126,9 @@ const generateMockInventory = (uuid: string): InventoryResponse => {
         filePath: 'config/settings.json',
         lineNumbers: [8],
         riskScore: 4.8,
+        assetRef: 'config:symmetric-crypto:config/settings.json',
+        correlationRef: 'symmetric-crypto:configuration',
+        algorithmFamily: 'symmetric-crypto',
       },
     ],
   }
@@ -119,6 +167,70 @@ const fallbackAssetDetails: Record<string, Partial<AssetDetail>> = {
     migrationComplexity: 'Low',
     estimatedEffort: '1-2 M/D',
   },
+}
+
+export const inferInventorySignals = (asset: CryptographicAsset): InventorySignals => {
+  const algorithm = asset.algorithmType.toLowerCase()
+  const filePath = asset.filePath.toLowerCase()
+  const lineHitCount = asset.lineNumbers.length
+
+  let classLabel = 'Legacy crypto signal'
+  let classReason = 'Review this asset during migration planning.'
+
+  if (
+    algorithm.includes('rsa') ||
+    algorithm.includes('ecc') ||
+    algorithm.includes('ecdsa') ||
+    algorithm.includes('dsa') ||
+    algorithm.includes('dh')
+  ) {
+    classLabel = 'Quantum-vulnerable public-key'
+    classReason = 'Public-key algorithms are primary PQC migration targets.'
+  } else if (algorithm.includes('sha-1') || algorithm.includes('sha1') || algorithm.includes('md5')) {
+    classLabel = 'Weak hash debt'
+    classReason = 'Weak hash usage should be removed early to reduce migration debt.'
+  } else if (algorithm.includes('private key')) {
+    classLabel = 'Private key material'
+    classReason = 'Private key and certificate material should be reviewed together with certificate-chain and deployment migration plans.'
+  } else if (algorithm.includes('dependency') || algorithm.includes('library')) {
+    classLabel = 'Dependency migration signal'
+    classReason = 'Dependency-level crypto signals should be reviewed for PQC-capable replacement paths.'
+  } else if (algorithm.includes('aes') || algorithm.includes('chacha')) {
+    classLabel = 'Symmetric path'
+    classReason = 'Symmetric crypto is not the primary PQC replacement target, but still affects readiness.'
+  }
+
+  let boundaryLabel = 'Internal code path'
+  if (
+    filePath.includes('auth') ||
+    filePath.includes('token') ||
+    filePath.includes('login') ||
+    filePath.includes('jwt')
+  ) {
+    boundaryLabel = 'Auth/token boundary'
+  } else if (
+    filePath.includes('tls') ||
+    filePath.includes('ssl') ||
+    filePath.includes('cert') ||
+    filePath.includes('nginx') ||
+    filePath.includes('gateway')
+  ) {
+    boundaryLabel = 'TLS/certificate boundary'
+  } else if (filePath.includes('.key') || filePath.includes('private')) {
+    boundaryLabel = 'Key material boundary'
+  } else if (filePath.includes('config')) {
+    boundaryLabel = 'Configuration boundary'
+  }
+
+  const trustLabel =
+    lineHitCount > 1 ? `Static evidence across ${lineHitCount} lines` : 'Single static evidence location'
+
+  return {
+    classLabel,
+    classReason,
+    boundaryLabel,
+    trustLabel,
+  }
 }
 
 export const inventoryService = {

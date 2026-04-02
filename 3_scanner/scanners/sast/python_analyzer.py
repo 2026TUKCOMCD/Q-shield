@@ -89,9 +89,12 @@ class PythonASTAnalyzer(ast.NodeVisitor):
     
     def _get_algorithm_from_import(self, import_name: str) -> str:
         """Infer algorithm from import name."""
-        if "rsa" in import_name.lower():
+        lower_name = import_name.lower()
+        if "jwt" in lower_name or "jose" in lower_name:
+            return "JWT/JOSE"
+        if "rsa" in lower_name:
             return "RSA"
-        elif "ec" in import_name.lower() or "ecdsa" in import_name.lower():
+        elif "ec" in lower_name or "ecdsa" in lower_name:
             return "ECC/ECDSA"
         return "Unknown"
 
@@ -114,7 +117,7 @@ def analyze_python_file(file_path: str, source_code: str) -> List[Dict]:
                 line_num = source_code[:match.start()].count('\n') + 1
                 
                 # De-duplicate by line number
-                if not any(v["line"] == line_num for v in vulnerabilities):
+                if not any(v["line"] == line_num and v["type"] == rule_name for v in vulnerabilities):
                     vulnerabilities.append({
                         "type": rule_name,
                         "line": line_num,

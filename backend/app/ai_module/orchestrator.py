@@ -8,6 +8,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from app.recommendation_planner import build_recommendation_plan
 from app.ai_analysis_store import (
     find_cached_snapshot_by_algorithm_signature,
     serialize_ai_analysis_snapshot,
@@ -18,6 +19,7 @@ from app.ai_module.business_impact import estimate_refactor_cost
 from app.ai_module.confidence import compute_confidence_score
 from app.ai_module.llm.openai_client import generate_grounded_ai_analysis
 from app.ai_module.recommendation_engine import build_recommendations
+from app.ai_module.validator import validate_ai_response
 from app.ai_module.rag.ingest import ingest_corpus
 from app.ai_module.rag.retriever import inspect_rag_corpus, retrieve_relevant_chunks_with_debug
 from app.ai_module.risk_aggregation import compute_risk_metrics, deduplicate_findings, summarize_inputs
@@ -36,6 +38,32 @@ from app.config import (
 )
 
 logger = logging.getLogger(__name__)
+
+SEVERITY_RANK = {"CRITICAL": 4, "HIGH": 3, "MEDIUM": 2, "LOW": 1, "INFO": 0}
+CONFIG_LIKE_EXTENSIONS = (".crt", ".pem", ".cer", ".csr", ".key", ".p12", ".pfx", ".conf", ".cnf", ".yaml", ".yml")
+
+
+def _location_field(location: Any, field: str) -> Any:
+    if isinstance(location, dict):
+        return location.get(field)
+    return getattr(location, field, None)
+
+
+def _is_config_or_certificate_location(location: Any) -> bool:
+    file_path = str(_location_field(location, "file_path") or "").lower()
+    scanner_type = str(_location_field(location, "scanner_type") or "").upper()
+    if scanner_type == "CONFIG":
+        return True
+    return any(file_path.endswith(extension) for extension in CONFIG_LIKE_EXTENSIONS)
+
+
+def _should_suppress_code_fix_examples(recommendation_text: str, affected_locations: list[Any], scanner_types: list[str]) -> bool:
+    text = recommendation_text.lower()
+    if any(scanner.upper() == "CONFIG" for scanner in scanner_types):
+        return True
+    if any(_is_config_or_certificate_location(location) for location in affected_locations):
+        return True
+    return any(token in text for token in ("certificate", "x.509", "x509", "pem", "crt"))
 
 
 def _select_affected_locations(findings: list[dict], recommendation_text: str, max_locations: int = 3) -> list[dict]:
@@ -143,20 +171,27 @@ def _guess_language(file_path: str | None) -> str:
         return "c"
     if path.endswith(".cpp") or path.endswith(".cc") or path.endswith(".hpp"):
         return "cpp"
+    if any(path.endswith(ext) for ext in (".crt", ".pem", ".cer", ".csr", ".key", ".p12", ".pfx", ".conf", ".cnf")):
+        return "config"
     return "unknown"
 
 
-def _fallback_fix_example(recommendation_text: str, location: dict[str, Any] | None) -> dict[str, Any] | None:
+def _fallback_fix_example(recommendation_text: str, location: Any | None) -> dict[str, Any] | None:
     if not location:
         return None
-    file_path = str(location.get("file_path") or "")
+    file_path = str(_location_field(location, "file_path") or "")
     if not file_path:
         return None
 
     recommendation_lower = recommendation_text.lower()
-    evidence = str(location.get("evidence_excerpt") or "").strip()
+    evidence = str(_location_field(location, "evidence_excerpt") or "").strip()
     before_code = evidence or "# legacy cryptographic usage"
     language = _guess_language(file_path)
+    scanner_type = str(_location_field(location, "scanner_type") or "").upper()
+    normalized_path = file_path.lower()
+
+    if _is_config_or_certificate_location(location):
+        return None
 
     if "rsa" in recommendation_lower and language == "python":
         after_code = (
@@ -199,7 +234,214 @@ def _fallback_fix_example(recommendation_text: str, location: dict[str, Any] | N
     }
 
 
-def _enrich_recommendations_for_code_fix(
+def _select_related_findings(
+    findings: list[dict],
+    affected_locations: list[Any],
+    recommendation_text: str,
+    *,
+    max_findings: int = 12,
+) -> list[dict]:
+    location_keys = {
+        (
+            str(_location_field(location, "file_path") or ""),
+            _location_field(location, "line_start"),
+            _location_field(location, "line_end"),
+        )
+        for location in affected_locations
+    }
+    related = [
+        finding
+        for finding in findings
+        if (
+            str(finding.get("file_path") or ""),
+            finding.get("line_start"),
+            finding.get("line_end"),
+        ) in location_keys
+    ]
+    if related:
+        return related[:max_findings]
+
+    text = recommendation_text.lower()
+    scored: list[tuple[int, dict]] = []
+    for finding in findings:
+        score = 0
+        algorithm = str(finding.get("algorithm") or "").lower()
+        finding_type = str(finding.get("type") or "").lower()
+        meta = finding.get("meta") or {}
+        rule_id = str(meta.get("rule_id") or "").lower()
+        if algorithm and algorithm in text:
+            score += 3
+        if finding_type and finding_type in text:
+            score += 2
+        if rule_id and rule_id in text:
+            score += 2
+        score += SEVERITY_RANK.get(str(finding.get("severity") or "").upper(), 0)
+        scored.append((score, finding))
+
+    scored.sort(key=lambda item: item[0], reverse=True)
+    return [finding for score, finding in scored if score > 0][:max_findings]
+
+
+def _build_validation_checklist(
+    recommendation_text: str,
+    affected_locations: list[Any],
+    scanner_types: list[str],
+) -> list[str]:
+    text = recommendation_text.lower()
+    paths = " ".join(str(_location_field(location, "file_path") or "") for location in affected_locations).lower()
+    checklist = [
+        "Confirm every affected call site and dependency before changing algorithms.",
+        "Validate the migrated path in staging before enabling production rollout.",
+    ]
+
+    if any(token in text or token in paths for token in ("rsa", "ml-kem", "dh", "ecdh", "tls", "ssl")):
+        checklist.append("Measure key establishment or handshake behavior on target hardware after the change.")
+    if any(token in text or token in paths for token in ("dsa", "ecdsa", "signature", "jwt", "token", "cert")):
+        checklist.append("Verify signature generation and verification compatibility with all downstream consumers.")
+    if "SCA" in scanner_types:
+        checklist.append("Review dependency support status and confirm the replacement library has an enterprise support path.")
+    if "CONFIG" in scanner_types:
+        checklist.append("Test protocol negotiation and certificate interoperability with representative clients.")
+
+    return list(dict.fromkeys(checklist))
+
+
+def _build_benchmark_notes(recommendation_text: str, scanner_types: list[str], affected_locations: list[Any]) -> list[str]:
+    text = recommendation_text.lower()
+    paths = " ".join(str(_location_field(location, "file_path") or "") for location in affected_locations).lower()
+    notes: list[str] = []
+
+    if any(token in text or token in paths for token in ("tls", "ssl", "cert", "nginx", "gateway", "quic")):
+        notes.append(
+            "Use NIST SP 1800-38C style measurements for handshake latency, certificate size, and interoperability instead of claiming environment-independent gains."
+        )
+    if any(token in text for token in ("ml-kem", "rsa", "dh", "ecdh")):
+        notes.append(
+            "Track key establishment latency, payload size, and retry behavior on the target deployment hardware."
+        )
+    if any(token in text for token in ("ml-dsa", "dilithium", "ecdsa", "dsa", "signature", "jwt")):
+        notes.append(
+            "Record sign and verify latency, signature size, and any HSM or verifier boundary constraints during benchmarking."
+        )
+    if "SCA" in scanner_types:
+        notes.append(
+            "Benchmark library upgrade impact separately from algorithm impact so dependency migration cost is visible."
+        )
+
+    return list(dict.fromkeys(notes))
+
+
+def _build_assumptions(
+    citation_count: int,
+    affected_locations: list[Any],
+    scanner_types: list[str],
+) -> list[str]:
+    assumptions = [
+        "This guidance assumes the detected usage is part of an active application path and not dead code.",
+        "Migration advice is intended for planning and must be verified against your deployment constraints.",
+    ]
+    if citation_count == 0:
+        assumptions.append("Citations were not retrieved, so this result should be treated as low-trust planning guidance.")
+    if not affected_locations:
+        assumptions.append("Affected locations were inferred from scanner output rather than full data-flow analysis.")
+    if scanner_types and all(scanner in {"SCA", "CONFIG"} for scanner in scanner_types):
+        assumptions.append("Code-level impact may be broader than shown because this signal came from dependency or configuration analysis.")
+    return list(dict.fromkeys(assumptions))
+
+
+def _build_confidence_reason(
+    *,
+    citation_count: int,
+    affected_location_count: int,
+    scanner_types: list[str],
+) -> str:
+    reasons = []
+    if citation_count > 0:
+        reasons.append(f"{citation_count} supporting citations attached")
+    else:
+        reasons.append("no citations attached")
+    if affected_location_count > 0:
+        reasons.append(f"{affected_location_count} matched affected locations")
+    else:
+        reasons.append("affected locations inferred from fallback matching")
+    if scanner_types:
+        reasons.append(f"signals observed in {', '.join(scanner_types)}")
+    return ", ".join(reasons)
+
+
+def _build_benchmark_support(
+    benchmark_notes: list[str],
+    citations: list[Any],
+) -> list[dict[str, Any]]:
+    benchmark_citations = []
+    for citation in citations or []:
+        source_type = str(getattr(citation, "source_type", None) or "").upper()
+        if source_type not in {"BENCHMARK", "ACADEMIC_PAPER"}:
+            continue
+        citation_key = f"{getattr(citation, 'doc_id', 'unknown')}:{getattr(citation, 'page', 'na')}"
+        benchmark_citations.append(
+            {
+                "key": citation_key,
+                "title": str(getattr(citation, "title", "") or ""),
+                "topic": str(getattr(citation, "topic", "") or ""),
+                "snippet": str(getattr(citation, "snippet", "") or ""),
+            }
+        )
+
+    if not benchmark_notes or not benchmark_citations:
+        return []
+
+    support_items: list[dict[str, Any]] = []
+    for note in benchmark_notes:
+        note_text = str(note).lower()
+        matched = [
+            citation
+            for citation in benchmark_citations
+            if any(
+                token in note_text
+                for token in (
+                    str(citation["title"]).lower(),
+                    str(citation["topic"]).lower(),
+                )
+                if token
+            )
+        ]
+
+        if not matched:
+            keyword_map = {
+                "latency": ("latency", "handshake", "rtt"),
+                "certificate": ("certificate", "chain", "cert"),
+                "interoperability": ("interoperability", "interop", "compatibility"),
+                "hsm": ("hsm", "pkcs11"),
+                "signature": ("signature", "verify", "sign"),
+            }
+            note_tokens = set()
+            for values in keyword_map.values():
+                for value in values:
+                    if value in note_text:
+                        note_tokens.add(value)
+            matched = [
+                citation
+                for citation in benchmark_citations
+                if any(
+                    token in str(citation["snippet"]).lower() or token in str(citation["title"]).lower()
+                    for token in note_tokens
+                )
+            ]
+
+        chosen = matched or benchmark_citations
+        support_items.append(
+            {
+                "note": str(note),
+                "citation_keys": [str(citation["key"]) for citation in chosen],
+                "citation_titles": [str(citation["title"]) for citation in chosen],
+            }
+        )
+
+    return support_items
+
+
+def _enrich_recommendations(
     response: AiAnalysisResponse,
     findings: list[dict],
 ) -> AiAnalysisResponse:
@@ -213,17 +455,67 @@ def _enrich_recommendations_for_code_fix(
             selected = _select_affected_locations(findings, recommendation_text, max_locations=3)
             affected_locations = selected
 
+        related_findings = _select_related_findings(findings, affected_locations, recommendation_text)
+        planner_items = build_recommendation_plan(related_findings)
+        planner_item = planner_items[0] if planner_items else None
+        scanner_types = sorted(
+            {
+                str((finding.get("meta") or {}).get("scanner_type") or "")
+                for finding in related_findings
+                if str((finding.get("meta") or {}).get("scanner_type") or "").strip()
+            }
+        )
+
         primary_location = affected_locations[0] if affected_locations else None
-        if not code_fix_examples:
+        if _should_suppress_code_fix_examples(recommendation_text, affected_locations, scanner_types):
+            code_fix_examples = []
+        elif not code_fix_examples:
             generated_fix = _fallback_fix_example(recommendation_text, primary_location)
             if generated_fix:
                 code_fix_examples = [generated_fix]
+
+        validation_checklist = recommendation.validation_checklist or _build_validation_checklist(
+            recommendation_text,
+            affected_locations,
+            scanner_types,
+        )
+        benchmark_notes = recommendation.benchmark_notes or _build_benchmark_notes(
+            recommendation_text,
+            scanner_types,
+            affected_locations,
+        )
+        assumptions = recommendation.assumptions or _build_assumptions(
+            len(recommendation.citations),
+            affected_locations,
+            scanner_types,
+        )
+        confidence_reason = recommendation.confidence_reason or _build_confidence_reason(
+            citation_count=len(recommendation.citations),
+            affected_location_count=len(affected_locations),
+            scanner_types=scanner_types,
+        )
+        priority_reason = recommendation.priority_reason or (
+            str(planner_item.get("priority_reason"))
+            if planner_item is not None
+            else f"Derived from {len(related_findings)} related findings matched to this migration target."
+        )
+        priority_factors = list(recommendation.priority_factors or [])
+        if not priority_factors and planner_item is not None:
+            priority_factors = list(planner_item.get("priority_factors") or [])
+        benchmark_support = _build_benchmark_support(benchmark_notes, list(recommendation.citations or []))
 
         updated_recommendations.append(
             recommendation.model_copy(
                 update={
                     "affected_locations": affected_locations,
                     "code_fix_examples": code_fix_examples,
+                    "priority_reason": priority_reason,
+                    "validation_checklist": validation_checklist,
+                    "benchmark_notes": benchmark_notes,
+                    "assumptions": assumptions,
+                    "confidence_reason": confidence_reason,
+                    "priority_factors": priority_factors,
+                    "benchmark_support": benchmark_support,
                 }
             )
         )
@@ -458,6 +750,8 @@ def _fallback_analysis(
         citation_missing=citation_missing,
         inputs_summary=inputs_summary,
     )
+    response = _enrich_recommendations(response, findings)
+    response = validate_ai_response(response)
 
     debug_payload = _build_debug_payload(
         analysis_mode="fallback",
@@ -510,8 +804,19 @@ def _ensure_real_rag_ready(
 ) -> tuple[AiAnalysisResponse, list[dict], list[str]]:
     if AI_ALLOW_DETERMINISTIC_FALLBACK:
         logger.warning(
-            "ai_analysis fallback_requested_but_disabled failure_reason=%s",
+            "ai_analysis fallback_enabled failure_reason=%s",
             failure_reason,
+        )
+        return _fallback_analysis(
+            findings=findings,
+            inputs_summary=inputs_summary,
+            risk_metrics=risk_metrics,
+            refactor_cost=refactor_cost,
+            priority_rank=priority_rank,
+            corpus_path=corpus_path,
+            failure_reason=failure_reason,
+            rag_debug=rag_debug,
+            algorithm_signature=algorithm_signature,
         )
     return _error_analysis(
         findings=findings,
@@ -634,7 +939,8 @@ async def analyze_findings(
             inputs_summary=inputs_summary,
         )
         response = AiAnalysisResponse.model_validate(llm_payload)
-        response = _enrich_recommendations_for_code_fix(response, prepared_findings)
+        response = _enrich_recommendations(response, prepared_findings)
+        response = validate_ai_response(response)
     except Exception as exc:
         return _ensure_real_rag_ready(
             findings=prepared_findings,
@@ -706,7 +1012,8 @@ async def compute_and_persist_ai_analysis(scan_uuid: uuid_lib.UUID, db: Session)
         )
         if cached_snapshot is not None and cached_snapshot.scan_uuid != scan_uuid:
             cached_payload = serialize_ai_analysis_snapshot(cached_snapshot)
-            cached_payload = _enrich_recommendations_for_code_fix(cached_payload, deduped_findings)
+            cached_payload = _enrich_recommendations(cached_payload, deduped_findings)
+            cached_payload = validate_ai_response(cached_payload)
             cached_payload = _apply_cache_metadata(
                 cached_payload,
                 algorithm_signature=algorithm_signature,

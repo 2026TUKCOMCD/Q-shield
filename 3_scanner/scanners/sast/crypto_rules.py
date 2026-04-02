@@ -51,6 +51,39 @@ CRYPTO_PATTERNS = {
             "algorithm": "ECC",
             "description": "ECC/ECDSA library import detected.",
             "recommendation": "Consider PQC signature algorithms."
+        },
+        "jwt_library_usage": {
+            "patterns": [
+                r"^\s*import\s+jwt\b",
+                r"^\s*from\s+jose\s+import\s+jwt\b",
+                r"^\s*from\s+jose\s+import\s+jws\b",
+                r"^\s*import\s+authlib\.jose\b",
+                r"^\s*from\s+authlib\.jose\s+import\s+JsonWeb(Signature|Token)\b",
+            ],
+            "severity": "MEDIUM",
+            "algorithm": "JWT/JOSE",
+            "description": "JWT/JOSE library usage detected. Verify whether RSA or ECDSA signing is used.",
+            "recommendation": "Inspect signing algorithms and plan migration away from RSA/ECDSA-based JWT signatures."
+        },
+        "jwt_rsa_algorithm": {
+            "patterns": [
+                r"algorithm\s*=\s*['\"](RS256|RS384|RS512|PS256|PS384|PS512)['\"]",
+                r"algorithms\s*=\s*\[[^\]]*['\"](RS256|RS384|RS512|PS256|PS384|PS512)['\"]",
+            ],
+            "severity": "HIGH",
+            "algorithm": "RSA",
+            "description": "RSA-based JWT/JOSE signing algorithm detected.",
+            "recommendation": "Plan migration away from RSA/RSASSA-PSS signatures and introduce PQC-ready signing architecture."
+        },
+        "jwt_ecdsa_algorithm": {
+            "patterns": [
+                r"algorithm\s*=\s*['\"](ES256|ES384|ES512)['\"]",
+                r"algorithms\s*=\s*\[[^\]]*['\"](ES256|ES384|ES512)['\"]",
+            ],
+            "severity": "HIGH",
+            "algorithm": "ECC/ECDSA",
+            "description": "ECDSA-based JWT/JOSE signing algorithm detected.",
+            "recommendation": "Plan migration away from ECDSA signatures and introduce PQC-ready signing architecture."
         }
     },
     
@@ -84,6 +117,40 @@ CRYPTO_PATTERNS = {
             "algorithm": "RSA/ECC",
             "description": "Cryptographic library usage detected.",
             "recommendation": "Verify algorithm usage and migrate if needed."
+        },
+        "jwt_library_usage": {
+            "patterns": [
+                r"require\s*\(\s*['\"]jsonwebtoken['\"]",
+                r"require\s*\(\s*['\"]jose['\"]",
+                r"require\s*\(\s*['\"]node-jose['\"]",
+                r"import\s+.*from\s+['\"]jsonwebtoken['\"]",
+                r"import\s+.*from\s+['\"]jose['\"]",
+                r"import\s+.*from\s+['\"]node-jose['\"]",
+            ],
+            "severity": "MEDIUM",
+            "algorithm": "JWT/JOSE",
+            "description": "JWT/JOSE library usage detected. Verify whether RSA or ECDSA signing is used.",
+            "recommendation": "Inspect signing algorithms and migrate away from RSA/ECDSA-based JWT signatures."
+        },
+        "jwt_rsa_algorithm": {
+            "patterns": [
+                r"algorithm\s*:\s*['\"](RS256|RS384|RS512|PS256|PS384|PS512)['\"]",
+                r"createSign\s*\(\s*['\"]RSA-[A-Z0-9-]+['\"]",
+            ],
+            "severity": "HIGH",
+            "algorithm": "RSA",
+            "description": "RSA-based JWT/JOSE signing algorithm detected.",
+            "recommendation": "Plan migration away from RSA/RSASSA-PSS signatures and introduce PQC-ready signing architecture."
+        },
+        "jwt_ecdsa_algorithm": {
+            "patterns": [
+                r"algorithm\s*:\s*['\"](ES256|ES384|ES512)['\"]",
+                r"createSign\s*\(\s*['\"]ecdsa-with-SHA\d+['\"]",
+            ],
+            "severity": "HIGH",
+            "algorithm": "ECC/ECDSA",
+            "description": "ECDSA-based JWT/JOSE signing algorithm detected.",
+            "recommendation": "Plan migration away from ECDSA signatures and introduce PQC-ready signing architecture."
         }
     },
     
@@ -106,6 +173,47 @@ CRYPTO_PATTERNS = {
             "algorithm": "ECC",
             "description": "ECDSA usage detected.",
             "recommendation": "Consider PQC signature algorithms."
+        },
+        "rsa_signature": {
+            "patterns": [
+                r'Signature\.getInstance\s*\(\s*["\'].*RSA.*["\']\s*\)',
+                r'Cipher\.getInstance\s*\(\s*["\']RSA\/',
+            ],
+            "severity": "HIGH",
+            "algorithm": "RSA",
+            "description": "RSA signature or cipher usage detected.",
+            "recommendation": "Plan migration away from RSA-based signing and encryption flows."
+        },
+        "jwt_library_usage": {
+            "patterns": [
+                r'^\s*import\s+io\.jsonwebtoken\.',
+                r'^\s*import\s+com\.nimbusds\.jose\.',
+                r'^\s*import\s+org\.jose4j\.',
+            ],
+            "severity": "MEDIUM",
+            "algorithm": "JWT/JOSE",
+            "description": "JWT/JOSE library usage detected. Verify whether RSA or ECDSA signing is used.",
+            "recommendation": "Inspect signing algorithms and migrate away from RSA/ECDSA-based JWT signatures."
+        },
+        "jwt_rsa_algorithm": {
+            "patterns": [
+                r'JWSAlgorithm\.(RS256|RS384|RS512|PS256|PS384|PS512)\b',
+                r'SignatureAlgorithm\.(RS256|RS384|RS512|PS256|PS384|PS512)\b',
+            ],
+            "severity": "HIGH",
+            "algorithm": "RSA",
+            "description": "RSA-based JWT/JOSE signing algorithm detected.",
+            "recommendation": "Plan migration away from RSA/RSASSA-PSS signatures and introduce PQC-ready signing architecture."
+        },
+        "jwt_ecdsa_algorithm": {
+            "patterns": [
+                r'JWSAlgorithm\.(ES256|ES384|ES512)\b',
+                r'SignatureAlgorithm\.(ES256|ES384|ES512)\b',
+            ],
+            "severity": "HIGH",
+            "algorithm": "ECC/ECDSA",
+            "description": "ECDSA-based JWT/JOSE signing algorithm detected.",
+            "recommendation": "Plan migration away from ECDSA signatures and introduce PQC-ready signing architecture."
         }
     },
     
@@ -139,16 +247,26 @@ VULNERABLE_APIS = {
         "cryptography.hazmat.primitives.asymmetric.ec",
         "ecdsa",
         "M2Crypto.RSA",
+        "jwt",
+        "jose.jwt",
+        "jose.jws",
+        "authlib.jose",
     ],
     "javascript": [
         "crypto.generateKeyPairSync",
         "crypto.createSign",
         "node-rsa",
         "jsrsasign",
+        "jsonwebtoken",
+        "jose",
+        "node-jose",
     ],
     "java": [
         "java.security.KeyPairGenerator",
         "javax.crypto.Cipher",
+        "io.jsonwebtoken",
+        "com.nimbusds.jose",
+        "org.jose4j",
     ],
     "go": [
         "crypto/rsa",

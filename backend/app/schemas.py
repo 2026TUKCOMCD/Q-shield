@@ -61,6 +61,9 @@ class InventoryAsset(BaseModel):
     filePath: str
     lineNumbers: List[int]
     riskScore: float
+    assetRef: Optional[str] = None
+    correlationRef: Optional[str] = None
+    algorithmFamily: Optional[str] = None
     keySize: Optional[int] = None
     modeOfOperation: Optional[str] = None
     implementation: Optional[str] = None
@@ -92,6 +95,8 @@ class FindingItem(BaseModel):
     line_start: Optional[int] = None
     line_end: Optional[int] = None
     evidence: Optional[str] = None
+    assetRef: Optional[str] = None
+    correlationRef: Optional[str] = None
     meta: Dict = Field(default_factory=dict)
 
 
@@ -104,6 +109,44 @@ class FindingsResponse(BaseModel):
 
 
 # 5) GET /api/scans/{uuid}/recommendations
+class PriorityFactorItem(BaseModel):
+    key: str
+    label: str
+    score: int
+    formula: str
+    sourceBasis: str
+    evidenceType: str
+
+
+class RecommendationEvidence(BaseModel):
+    normalizedClass: Optional[str] = None
+    priorityReason: Optional[str] = None
+    evidenceCount: int = 0
+    affectedFilesCount: int = 0
+    affectedFilePaths: List[str] = Field(default_factory=list)
+    scannerTypes: List[str] = Field(default_factory=list)
+    normativeEvidenceCount: int = 0
+    benchmarkEvidenceCount: int = 0
+    priorityFactors: List[PriorityFactorItem] = Field(default_factory=list)
+    relatedAssetRefs: List[str] = Field(default_factory=list)
+    correlationRefs: List[str] = Field(default_factory=list)
+
+
+class RecommendationGuidance(BaseModel):
+    summary: Optional[str] = None
+    validationChecklist: List[str] = Field(default_factory=list)
+    benchmarkNotes: List[str] = Field(default_factory=list)
+    assumptions: List[str] = Field(default_factory=list)
+
+
+class RecommendationTrust(BaseModel):
+    confidence: Optional[float] = None
+    confidenceReason: Optional[str] = None
+    citationMissing: Optional[bool] = None
+    normativeEvidenceCount: int = 0
+    benchmarkEvidenceCount: int = 0
+
+
 class RecommendationItem(BaseModel):
     id: str
     priorityRank: int
@@ -115,6 +158,15 @@ class RecommendationItem(BaseModel):
     targetAlgorithm: str
     context: str
     filePath: Optional[str] = None
+    normalizedClass: Optional[str] = None
+    priorityReason: Optional[str] = None
+    evidenceCount: Optional[int] = None
+    affectedFilesCount: Optional[int] = None
+    affectedFilePaths: List[str] = Field(default_factory=list)
+    scannerTypes: List[str] = Field(default_factory=list)
+    evidence: Optional[RecommendationEvidence] = None
+    guidance: Optional[RecommendationGuidance] = None
+    trust: Optional[RecommendationTrust] = None
 
 
 class RecommendationsResponse(BaseModel):

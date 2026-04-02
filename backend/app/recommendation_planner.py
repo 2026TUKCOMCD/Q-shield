@@ -1,0 +1,311 @@
+from __future__ import annotations
+
+from typing import Iterable
+
+from app.recommendation_priority import compute_priority_breakdown
+from app.severity_map import canonicalize_severity
+
+SEVERITY_WEIGHT = {
+    "CRITICAL": 4,
+    "HIGH": 3,
+    "MEDIUM": 2,
+    "LOW": 1,
+    "INFO": 0,
+}
+
+TEMPLATES = {
+    "rsa": {
+        "normalized_class": "rsa-public-key",
+        "title": "Replace RSA-based cryptography with PQC-safe alternatives",
+        "body": "RSA usage indicates quantum-vulnerable public-key cryptography. Prioritize ML-KEM for key establishment and ML-DSA for signature paths, depending on the usage context.",
+        "algorithm": "RSA",
+        "recommended_pqc_algorithm": "ML-KEM / ML-DSA",
+        "estimated_effort": "5-8 M/D",
+        "algorithm_bonus": 18,
+    },
+    "dh": {
+        "normalized_class": "dh-key-exchange",
+        "title": "Replace DH/ECDH key exchange with ML-KEM",
+        "body": "Diffie-Hellman style key exchange remains vulnerable to quantum attacks. Plan a phased migration to ML-KEM-capable libraries and protocol negotiation paths.",
+        "algorithm": "DH/ECDH",
+        "recommended_pqc_algorithm": "ML-KEM",
+        "estimated_effort": "5-8 M/D",
+        "algorithm_bonus": 17,
+    },
+    "ecc": {
+        "normalized_class": "ecc-signature",
+        "title": "Replace ECC/ECDSA signature paths with ML-DSA",
+        "body": "ECC and ECDSA-based signatures are not quantum-resistant. Identify signature boundaries first, then migrate verification and signing paths toward ML-DSA-compatible abstractions.",
+        "algorithm": "ECC/ECDSA",
+        "recommended_pqc_algorithm": "ML-DSA",
+        "estimated_effort": "4-7 M/D",
+        "algorithm_bonus": 18,
+    },
+    "dsa": {
+        "normalized_class": "dsa-signature",
+        "title": "Replace DSA signature usage with ML-DSA",
+        "body": "Legacy DSA usage should be removed from signing workflows and key management paths in favor of PQC-safe signature algorithms.",
+        "algorithm": "DSA",
+        "recommended_pqc_algorithm": "ML-DSA",
+        "estimated_effort": "3-5 M/D",
+        "algorithm_bonus": 16,
+    },
+    "sha-1": {
+        "normalized_class": "weak-hash",
+        "title": "Remove weak hash usage before PQC migration",
+        "body": "Weak hash functions such as SHA-1 or MD5 should be eliminated early because they increase migration debt and undermine transition trustworthiness.",
+        "algorithm": "Weak Hash",
+        "recommended_pqc_algorithm": "SHA-256 / SHA-3",
+        "estimated_effort": "1-3 M/D",
+        "algorithm_bonus": 8,
+    },
+    "private-key": {
+        "normalized_class": "private-key-material",
+        "title": "Review private key material and certificate handling for PQC migration",
+        "body": "Private key material in certificate or deployment paths should be reviewed as part of certificate-chain, key-management, and interoperability planning during PQC transition.",
+        "algorithm": "Private Key Material",
+        "recommended_pqc_algorithm": "Certificate/key-management transition plan",
+        "estimated_effort": "3-6 M/D",
+        "algorithm_bonus": 12,
+    },
+    "library": {
+        "normalized_class": "legacy-library",
+        "title": "Replace legacy crypto libraries with PQC-capable dependencies",
+        "body": "Some dependencies appear to lack a clear PQC support path. Consolidate crypto abstractions and prioritize libraries with vendor-backed or liboqs-based transition support.",
+        "algorithm": "Legacy Library",
+        "recommended_pqc_algorithm": "PQC-capable dependency stack",
+        "estimated_effort": "3-6 M/D",
+        "algorithm_bonus": 10,
+    },
+}
+
+SIGNATURE_PATH_HINTS = ("cert", "certificate", "x509", "x.509", ".crt", ".pem", ".cer", ".csr", "jwt", "token")
+KEY_ESTABLISHMENT_HINTS = ("tls", "ssl", "handshake", "key exchange", "key-establishment", "kex", "dh", "ecdh")
+
+
+def build_recommendation_plan(findings: Iterable[dict]) -> list[dict]:
+    grouped: dict[str, dict] = {}
+
+    for finding in findings or []:
+        if not isinstance(finding, dict):
+            continue
+
+        key = classify_vulnerability_class(finding)
+        template = TEMPLATES.get(key, TEMPLATES["library"])
+        meta = finding.get("meta") or {}
+        severity = canonicalize_severity(finding.get("severity"))[0]
+        file_path = _to_text(finding.get("file_path"))
+        scanner_type = _to_text(meta.get("scanner_type")) or _to_text(finding.get("context")) or "UNKNOWN"
+
+        bucket = grouped.setdefault(
+            key,
+            {
+                "template": template,
+                "max_severity": "INFO",
+                "issue_count": 0,
+                "paths": set(),
+                "asset_refs": set(),
+                "correlation_refs": set(),
+                "scanner_types": set(),
+                "messages": set(),
+                "contexts": set(),
+            },
+        )
+        if SEVERITY_WEIGHT[severity] > SEVERITY_WEIGHT[bucket["max_severity"]]:
+            bucket["max_severity"] = severity
+        bucket["issue_count"] += int(meta.get("duplicate_count", 1) or 1)
+        if file_path:
+            bucket["paths"].add(file_path)
+        if meta.get("asset_ref"):
+            bucket["asset_refs"].add(str(meta["asset_ref"]))
+        if meta.get("correlation_ref"):
+            bucket["correlation_refs"].add(str(meta["correlation_ref"]))
+        if scanner_type:
+            bucket["scanner_types"].add(scanner_type)
+        if meta.get("message"):
+            bucket["messages"].add(str(meta["message"]))
+        if meta.get("usage_type"):
+            bucket["contexts"].add(str(meta["usage_type"]))
+
+    ranked: list[dict] = []
+    for key, bucket in grouped.items():
+        template = _specialize_template(
+            key=key,
+            base_template=bucket["template"],
+            affected_paths=sorted(bucket["paths"]),
+            messages=sorted(bucket["messages"]),
+            contexts=sorted(bucket["contexts"]),
+            correlation_refs=sorted(bucket["correlation_refs"]),
+        )
+        affected_paths = sorted(bucket["paths"])
+        asset_refs = sorted(bucket["asset_refs"])
+        correlation_refs = sorted(bucket["correlation_refs"])
+        scanner_types = sorted(bucket["scanner_types"])
+        score, reason, breakdown = _compute_priority_score(
+            key=key,
+            max_severity=bucket["max_severity"],
+            issue_count=bucket["issue_count"],
+            affected_paths=affected_paths,
+            scanner_types=scanner_types,
+            contexts=sorted(bucket["contexts"]),
+            messages=sorted(bucket["messages"]),
+        )
+        ranked.append(
+            {
+                "class_key": key,
+                "normalized_class": template["normalized_class"],
+                "title": template["title"],
+                "algorithm": template["algorithm"],
+                "recommended_pqc_algorithm": template["recommended_pqc_algorithm"],
+                "estimated_effort": template["estimated_effort"],
+                "priority_score": score,
+                "priority_reason": reason,
+                "priority_factors": list(breakdown["priority_factors"]),
+                "evidence_count": bucket["issue_count"],
+                "affected_files_count": len(affected_paths),
+                "affected_file_paths": affected_paths,
+                "related_asset_refs": asset_refs,
+                "correlation_refs": correlation_refs,
+                "scanner_types": scanner_types,
+                "context": ", ".join(affected_paths[:3]) if affected_paths else "repository-wide",
+                "ai_recommendation": _build_recommendation_markdown(
+                    template=template,
+                    issue_count=bucket["issue_count"],
+                    affected_paths=affected_paths,
+                    scanner_types=scanner_types,
+                    priority_reason=reason,
+                ),
+            }
+        )
+
+    ranked.sort(
+        key=lambda item: (
+            -int(item["priority_score"]),
+            -int(item["affected_files_count"]),
+            -int(item["evidence_count"]),
+            item["class_key"],
+        )
+    )
+
+    for index, item in enumerate(ranked, start=1):
+        item["priority_rank"] = index
+        item["priority"] = rank_to_priority(index)
+
+    return ranked
+
+
+def classify_vulnerability_class(finding: dict) -> str:
+    meta = finding.get("meta") or {}
+    algorithm_text = _to_text(finding.get("algorithm")).lower()
+    rule_text = _to_text(meta.get("rule_id") or finding.get("type")).lower()
+    library_text = _to_text(meta.get("library")).lower()
+    message_text = _to_text(meta.get("message")).lower()
+    merged = " ".join((algorithm_text, rule_text, library_text, message_text))
+
+    if "rsa" in merged or "rs256" in merged or "ps256" in merged:
+        return "rsa"
+    if any(token in merged for token in ("dh", "ecdh", "diffie")):
+        return "dh"
+    if any(token in merged for token in ("ecc", "ecdsa", "elliptic", "es256", "es384", "es512")):
+        return "ecc"
+    if "dsa" in merged:
+        return "dsa"
+    if any(token in merged for token in ("private key", "private_key", "private-key", ".key", "pkcs8")):
+        return "private-key"
+    if any(token in merged for token in ("sha-1", "sha1", "md5", "weak hash")):
+        return "sha-1"
+    return "library"
+
+
+def rank_to_priority(rank: int) -> str:
+    if rank <= 2:
+        return "CRITICAL"
+    if rank <= 5:
+        return "HIGH"
+    if rank <= 8:
+        return "MEDIUM"
+    return "LOW"
+
+
+def _compute_priority_score(
+    *,
+    key: str,
+    max_severity: str,
+    issue_count: int,
+    affected_paths: list[str],
+    scanner_types: list[str],
+    contexts: list[str],
+    messages: list[str],
+) -> tuple[int, str, dict]:
+    template = TEMPLATES.get(key, TEMPLATES["library"])
+    breakdown = compute_priority_breakdown(
+        class_key=key,
+        max_severity=max_severity,
+        issue_count=issue_count,
+        affected_paths=affected_paths,
+        scanner_types=scanner_types,
+        contexts=contexts,
+        messages=messages,
+        algorithm_label=str(template["algorithm"]),
+    )
+    return int(breakdown["total"]), str(breakdown["reason"]), breakdown
+
+
+def _build_recommendation_markdown(
+    *,
+    template: dict,
+    issue_count: int,
+    affected_paths: list[str],
+    scanner_types: list[str],
+    priority_reason: str,
+) -> str:
+    affected_preview = ", ".join(affected_paths[:5]) if affected_paths else "repository-wide"
+    scanner_preview = ", ".join(scanner_types) if scanner_types else "unknown"
+    return (
+        f"## {template['title']}\n"
+        f"{template['body']}\n\n"
+        f"Priority rationale: {priority_reason}\n"
+        f"Affected files: {len(affected_paths)} ({affected_preview})\n"
+        f"Detected issues: {issue_count}\n"
+        f"Evidence sources: {scanner_preview}"
+    )
+
+
+def _to_text(value) -> str:
+    return "" if value is None else str(value)
+
+
+def _specialize_template(
+    *,
+    key: str,
+    base_template: dict,
+    affected_paths: list[str],
+    messages: list[str],
+    contexts: list[str],
+    correlation_refs: list[str],
+) -> dict:
+    if key != "rsa":
+        return dict(base_template)
+
+    merged = " ".join([*affected_paths, *messages, *contexts, *correlation_refs]).lower()
+    template = dict(base_template)
+
+    if any(token in merged for token in SIGNATURE_PATH_HINTS):
+        template["title"] = "Replace RSA certificate and signature paths with PQC-safe signature algorithms"
+        template["body"] = (
+            "RSA-backed certificate or signature usage should be migrated as a signature-boundary problem. "
+            "Prioritize ML-DSA or SLH-DSA planning for certificate, JWT, and verifier compatibility paths."
+        )
+        template["recommended_pqc_algorithm"] = "ML-DSA / SLH-DSA"
+        return template
+
+    if any(token in merged for token in KEY_ESTABLISHMENT_HINTS):
+        template["title"] = "Replace RSA key-establishment paths with ML-KEM"
+        template["body"] = (
+            "RSA-based key establishment or TLS-style negotiation should be treated as a key-establishment migration. "
+            "Prioritize ML-KEM planning for handshake, negotiation, and compatibility boundaries."
+        )
+        template["recommended_pqc_algorithm"] = "ML-KEM"
+        return template
+
+    return template

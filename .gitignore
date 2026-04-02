@@ -49,9 +49,10 @@ out/
 
 # Files
 종합설계 기획서.pdf
-backend/.qshield_chroma/
 (S1-04).pdf
-.qshield_chroma/073602da-cad5-4e27-9a2e-87a413742641/
+deep-research-report.md
 deep-research-report (1).md
 deep-research-report (2).md
-deep-research-report.md
+.qshield_chroma/073602da-cad5-4e27-9a2e-87a413742641/
+
+backend/.qshield_chroma/

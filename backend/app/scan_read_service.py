@@ -62,6 +62,8 @@ def get_findings_response(
             line_start=record.line_start,
             line_end=record.line_end,
             evidence=record.evidence,
+            assetRef=(record.meta or {}).get("asset_ref"),
+            correlationRef=(record.meta or {}).get("correlation_ref"),
             meta=record.meta or {},
         )
         for record in records
