@@ -202,7 +202,7 @@ const mapAiAnalysisToRecommendations = (
   uuid: string,
   payload: Awaited<ReturnType<typeof aiAnalysisService.ensureAnalysis>>,
 ): RecommendationsResponse => {
-  if (payload.analysis_mode && payload.analysis_mode !== 'real') {
+  if (payload.recommendations.length === 0) {
     return { uuid, recommendations: [] }
   }
 
