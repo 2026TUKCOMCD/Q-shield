@@ -341,6 +341,7 @@ export const AIDetailView = ({
   const validationChecklist =
     recommendation.validationChecklist ?? structuredGuidance?.validationChecklist ?? []
   const benchmarkNotes = recommendation.benchmarkNotes ?? structuredGuidance?.benchmarkNotes ?? []
+  const benchmarkSupport = structuredGuidance?.benchmarkSupport ?? []
   const assumptions = recommendation.assumptions ?? structuredGuidance?.assumptions ?? []
   const priorityReason =
     recommendation.priorityReason ?? plannerEvidence?.priorityReason ?? 'Deterministic priority rationale not available'
@@ -671,12 +672,29 @@ export const AIDetailView = ({
                     </div>
                     {benchmarkNotes.length > 0 ? (
                       <ul className="space-y-2 text-sm text-slate-300">
-                        {benchmarkNotes.map((item) => (
-                          <li key={`${recommendation.id}-${item}`} className="flex items-start gap-2">
-                            <span className="mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-indigo-300" />
-                            <span>{item}</span>
-                          </li>
-                        ))}
+                        {benchmarkNotes.map((item) => {
+                          const support = benchmarkSupport.find((entry) => entry.note === item)
+                          return (
+                            <li key={`${recommendation.id}-${item}`} className="flex items-start gap-2">
+                              <span className="mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-indigo-300" />
+                              <div>
+                                <span>{item}</span>
+                                {support && support.citationTitles.length > 0 && (
+                                  <div className="mt-2 flex flex-wrap gap-2">
+                                    {support.citationTitles.map((title) => (
+                                      <span
+                                        key={`${recommendation.id}-${item}-${title}`}
+                                        className="rounded-full border border-amber-400/20 bg-amber-500/10 px-2.5 py-1 text-[11px] text-amber-300"
+                                      >
+                                        {title}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </li>
+                          )
+                        })}
                       </ul>
                     ) : (
                       <p className="text-sm text-slate-500">Benchmark guidance was not returned.</p>

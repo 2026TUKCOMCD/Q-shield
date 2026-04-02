@@ -3,6 +3,7 @@ import {
   aiAnalysisService,
   type AiAffectedLocation,
   type AiAnalysisRecommendation,
+  type AiBenchmarkSupportItem,
   type AiCitation,
   type AiCodeFixExample,
   type AiPriorityFactor,
@@ -38,7 +39,14 @@ export interface RecommendationGuidance {
   summary?: string
   validationChecklist: string[]
   benchmarkNotes: string[]
+  benchmarkSupport: RecommendationBenchmarkSupportItem[]
   assumptions: string[]
+}
+
+export interface RecommendationBenchmarkSupportItem {
+  note: string
+  citationKeys: string[]
+  citationTitles: string[]
 }
 
 export interface RecommendationTrust {
@@ -150,6 +158,7 @@ const generateMockRecommendations = (): Recommendation[] => {
         summary: '## Replace RSA-1024 with Kyber-768\n\nMigrate quantum-vulnerable key exchange to ML-KEM.',
         validationChecklist: [],
         benchmarkNotes: [],
+        benchmarkSupport: [],
         assumptions: [],
       },
       trust: {
@@ -197,6 +206,7 @@ const generateMockRecommendations = (): Recommendation[] => {
         summary: '## Replace SHA-1 with SHA-3\n\nRemove weak hash usage and adopt SHA-3-compatible paths.',
         validationChecklist: [],
         benchmarkNotes: [],
+        benchmarkSupport: [],
         assumptions: [],
       },
       trust: {
@@ -370,6 +380,15 @@ const mapPriorityFactors = (
     evidenceType: 'evidence_type' in factor ? factor.evidence_type : factor.evidenceType,
   }))
 
+const mapBenchmarkSupport = (
+  supportItems?: AiBenchmarkSupportItem[] | RecommendationBenchmarkSupportItem[],
+): RecommendationBenchmarkSupportItem[] =>
+  (supportItems ?? []).map((item) => ({
+    note: item.note,
+    citationKeys: 'citation_keys' in item ? item.citation_keys : item.citationKeys,
+    citationTitles: 'citation_titles' in item ? item.citation_titles : item.citationTitles,
+  }))
+
 const getAiFindingSummary = (recommendation: AiAnalysisRecommendation) => {
   const affectedLocations = recommendation.affected_locations ?? []
   const affectedFilePaths = uniq(affectedLocations.map((location) => location.file_path))
@@ -442,6 +461,7 @@ const mapAiAnalysisToRecommendations = (
         summary: recommendation.description,
         validationChecklist: recommendation.validation_checklist ?? [],
         benchmarkNotes: recommendation.benchmark_notes ?? [],
+        benchmarkSupport: mapBenchmarkSupport(recommendation.benchmark_support),
         assumptions: recommendation.assumptions ?? [],
       },
       trust: {
@@ -555,6 +575,7 @@ const mergeRecommendationData = (
           summary: plannerRecommendation.aiRecommendation,
           validationChecklist: aiRecommendation.validationChecklist ?? [],
           benchmarkNotes: aiRecommendation.benchmarkNotes ?? [],
+          benchmarkSupport: mapBenchmarkSupport(aiRecommendation.guidance?.benchmarkSupport),
           assumptions: aiRecommendation.assumptions ?? [],
         },
         trust: {

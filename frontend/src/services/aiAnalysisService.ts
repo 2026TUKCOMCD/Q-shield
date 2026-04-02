@@ -43,6 +43,12 @@ export interface AiPriorityFactor {
   evidence_type: string
 }
 
+export interface AiBenchmarkSupportItem {
+  note: string
+  citation_keys: string[]
+  citation_titles: string[]
+}
+
 export interface AiAnalysisRecommendation {
   title: string
   description: string
@@ -57,6 +63,7 @@ export interface AiAnalysisRecommendation {
   assumptions?: string[]
   confidence_reason?: string | null
   priority_factors?: AiPriorityFactor[]
+  benchmark_support?: AiBenchmarkSupportItem[]
 }
 
 export interface AiRefactorCostEstimate {
