@@ -417,6 +417,7 @@ export const AIDetailView = ({
   const benchmarkCitationRows = citationEvidenceRows.filter((row) => normalizeCitationGroup(row.sourceType) === 'benchmark')
   const otherCitationRows = citationEvidenceRows.filter((row) => normalizeCitationGroup(row.sourceType) === 'other')
   const hasNormativeEvidence = normativeCitationRows.length > 0 || normativeEvidenceCount > 0
+  const hasAttachedCitations = citationEvidenceRows.length > 0
   const isPlanningReferenceOnly = hasNistReference && !hasNormativeEvidence
   const suppressCodeFixExamples =
     scannerTypes.some((scannerType) => scannerType.toUpperCase() === 'CONFIG') ||
@@ -914,16 +915,23 @@ export const AIDetailView = ({
                   <h3 className="text-lg font-semibold text-white">Evidence</h3>
                 </div>
 
-                {!hasNistReference && (
+                {!hasAttachedCitations && (
                   <div className="rounded-xl border border-amber-400/20 bg-amber-500/10 p-4">
                     <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                       <div className="flex items-start gap-3">
                         <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-300" />
                         <div>
-                          <p className="text-sm font-semibold text-amber-200">NIST citation not available</p>
+                          <p className="text-sm font-semibold text-amber-200">Citation unavailable</p>
                           <p className="mt-1 text-sm leading-relaxed text-amber-100/90">
-                            RAG corpus is not loaded or no matching section was retrieved. Confidence is reduced.
+                            {hasNistReference
+                              ? 'A planning reference is linked, but no supporting excerpt is attached to this recommendation yet.'
+                              : 'RAG corpus is not loaded or no matching section was retrieved. Confidence is reduced.'}
                           </p>
+                          {hasNistReference && (
+                            <p className="mt-2 text-xs uppercase tracking-[0.2em] text-amber-100/70">
+                              Reference: {getDisplayValue(recommendation.nistStandardReference)}
+                            </p>
+                          )}
                         </div>
                       </div>
                       <button
@@ -945,10 +953,10 @@ export const AIDetailView = ({
                   </div>
                 )}
 
-                {hasNistReference && (
+                {hasAttachedCitations && hasNistReference && (
                   <div className="rounded-xl border border-white/10 bg-white/5 p-4">
                     <p className="mb-2 text-xs uppercase tracking-[0.2em] text-slate-500">
-                      {isPlanningReferenceOnly ? 'NIST Planning Reference' : 'NIST Standard Reference'}
+                      {isPlanningReferenceOnly ? 'Citation Attached' : 'NIST Citation Attached'}
                     </p>
                     <p className="text-sm font-medium text-slate-100">
                       {getDisplayValue(recommendation.nistStandardReference)}
@@ -968,13 +976,13 @@ export const AIDetailView = ({
                     </div>
                     {isPlanningReferenceOnly && (
                       <p className="mt-3 text-xs text-amber-300">
-                        Planning reference only. No normative excerpt is attached to this recommendation yet.
+                        Citation excerpt is attached, but it is not classified as normative evidence yet.
                       </p>
                     )}
                   </div>
                 )}
 
-                {citationEvidenceRows.length > 0 ? (
+                {hasAttachedCitations ? (
                   <div className="space-y-4">
                     {renderCitationGroup(
                       'Normative Evidence',
