@@ -31,6 +31,10 @@
 
 `priority_score = severity_base + class_risk_bonus + evidence_bonus + spread_bonus + scanner_bonus + exposure_bonus`
 
+현재 확장 모델은 다음 factor까지 포함한다.
+
+`priority_score = severity_base + class_risk_bonus + evidence_bonus + spread_bonus + scanner_bonus + exposure_bonus + hndl_bonus + migration_complexity_bonus + interop_risk_bonus`
+
 각 factor는 다음 의미를 가진다.
 
 ### severity_base
@@ -77,6 +81,28 @@
   - NIST SP 1800-38B는 discovery/inventory 단계에서 실제 사용 맥락 파악의 중요성을 강조한다.
   - NIST SP 1800-38C는 TLS, certificate chain, interoperability, keep-alive, handshake cost 등 운영 경로의 영향을 다룬다.
 
+### hndl_bonus
+- 계산식: `8 if auth/token/certificate/identity signal matched else 0`
+- 의미: 장기 보호 가치가 큰 인증/토큰/인증서 경로는 HNDL 관점에서 우선순위를 높임
+- 근거 유형: `nist_guidance_informed`
+- 근거 설명:
+  - NIST IR 8547은 HNDL 위험과 장기 기밀 데이터 보호 필요성을 전환 배경으로 제시한다.
+
+### migration_complexity_bonus
+- 계산식: `0-8 based on config/dependency boundary signals, scanner overlap, issue count`
+- 의미: 복잡한 전환일수록 늦게 보기보다 먼저 계획해야 하므로 planning priority를 높임
+- 근거 유형: `engineering_heuristic`
+- 근거 설명:
+  - NIST SP 1800-38B/38C는 inventory, protocol boundary, dependency boundary를 함께 파악해야 함을 시사한다.
+  - 구체 가중치는 제품 heuristic이다.
+
+### interop_risk_bonus
+- 계산식: `0-8 if TLS/certificate/HSM/QUIC boundary signal matched`
+- 의미: TLS, certificate, HSM, gateway 같은 경계는 상호운용 문제를 유발할 수 있어 전환 우선순위를 높임
+- 근거 유형: `nist_guidance_informed`
+- 근거 설명:
+  - NIST SP 1800-38C는 interoperability, certificate size, handshake overhead, deployment friction을 중점적으로 다룬다.
+
 ## 3. 우선순위 등급
 
 현재 rank 기반 priority mapping은 다음과 같다.
@@ -121,17 +147,18 @@
 ## 6. 현재 한계
 
 - HNDL은 아직 직접 점수화하지 않았다.
-- migration complexity는 effort 문구에만 반영되고 점수에는 제한적으로 반영된다.
-- performance/interoperability risk는 AI guidance에는 들어가지만 planner score에는 아직 직접 반영되지 않는다.
+- HNDL은 현재 keyword signal 기반 초기 점수화만 적용돼 있으며, 데이터 수명/업무 민감도 모델까지 반영되지는 않는다.
+- migration complexity는 현재 heuristic bonus 수준이며, 구조 의존도나 팀별 effort 데이터까지 반영하지 않는다.
+- performance/interoperability risk는 현재 TLS/certificate/HSM 경계 signal 수준이며, 실제 benchmark 수치와 직접 연결되지는 않는다.
 - absolute score threshold 대신 rank bucket을 사용한다.
 
 ## 7. 다음 확장
 
 다음 단계에서는 아래 항목을 planner factor로 확장한다.
 
-- HNDL risk
-- migration complexity
-- performance/interoperability risk
+- HNDL risk를 데이터 수명/업무 민감도 기반으로 세분화
+- migration complexity를 dependency graph / abstraction depth / PKI boundary까지 반영
+- performance/interoperability risk를 benchmark citation과 연결
 - certificate chain / QUIC / HSM 경로 영향
 - external exposure를 단순 keyword가 아니라 structured context로 계산
 

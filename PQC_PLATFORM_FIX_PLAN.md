@@ -49,6 +49,8 @@ Q-shield는 일반 취약점 스캐너가 아니라 `PQC 전환 우선순위 진
 - [x] unsupported claim validator 추가
 - [x] 프론트 evidence UI 분리
 - [x] structured recommendation DTO (`evidence/guidance/trust`) 도입
+- [x] planner score를 factor 모듈로 분리
+- [x] HNDL / migration complexity / interop risk 초기 factor 반영
 
 ## Priority 1
 
@@ -68,9 +70,12 @@ Q-shield는 일반 취약점 스캐너가 아니라 `PQC 전환 우선순위 진
 
 - [x] recommendation priority factor를 코드 모듈로 분리
 - [x] 우선순위 공식과 factor 정의 문서화
-- [ ] HNDL risk factor 추가
-- [ ] migration complexity factor 추가
-- [ ] performance/interoperability factor를 planner score에 직접 반영
+- [x] HNDL risk factor 추가
+- [x] migration complexity factor 추가
+- [x] performance/interoperability factor를 planner score에 직접 반영
+- [ ] HNDL factor를 업무 민감도/데이터 수명 기반으로 고도화
+- [ ] migration complexity factor를 dependency graph와 abstraction depth 기반으로 고도화
+- [ ] interop risk를 실제 benchmark citation과 직접 연결
 - [ ] `priorityReason`을 factor breakdown 기반으로 더 구조화
 - [ ] recommendation 1개 = vulnerability class 1개 = 근거 finding N개 구조를 DB/응답에서 더 명확히 연결
 
@@ -145,8 +150,8 @@ AI 출력의 근거성과 감사 가능성을 강화한다.
 
 ## Current Next Steps
 
-1. prioritization factor를 planner score와 AI summary에 모두 반영
-2. HNDL / migration complexity / interop risk factor 추가
-3. findings/inventory/heatmap 화면에도 trust/evidence 표시 확대
-4. benchmark-aware citation linking 강화
-5. evaluation methodology 문서 추가
+1. prioritization factor를 AI summary와 recommendation 상세에 더 구조적으로 노출
+2. findings/inventory/heatmap 화면에도 trust/evidence 표시 확대
+3. benchmark-aware citation linking 강화
+4. evaluation methodology 문서 추가
+5. scanner correlation과 CBOM 스키마 정리
