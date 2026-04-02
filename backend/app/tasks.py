@@ -537,7 +537,7 @@ def _extract_recommendations(sast_report, sca_report, config_report):
     )
 
     recommendations = []
-    for rank, (key, bucket) in enumerate(ordered_groups[:5], start=1):
+    for rank, (key, bucket) in enumerate(ordered_groups, start=1):
         template = templates.get(key, templates["library"])
         context_paths = sorted(str(path) for path in bucket["paths"] if path)
         context = ", ".join(context_paths[:3]) if context_paths else "repository-wide"
