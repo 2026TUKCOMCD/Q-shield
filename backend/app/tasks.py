@@ -16,6 +16,7 @@ from app.models import Finding, HeatmapSnapshot, InventorySnapshot, Recommendati
 from app.scoring import build_score_signals_from_reports, compute_pqc_readiness_score
 from app.scoring.criteria import score_signal_points
 from app.severity_map import CANONICAL_SEVERITIES, canonicalize_severity
+from app.tasks_ai import run_ai_analysis
 
 # Add scanner module path so Celery worker can import it.
 SCANNER_PATH = Path(__file__).parent.parent.parent / "3_scanner"
@@ -132,6 +133,14 @@ def run_scan_pipeline(scan_uuid: str):
 
         # 7) Done
         _update(status="COMPLETED", progress=1.0, message="Scan completed successfully")
+        try:
+            run_ai_analysis.delay(str(scan_uuid_obj))
+        except Exception as exc:
+            logger.warning(
+                "scan_pipeline stage=ai_analysis_enqueue_failed scan_uuid=%s reason=%s",
+                str(scan_uuid_obj),
+                str(exc),
+            )
         return
 
     except Exception as e:

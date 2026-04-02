@@ -470,7 +470,9 @@ def get_recommendations(
     uuid: str,
     db: Session = Depends(get_db),
     algorithm: str | None = Query(default=None),
+    algorithm_type: str | None = Query(default=None, alias="algorithmType"),
     context: str | None = Query(default=None),
+    priority: str | None = Query(default=None),
     user_uuid: UUID = Depends(get_request_user_uuid),
 ):
     try:
@@ -484,24 +486,30 @@ def get_recommendations(
 
     q = db.query(Recommendation).filter(Recommendation.scan_uuid == scan_uuid)
 
+    algorithm_filter = (algorithm_type or algorithm or "").strip()
+    priority_filter = (priority or "").strip().upper()
+
     # filter
-    if algorithm:
-        q = q.filter(Recommendation.algorithm == algorithm)
+    if algorithm_filter:
+        q = q.filter(Recommendation.algorithm.ilike(f"%{algorithm_filter}%"))
     if context:
-        q = q.filter(Recommendation.context == context)
+        q = q.filter(Recommendation.context.ilike(f"%{context.strip()}%"))
 
     recs = q.order_by(Recommendation.priority_rank.asc()).all()
 
     items: list[RecommendationItem] = []
     for r in recs:
         rank = int(r.priority_rank)
+        mapped_priority = _rank_to_priority(rank)
+        if priority_filter and mapped_priority != priority_filter:
+            continue
         issue_name = _extract_issue_name(r.ai_recommendation, f"Recommendation {rank}")
         file_path = r.context if (r.context and ("/" in r.context or "\\" in r.context)) else None
         items.append(
             RecommendationItem(
                 id=str(r.id),
                 priorityRank=rank,
-                priority=_rank_to_priority(rank),
+                priority=mapped_priority,
                 issueName=issue_name,
                 estimatedEffort=r.estimated_effort or "TBD",
                 aiRecommendation=r.ai_recommendation or "",
