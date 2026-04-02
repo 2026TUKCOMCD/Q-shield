@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from typing import Iterable
 
-from app.severity_map import SEVERITY_SCORE, canonicalize_severity
+from app.recommendation_priority import compute_priority_breakdown
+from app.severity_map import canonicalize_severity
 
 SEVERITY_WEIGHT = {
     "CRITICAL": 4,
@@ -201,32 +202,15 @@ def _compute_priority_score(
     scanner_types: list[str],
 ) -> tuple[int, str]:
     template = TEMPLATES.get(key, TEMPLATES["library"])
-    base = int(SEVERITY_SCORE.get(max_severity, SEVERITY_SCORE["MEDIUM"]) * 0.45)
-    evidence_bonus = min(18, int(issue_count) * 3)
-    spread_bonus = min(15, len(affected_paths) * 4)
-    scanner_bonus = min(12, len(scanner_types) * 4)
-    exposure_bonus = _public_exposure_bonus(affected_paths)
-    score = base + template["algorithm_bonus"] + evidence_bonus + spread_bonus + scanner_bonus + exposure_bonus
-
-    reasons = [
-        f"{template['algorithm']} class risk",
-        f"{max_severity} severity",
-        f"{issue_count} evidence points",
-    ]
-    if affected_paths:
-        reasons.append(f"{len(affected_paths)} affected files")
-    if scanner_types:
-        reasons.append(f"signals from {', '.join(scanner_types)}")
-    if exposure_bonus > 0:
-        reasons.append("auth/tls-facing usage")
-
-    return score, ", ".join(reasons)
-
-
-def _public_exposure_bonus(paths: list[str]) -> int:
-    joined = " ".join(paths).lower()
-    keywords = ("auth", "login", "token", "jwt", "tls", "ssl", "cert", "nginx", "gateway")
-    return 10 if any(keyword in joined for keyword in keywords) else 0
+    breakdown = compute_priority_breakdown(
+        class_key=key,
+        max_severity=max_severity,
+        issue_count=issue_count,
+        affected_paths=affected_paths,
+        scanner_types=scanner_types,
+        algorithm_label=str(template["algorithm"]),
+    )
+    return int(breakdown["total"]), str(breakdown["reason"])
 
 
 def _build_recommendation_markdown(
