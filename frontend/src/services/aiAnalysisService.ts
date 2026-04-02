@@ -38,6 +38,11 @@ export interface AiAnalysisRecommendation {
   code_fix_examples?: AiCodeFixExample[]
   citations: AiCitation[]
   confidence: number
+  priority_reason?: string | null
+  validation_checklist?: string[]
+  benchmark_notes?: string[]
+  assumptions?: string[]
+  confidence_reason?: string | null
 }
 
 export interface AiRefactorCostEstimate {

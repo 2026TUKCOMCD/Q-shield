@@ -37,6 +37,10 @@ export interface Recommendation {
   affectedFilesCount?: number
   affectedFilePaths?: string[]
   scannerTypes?: string[]
+  validationChecklist?: string[]
+  benchmarkNotes?: string[]
+  assumptions?: string[]
+  confidenceReason?: string
 }
 
 export interface RecommendationsResponse {
@@ -300,6 +304,10 @@ const mapAiAnalysisToRecommendations = (
       affectedFilesCount: summary.affectedFilesCount,
       affectedFilePaths: summary.affectedFilePaths,
       scannerTypes: summary.scannerTypes,
+      validationChecklist: recommendation.validation_checklist ?? [],
+      benchmarkNotes: recommendation.benchmark_notes ?? [],
+      assumptions: recommendation.assumptions ?? [],
+      confidenceReason: recommendation.confidence_reason ?? undefined,
     }
   })
 
@@ -382,6 +390,10 @@ const mergeRecommendationData = (
         analysisSummary: aiRecommendation.analysisSummary || plannerRecommendation.analysisSummary,
         citationMissing: aiRecommendation.citationMissing,
         inputsSummary: aiRecommendation.inputsSummary,
+        validationChecklist: aiRecommendation.validationChecklist,
+        benchmarkNotes: aiRecommendation.benchmarkNotes,
+        assumptions: aiRecommendation.assumptions,
+        confidenceReason: aiRecommendation.confidenceReason,
       }
     }),
   }

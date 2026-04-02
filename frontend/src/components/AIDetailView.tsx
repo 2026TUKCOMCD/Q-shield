@@ -288,6 +288,9 @@ export const AIDetailView = ({
   const affectedFilePaths = recommendation.affectedFilePaths ?? []
   const codeFixExamples = recommendation.codeFixExamples ?? []
   const scannerTypes = recommendation.scannerTypes ?? []
+  const validationChecklist = recommendation.validationChecklist ?? []
+  const benchmarkNotes = recommendation.benchmarkNotes ?? []
+  const assumptions = recommendation.assumptions ?? []
   const citationEvidenceRows = (recommendation.citations ?? []).map((citation) => {
     const sectionText = hasMeaningfulValue(citation.section)
       ? citation.section.trim()
@@ -489,6 +492,64 @@ export const AIDetailView = ({
                   </p>
                 )}
               </div>
+
+              {validationChecklist.length > 0 && (
+                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+                  <div className="mb-4 flex items-center gap-2">
+                    <CheckCircle2 className="h-5 w-5 text-indigo-300" />
+                    <h3 className="text-lg font-semibold text-white">Validation Checklist</h3>
+                  </div>
+                  <ul className="space-y-2 text-sm text-slate-300">
+                    {validationChecklist.map((item) => (
+                      <li key={`${recommendation.id}-${item}`} className="flex items-start gap-2">
+                        <span className="mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-indigo-300" />
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {(benchmarkNotes.length > 0 || assumptions.length > 0) && (
+                <div className="grid gap-4 xl:grid-cols-2">
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+                    <div className="mb-4 flex items-center gap-2">
+                      <Database className="h-5 w-5 text-indigo-300" />
+                      <h3 className="text-lg font-semibold text-white">Benchmark Notes</h3>
+                    </div>
+                    {benchmarkNotes.length > 0 ? (
+                      <ul className="space-y-2 text-sm text-slate-300">
+                        {benchmarkNotes.map((item) => (
+                          <li key={`${recommendation.id}-${item}`} className="flex items-start gap-2">
+                            <span className="mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-indigo-300" />
+                            <span>{item}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-sm text-slate-500">Benchmark guidance was not returned.</p>
+                    )}
+                  </div>
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+                    <div className="mb-4 flex items-center gap-2">
+                      <AlertTriangle className="h-5 w-5 text-indigo-300" />
+                      <h3 className="text-lg font-semibold text-white">Assumptions</h3>
+                    </div>
+                    {assumptions.length > 0 ? (
+                      <ul className="space-y-2 text-sm text-slate-300">
+                        {assumptions.map((item) => (
+                          <li key={`${recommendation.id}-${item}`} className="flex items-start gap-2">
+                            <span className="mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-indigo-300" />
+                            <span>{item}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-sm text-slate-500">Assumptions were not returned.</p>
+                    )}
+                  </div>
+                </div>
+              )}
 
               <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
                 <div className="mb-4 flex items-center gap-2">
@@ -718,6 +779,13 @@ export const AIDetailView = ({
                     </span>
                   </li>
                 </ul>
+
+                {recommendation.confidenceReason && (
+                  <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                    <p className="mb-2 text-xs uppercase tracking-[0.2em] text-slate-500">Confidence Reason</p>
+                    <p className="text-sm text-slate-300">{recommendation.confidenceReason}</p>
+                  </div>
+                )}
               </div>
 
               <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
