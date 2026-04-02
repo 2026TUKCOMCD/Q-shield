@@ -255,10 +255,11 @@ def test_recommendation_plan_adds_priority_reason_and_evidence_summary():
 
     plan = build_recommendation_plan(findings)
 
-    assert len(plan) == 2
-    rsa_item = next(item for item in plan if item["algorithm"] == "RSA")
+    assert len(plan) == 1
+    rsa_item = plan[0]
     assert rsa_item["normalized_class"] == "rsa-public-key"
-    assert rsa_item["evidence_count"] == 1
-    assert rsa_item["affected_files_count"] == 1
+    assert rsa_item["evidence_count"] == 2
+    assert rsa_item["affected_files_count"] == 2
+    assert set(rsa_item["scanner_types"]) == {"SAST", "SCA"}
     assert "RSA class risk" in rsa_item["priority_reason"]
     assert "auth/tls-facing usage" in rsa_item["priority_reason"]

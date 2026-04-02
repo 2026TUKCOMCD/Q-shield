@@ -46,6 +46,11 @@ class RecommendationPayload(BaseModel):
     code_fix_examples: list[CodeFixExample] = Field(default_factory=list)
     citations: list[Citation] = Field(default_factory=list)
     confidence: float = Field(ge=0.0, le=1.0)
+    priority_reason: str | None = None
+    validation_checklist: list[str] = Field(default_factory=list)
+    benchmark_notes: list[str] = Field(default_factory=list)
+    assumptions: list[str] = Field(default_factory=list)
+    confidence_reason: str | None = None
 
 
 class AiAnalysisResponse(BaseModel):

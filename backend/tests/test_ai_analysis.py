@@ -316,6 +316,11 @@ def test_rag_llm_payload_path_uses_mocked_generation(monkeypatch):
     assert response.citation_missing is False
     assert citations[0]["doc_id"] == "fips203.pdf"
     assert references == ["FIPS 203 (ML-KEM)"]
+    assert response.recommendations[0].priority_reason
+    assert response.recommendations[0].validation_checklist
+    assert response.recommendations[0].benchmark_notes
+    assert response.recommendations[0].assumptions
+    assert response.recommendations[0].confidence_reason
 
 
 def test_rag_failure_returns_fallback_mode_when_enabled(monkeypatch):
@@ -345,3 +350,6 @@ def test_rag_failure_returns_fallback_mode_when_enabled(monkeypatch):
     assert response.recommendations
     assert citations == []
     assert references == ["N/A"]
+    assert response.recommendations[0].validation_checklist
+    assert response.recommendations[0].assumptions
+    assert response.recommendations[0].confidence_reason
