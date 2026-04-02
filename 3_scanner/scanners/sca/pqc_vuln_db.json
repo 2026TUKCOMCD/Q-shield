@@ -3,17 +3,59 @@
     "python-rsa": {
       "all_versions_vulnerable": true,
       "reason": "RSA-only library without PQC support.",
+      "severity": "HIGH",
       "pqc_support": false,
       "pqc_classification": "Traditional Crypto Library",
       "alternatives": [
         {"name": "pqcrypto", "version": ">=0.2.0"}
       ]
+    },
+    "authlib": {
+      "all_versions_vulnerable": true,
+      "reason": "Common JOSE/JWT toolkit without PQC-native signature algorithms. Verify whether RSA or ECDSA signing is used in code.",
+      "severity": "MEDIUM",
+      "pqc_support": false,
+      "pqc_classification": "Traditional Crypto Library",
+      "alternatives": []
+    },
+    "python-jose": {
+      "all_versions_vulnerable": true,
+      "reason": "JOSE/JWT library built around traditional RSA/ECDSA algorithms without PQC support.",
+      "severity": "HIGH",
+      "pqc_support": false,
+      "pqc_classification": "Traditional Crypto Library",
+      "alternatives": []
+    },
+    "jose": {
+      "all_versions_vulnerable": true,
+      "reason": "JOSE/JWT package without PQC-native signature algorithms.",
+      "severity": "MEDIUM",
+      "pqc_support": false,
+      "pqc_classification": "Traditional Crypto Library",
+      "alternatives": []
     }
   },
   "javascript": {
     "jsonwebtoken": {
       "all_versions_vulnerable": true,
       "reason": "JWT signing with traditional RSA/ECDSA without PQC support.",
+      "severity": "HIGH",
+      "pqc_support": false,
+      "pqc_classification": "Traditional Crypto Library",
+      "alternatives": []
+    },
+    "jose": {
+      "all_versions_vulnerable": true,
+      "reason": "JOSE/JWT toolkit without PQC-native signature algorithms.",
+      "severity": "HIGH",
+      "pqc_support": false,
+      "pqc_classification": "Traditional Crypto Library",
+      "alternatives": []
+    },
+    "node-jose": {
+      "all_versions_vulnerable": true,
+      "reason": "Node JOSE library using traditional RSA/ECDSA-based signing flows without PQC support.",
+      "severity": "HIGH",
       "pqc_support": false,
       "pqc_classification": "Traditional Crypto Library",
       "alternatives": []
@@ -23,6 +65,47 @@
     "com.nimbusds.nimbus-jose-jwt": {
       "all_versions_vulnerable": true,
       "reason": "JOSE/JWT library using traditional crypto without PQC support.",
+      "severity": "HIGH",
+      "pqc_support": false,
+      "pqc_classification": "Traditional Crypto Library",
+      "alternatives": []
+    },
+    "io.jsonwebtoken.jjwt": {
+      "all_versions_vulnerable": true,
+      "reason": "JJWT library without PQC-native signature algorithms.",
+      "severity": "HIGH",
+      "pqc_support": false,
+      "pqc_classification": "Traditional Crypto Library",
+      "alternatives": []
+    },
+    "io.jsonwebtoken.jjwt-api": {
+      "all_versions_vulnerable": true,
+      "reason": "JJWT API module without PQC-native signature algorithms.",
+      "severity": "HIGH",
+      "pqc_support": false,
+      "pqc_classification": "Traditional Crypto Library",
+      "alternatives": []
+    },
+    "io.jsonwebtoken.jjwt-impl": {
+      "all_versions_vulnerable": true,
+      "reason": "JJWT implementation module without PQC-native signature algorithms.",
+      "severity": "HIGH",
+      "pqc_support": false,
+      "pqc_classification": "Traditional Crypto Library",
+      "alternatives": []
+    },
+    "io.jsonwebtoken.jjwt-jackson": {
+      "all_versions_vulnerable": true,
+      "reason": "JJWT Jackson integration module without PQC-native signature algorithms.",
+      "severity": "HIGH",
+      "pqc_support": false,
+      "pqc_classification": "Traditional Crypto Library",
+      "alternatives": []
+    },
+    "org.bitbucket.b_c.jose4j": {
+      "all_versions_vulnerable": true,
+      "reason": "JOSE4J library without PQC-native signature algorithms.",
+      "severity": "HIGH",
       "pqc_support": false,
       "pqc_classification": "Traditional Crypto Library",
       "alternatives": []
