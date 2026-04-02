@@ -190,6 +190,10 @@ def _retrieve_legacy_citations(query: str, *, top_k: int = 3, corpus_path: str |
                 page=int(chunk["page"]) if chunk.get("page") is not None else None,
                 url=chunk.get("url"),
                 snippet=str(chunk.get("snippet") or ""),
+                source_type=chunk.get("source_type"),
+                claim_type=chunk.get("claim_type"),
+                topic=chunk.get("topic"),
+                authority_weight=int(chunk["authority_weight"]) if chunk.get("authority_weight") is not None else None,
             )
         )
     return citations
@@ -208,6 +212,10 @@ def retrieve_citations(query: str, *, top_k: int = 3, corpus_path: str | None = 
                     page=int(chunk["page"]) if chunk.get("page") is not None else None,
                     url=chunk.get("url"),
                     snippet=str(chunk.get("text") or ""),
+                    source_type=chunk.get("source_type"),
+                    claim_type=chunk.get("claim_type"),
+                    topic=chunk.get("topic"),
+                    authority_weight=int(chunk["authority_weight"]) if chunk.get("authority_weight") is not None else None,
                 )
             )
         return citations

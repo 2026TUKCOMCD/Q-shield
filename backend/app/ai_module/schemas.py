@@ -12,6 +12,10 @@ class Citation(BaseModel):
     page: int | None = None
     url: str | None = None
     snippet: str
+    source_type: str | None = None
+    claim_type: str | None = None
+    topic: str | None = None
+    authority_weight: int | None = None
 
 
 class AffectedLocation(BaseModel):

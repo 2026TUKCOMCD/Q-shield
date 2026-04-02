@@ -6,6 +6,7 @@ from functools import lru_cache
 from pathlib import Path
 
 from app.config import AI_RAG_CACHE_PATH, AI_RAG_CORPUS_PATH
+from app.ai_module.rag.loader import infer_document_metadata
 
 
 try:
@@ -18,7 +19,14 @@ def _normalize_text(value: str) -> str:
     return re.sub(r"\s+", " ", value or "").strip()
 
 
-def _chunk_page_text(text: str, *, doc_id: str, title: str, page_number: int) -> list[dict]:
+def _chunk_page_text(
+    text: str,
+    *,
+    doc_id: str,
+    title: str,
+    page_number: int,
+    metadata: dict | None = None,
+) -> list[dict]:
     cleaned = _normalize_text(text)
     if not cleaned:
         return []
@@ -37,6 +45,7 @@ def _chunk_page_text(text: str, *, doc_id: str, title: str, page_number: int) ->
                 "page": page_number,
                 "snippet": snippet,
                 "search_text": snippet.lower(),
+                **(metadata or {}),
             }
         )
     return chunks
@@ -52,6 +61,7 @@ def _read_pdf_chunks(file_path: Path) -> list[dict]:
         return []
 
     chunks: list[dict] = []
+    metadata = infer_document_metadata(file_path)
     for page_index, page in enumerate(reader.pages, start=1):
         try:
             page_text = page.extract_text() or ""
@@ -63,6 +73,7 @@ def _read_pdf_chunks(file_path: Path) -> list[dict]:
                 doc_id=file_path.name,
                 title=file_path.stem,
                 page_number=page_index,
+                metadata=metadata,
             )
         )
     return chunks
@@ -73,7 +84,13 @@ def _read_text_chunks(file_path: Path) -> list[dict]:
         text = file_path.read_text(encoding="utf-8")
     except Exception:
         return []
-    return _chunk_page_text(text, doc_id=file_path.name, title=file_path.stem, page_number=1)
+    return _chunk_page_text(
+        text,
+        doc_id=file_path.name,
+        title=file_path.stem,
+        page_number=1,
+        metadata=infer_document_metadata(file_path),
+    )
 
 
 def _cache_path_for(corpus_path: str | None = None) -> Path | None:
