@@ -261,6 +261,8 @@ def test_recommendation_plan_adds_priority_reason_and_evidence_summary():
     assert rsa_item["evidence_count"] == 2
     assert rsa_item["affected_files_count"] == 2
     assert set(rsa_item["scanner_types"]) == {"SAST", "SCA"}
+    assert len(rsa_item["priority_factors"]) == 9
+    assert any(factor["key"] == "hndl_bonus" for factor in rsa_item["priority_factors"])
     assert "RSA class risk" in rsa_item["priority_reason"]
     assert "auth/tls-facing usage" in rsa_item["priority_reason"]
     assert "possible HNDL-sensitive path" in rsa_item["priority_reason"]

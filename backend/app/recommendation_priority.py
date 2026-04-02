@@ -75,6 +75,18 @@ PRIORITY_FACTOR_NOTES = {
     },
 }
 
+PRIORITY_FACTOR_ORDER = (
+    "severity_base",
+    "class_risk_bonus",
+    "evidence_bonus",
+    "spread_bonus",
+    "scanner_bonus",
+    "exposure_bonus",
+    "hndl_bonus",
+    "migration_complexity_bonus",
+    "interop_risk_bonus",
+)
+
 
 def compute_priority_breakdown(
     *,
@@ -149,6 +161,17 @@ def compute_priority_breakdown(
         "interop_risk_bonus": interop_risk_bonus,
         "total": total,
         "reason": ", ".join(reasons),
+        "priority_factors": build_priority_factors(
+            severity_base=severity_base,
+            class_risk_bonus=class_risk_bonus,
+            evidence_bonus=evidence_bonus,
+            spread_bonus=spread_bonus,
+            scanner_bonus=scanner_bonus,
+            exposure_bonus=exposure_bonus,
+            hndl_bonus=hndl_bonus,
+            migration_complexity_bonus=migration_complexity_bonus,
+            interop_risk_bonus=interop_risk_bonus,
+        ),
         "factor_notes": PRIORITY_FACTOR_NOTES,
     }
 
@@ -185,3 +208,21 @@ def interop_risk_bonus_score(paths: Iterable[str], messages: Iterable[str], cont
         [*(str(path) for path in paths), *(str(message) for message in messages), *(str(context) for context in contexts)]
     ).lower()
     return 8 if any(keyword in joined for keyword in INTEROP_KEYWORDS) else 0
+
+
+def build_priority_factors(**scores: int) -> list[dict[str, object]]:
+    factors: list[dict[str, object]] = []
+    for key in PRIORITY_FACTOR_ORDER:
+        score = int(scores.get(key, 0) or 0)
+        note = PRIORITY_FACTOR_NOTES[key]
+        factors.append(
+            {
+                "key": key,
+                "label": note["label"],
+                "score": score,
+                "formula": note["formula"],
+                "source_basis": note["source_basis"],
+                "evidence_type": note["evidence_type"],
+            }
+        )
+    return factors

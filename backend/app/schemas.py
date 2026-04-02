@@ -104,6 +104,15 @@ class FindingsResponse(BaseModel):
 
 
 # 5) GET /api/scans/{uuid}/recommendations
+class PriorityFactorItem(BaseModel):
+    key: str
+    label: str
+    score: int
+    formula: str
+    sourceBasis: str
+    evidenceType: str
+
+
 class RecommendationEvidence(BaseModel):
     normalizedClass: Optional[str] = None
     priorityReason: Optional[str] = None
@@ -113,6 +122,7 @@ class RecommendationEvidence(BaseModel):
     scannerTypes: List[str] = Field(default_factory=list)
     normativeEvidenceCount: int = 0
     benchmarkEvidenceCount: int = 0
+    priorityFactors: List[PriorityFactorItem] = Field(default_factory=list)
 
 
 class RecommendationGuidance(BaseModel):

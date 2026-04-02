@@ -42,6 +42,15 @@ class RefactorCostEstimate(BaseModel):
     affected_files: int
 
 
+class PriorityFactor(BaseModel):
+    key: str
+    label: str
+    score: int
+    formula: str
+    source_basis: str
+    evidence_type: str
+
+
 class RecommendationPayload(BaseModel):
     title: str
     description: str
@@ -55,6 +64,7 @@ class RecommendationPayload(BaseModel):
     benchmark_notes: list[str] = Field(default_factory=list)
     assumptions: list[str] = Field(default_factory=list)
     confidence_reason: str | None = None
+    priority_factors: list[PriorityFactor] = Field(default_factory=list)
 
 
 class AiAnalysisResponse(BaseModel):

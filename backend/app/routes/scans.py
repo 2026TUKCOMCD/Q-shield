@@ -17,7 +17,7 @@ from app.schemas import (
     ScanBulkDeleteRequest, ScanBulkDeleteResponse,
     FindingsResponse,
     InventoryResponse, InventoryAsset,
-    RecommendationsResponse, RecommendationItem, RecommendationEvidence, RecommendationGuidance, RecommendationTrust,
+    RecommendationsResponse, RecommendationItem, RecommendationEvidence, RecommendationGuidance, RecommendationTrust, PriorityFactorItem,
     AiAnalysisResponse, AiAnalysisStartResponse,
     HeatmapResponse, HeatmapNode,
 )
@@ -124,6 +124,7 @@ def _build_recommendation_evidence(
     scanner_types: list[str] | None,
     normative_evidence_count: int = 0,
     benchmark_evidence_count: int = 0,
+    priority_factors: list[dict] | None = None,
 ) -> RecommendationEvidence:
     paths = list(affected_paths or [])
     scanners = list(scanner_types or [])
@@ -136,7 +137,26 @@ def _build_recommendation_evidence(
         scannerTypes=scanners,
         normativeEvidenceCount=normative_evidence_count,
         benchmarkEvidenceCount=benchmark_evidence_count,
+        priorityFactors=_build_priority_factors(priority_factors),
     )
+
+
+def _build_priority_factors(factors: list[dict] | None) -> list[PriorityFactorItem]:
+    built: list[PriorityFactorItem] = []
+    for factor in factors or []:
+        if not isinstance(factor, dict):
+            continue
+        built.append(
+            PriorityFactorItem(
+                key=str(factor.get("key") or ""),
+                label=str(factor.get("label") or ""),
+                score=int(factor.get("score") or 0),
+                formula=str(factor.get("formula") or ""),
+                sourceBasis=str(factor.get("source_basis") or factor.get("sourceBasis") or ""),
+                evidenceType=str(factor.get("evidence_type") or factor.get("evidenceType") or ""),
+            )
+        )
+    return built
 
 
 def _build_recommendation_guidance(
@@ -616,6 +636,7 @@ def get_recommendations(
                         evidence_count=int(plan["evidence_count"]),
                         affected_paths=affected_paths,
                         scanner_types=list(plan.get("scanner_types") or []),
+                        priority_factors=list(plan.get("priority_factors") or []),
                     ),
                     guidance=_build_recommendation_guidance(
                         summary=str(plan["ai_recommendation"]),
@@ -656,6 +677,7 @@ def get_recommendations(
                         evidence_count=None,
                         affected_paths=[file_path] if file_path else [],
                         scanner_types=[],
+                        priority_factors=[],
                     ),
                     guidance=_build_recommendation_guidance(
                         summary=r.ai_recommendation or "",

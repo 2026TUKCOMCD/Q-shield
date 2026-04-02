@@ -114,7 +114,7 @@ def build_recommendation_plan(findings: Iterable[dict]) -> list[dict]:
         template = bucket["template"]
         affected_paths = sorted(bucket["paths"])
         scanner_types = sorted(bucket["scanner_types"])
-        score, reason = _compute_priority_score(
+        score, reason, breakdown = _compute_priority_score(
             key=key,
             max_severity=bucket["max_severity"],
             issue_count=bucket["issue_count"],
@@ -133,6 +133,7 @@ def build_recommendation_plan(findings: Iterable[dict]) -> list[dict]:
                 "estimated_effort": template["estimated_effort"],
                 "priority_score": score,
                 "priority_reason": reason,
+                "priority_factors": list(breakdown["priority_factors"]),
                 "evidence_count": bucket["issue_count"],
                 "affected_files_count": len(affected_paths),
                 "affected_file_paths": affected_paths,
@@ -204,7 +205,7 @@ def _compute_priority_score(
     scanner_types: list[str],
     contexts: list[str],
     messages: list[str],
-) -> tuple[int, str]:
+) -> tuple[int, str, dict]:
     template = TEMPLATES.get(key, TEMPLATES["library"])
     breakdown = compute_priority_breakdown(
         class_key=key,
@@ -216,7 +217,7 @@ def _compute_priority_score(
         messages=messages,
         algorithm_label=str(template["algorithm"]),
     )
-    return int(breakdown["total"]), str(breakdown["reason"])
+    return int(breakdown["total"]), str(breakdown["reason"]), breakdown
 
 
 def _build_recommendation_markdown(

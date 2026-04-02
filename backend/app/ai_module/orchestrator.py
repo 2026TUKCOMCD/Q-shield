@@ -390,6 +390,9 @@ def _enrich_recommendations(
             if planner_item is not None
             else f"Derived from {len(related_findings)} related findings matched to this migration target."
         )
+        priority_factors = list(recommendation.priority_factors or [])
+        if not priority_factors and planner_item is not None:
+            priority_factors = list(planner_item.get("priority_factors") or [])
 
         updated_recommendations.append(
             recommendation.model_copy(
@@ -401,6 +404,7 @@ def _enrich_recommendations(
                     "benchmark_notes": benchmark_notes,
                     "assumptions": assumptions,
                     "confidence_reason": confidence_reason,
+                    "priority_factors": priority_factors,
                 }
             )
         )

@@ -32,6 +32,8 @@ def test_priority_breakdown_adds_exposure_and_scanner_corroboration():
     assert breakdown["migration_complexity_bonus"] == 6
     assert breakdown["interop_risk_bonus"] == 8
     assert breakdown["total"] == 102
+    assert len(breakdown["priority_factors"]) == 9
+    assert breakdown["priority_factors"][0]["key"] == "severity_base"
     assert "RSA class risk" in breakdown["reason"]
     assert "signals from SAST, SCA" in breakdown["reason"]
     assert "auth/tls-facing usage" in breakdown["reason"]
