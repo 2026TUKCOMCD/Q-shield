@@ -120,6 +120,8 @@ def build_recommendation_plan(findings: Iterable[dict]) -> list[dict]:
             issue_count=bucket["issue_count"],
             affected_paths=affected_paths,
             scanner_types=scanner_types,
+            contexts=sorted(bucket["contexts"]),
+            messages=sorted(bucket["messages"]),
         )
         ranked.append(
             {
@@ -200,6 +202,8 @@ def _compute_priority_score(
     issue_count: int,
     affected_paths: list[str],
     scanner_types: list[str],
+    contexts: list[str],
+    messages: list[str],
 ) -> tuple[int, str]:
     template = TEMPLATES.get(key, TEMPLATES["library"])
     breakdown = compute_priority_breakdown(
@@ -208,6 +212,8 @@ def _compute_priority_score(
         issue_count=issue_count,
         affected_paths=affected_paths,
         scanner_types=scanner_types,
+        contexts=contexts,
+        messages=messages,
         algorithm_label=str(template["algorithm"]),
     )
     return int(breakdown["total"]), str(breakdown["reason"])

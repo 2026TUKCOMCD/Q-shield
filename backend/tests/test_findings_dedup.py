@@ -263,3 +263,5 @@ def test_recommendation_plan_adds_priority_reason_and_evidence_summary():
     assert set(rsa_item["scanner_types"]) == {"SAST", "SCA"}
     assert "RSA class risk" in rsa_item["priority_reason"]
     assert "auth/tls-facing usage" in rsa_item["priority_reason"]
+    assert "possible HNDL-sensitive path" in rsa_item["priority_reason"]
+    assert "migration complexity signal" in rsa_item["priority_reason"]

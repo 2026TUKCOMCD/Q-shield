@@ -17,6 +17,8 @@ def test_priority_breakdown_adds_exposure_and_scanner_corroboration():
         issue_count=2,
         affected_paths=["src/auth/token_service.py", "nginx/tls.conf"],
         scanner_types=["SAST", "SCA"],
+        contexts=["code", "dependency"],
+        messages=["RSA-based JWT signing detected", "TLS gateway dependency signal"],
         algorithm_label="RSA",
     )
 
@@ -26,7 +28,13 @@ def test_priority_breakdown_adds_exposure_and_scanner_corroboration():
     assert breakdown["spread_bonus"] == 8
     assert breakdown["scanner_bonus"] == 8
     assert breakdown["exposure_bonus"] == 10
-    assert breakdown["total"] == 86
+    assert breakdown["hndl_bonus"] == 8
+    assert breakdown["migration_complexity_bonus"] == 6
+    assert breakdown["interop_risk_bonus"] == 8
+    assert breakdown["total"] == 102
     assert "RSA class risk" in breakdown["reason"]
     assert "signals from SAST, SCA" in breakdown["reason"]
     assert "auth/tls-facing usage" in breakdown["reason"]
+    assert "possible HNDL-sensitive path" in breakdown["reason"]
+    assert "migration complexity signal" in breakdown["reason"]
+    assert "interop-sensitive boundary" in breakdown["reason"]
