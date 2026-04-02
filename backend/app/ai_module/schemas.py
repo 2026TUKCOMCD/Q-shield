@@ -12,6 +12,10 @@ class Citation(BaseModel):
     page: int | None = None
     url: str | None = None
     snippet: str
+    source_type: str | None = None
+    claim_type: str | None = None
+    topic: str | None = None
+    authority_weight: int | None = None
 
 
 class AffectedLocation(BaseModel):
@@ -38,6 +42,21 @@ class RefactorCostEstimate(BaseModel):
     affected_files: int
 
 
+class PriorityFactor(BaseModel):
+    key: str
+    label: str
+    score: int
+    formula: str
+    source_basis: str
+    evidence_type: str
+
+
+class BenchmarkSupportItem(BaseModel):
+    note: str
+    citation_keys: list[str] = Field(default_factory=list)
+    citation_titles: list[str] = Field(default_factory=list)
+
+
 class RecommendationPayload(BaseModel):
     title: str
     description: str
@@ -46,6 +65,13 @@ class RecommendationPayload(BaseModel):
     code_fix_examples: list[CodeFixExample] = Field(default_factory=list)
     citations: list[Citation] = Field(default_factory=list)
     confidence: float = Field(ge=0.0, le=1.0)
+    priority_reason: str | None = None
+    validation_checklist: list[str] = Field(default_factory=list)
+    benchmark_notes: list[str] = Field(default_factory=list)
+    assumptions: list[str] = Field(default_factory=list)
+    confidence_reason: str | None = None
+    priority_factors: list[PriorityFactor] = Field(default_factory=list)
+    benchmark_support: list[BenchmarkSupportItem] = Field(default_factory=list)
 
 
 class AiAnalysisResponse(BaseModel):

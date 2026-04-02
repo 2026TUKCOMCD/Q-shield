@@ -1,4 +1,5 @@
 export * from './scanService'
 export * from './inventoryService'
+export * from './aiRecommendationService'
 export * from './recommendationService'
 export * from './heatmapService'

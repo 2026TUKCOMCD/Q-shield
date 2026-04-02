@@ -18,9 +18,10 @@ class SCAScanner:
     def scan_file(self, file_metadata: FileMetadata) -> SCAResult:
         """Scan a dependency manifest file."""
         file_name = file_metadata.file_name
+        parser_key = file_name.lower()
         
         # Unsupported dependency manifest
-        if file_name not in PARSERS:
+        if parser_key not in PARSERS:
             return SCAResult(
                 file_path=file_metadata.file_path,
                 total_dependencies=0,
@@ -31,7 +32,7 @@ class SCAScanner:
         
         # Parse dependency manifest
         try:
-            parser = PARSERS[file_name]
+            parser = PARSERS[parser_key]
             dependencies = parser.parse(file_metadata.absolute_path)
         except Exception as e:
             return SCAResult(

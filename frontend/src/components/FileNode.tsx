@@ -14,6 +14,8 @@ import {
   getRiskLevel,
   getRiskColor,
   calculateVulnerabilityCount,
+  getHeatmapTrustNote,
+  inferHeatmapBoundary,
 } from '../services/heatmapService'
 
 interface FileNodeProps {
@@ -45,6 +47,8 @@ export const FileNode = ({ node, level = 0 }: FileNodeProps) => {
   const hasChildren = isFolder && node.children && node.children.length > 0
 
   const vulnerabilityCount = isFolder ? calculateVulnerabilityCount(node) : 0
+  const boundaryLabel = inferHeatmapBoundary(node)
+  const trustNote = getHeatmapTrustNote(node)
 
   const handleToggle = () => {
     if (isFolder && hasChildren) {
@@ -120,6 +124,17 @@ export const FileNode = ({ node, level = 0 }: FileNodeProps) => {
             {vulnerabilityCount} {vulnerabilityCount === 1 ? 'issue' : 'issues'}
           </span>
         )}
+      </div>
+      <div
+        className="mt-1 flex flex-wrap items-center gap-2 px-3"
+        style={{ paddingLeft: `${level * 1.5 + 2.5}rem` }}
+      >
+        {boundaryLabel && (
+          <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] text-slate-300">
+            {boundaryLabel}
+          </span>
+        )}
+        <span className="text-[11px] text-slate-500">{trustNote}</span>
       </div>
       {isFolder && hasChildren && isExpanded && (
         <div className="mt-1">

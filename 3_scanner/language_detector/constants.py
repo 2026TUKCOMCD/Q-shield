@@ -120,8 +120,8 @@ DEPENDENCY_LANGUAGE_MAP = {
     "package-lock.json": "javascript",
     "yarn.lock": "javascript",
     "requirements.txt": "python",
-    "Pipfile": "python",
-    "Pipfile.lock": "python",
+    "pipfile": "python",
+    "pipfile.lock": "python",
     "setup.py": "python",
     "pyproject.toml": "python",
     "pom.xml": "java",
@@ -129,10 +129,10 @@ DEPENDENCY_LANGUAGE_MAP = {
     "build.gradle.kts": "java",
     "go.mod": "go",
     "go.sum": "go",
-    "Gemfile": "ruby",
-    "Gemfile.lock": "ruby",
-    "Cargo.toml": "rust",
-    "Cargo.lock": "rust",
+    "gemfile": "ruby",
+    "gemfile.lock": "ruby",
+    "cargo.toml": "rust",
+    "cargo.lock": "rust",
 }
 
 # 무시할 디렉토리

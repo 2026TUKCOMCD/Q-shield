@@ -10,6 +10,10 @@ export interface AiCitation {
   page?: number | null
   url?: string | null
   snippet: string
+  source_type?: string | null
+  claim_type?: string | null
+  topic?: string | null
+  authority_weight?: number | null
 }
 
 export interface AiAffectedLocation {
@@ -30,6 +34,21 @@ export interface AiCodeFixExample {
   confidence: number
 }
 
+export interface AiPriorityFactor {
+  key: string
+  label: string
+  score: number
+  formula: string
+  source_basis: string
+  evidence_type: string
+}
+
+export interface AiBenchmarkSupportItem {
+  note: string
+  citation_keys: string[]
+  citation_titles: string[]
+}
+
 export interface AiAnalysisRecommendation {
   title: string
   description: string
@@ -38,6 +57,13 @@ export interface AiAnalysisRecommendation {
   code_fix_examples?: AiCodeFixExample[]
   citations: AiCitation[]
   confidence: number
+  priority_reason?: string | null
+  validation_checklist?: string[]
+  benchmark_notes?: string[]
+  assumptions?: string[]
+  confidence_reason?: string | null
+  priority_factors?: AiPriorityFactor[]
+  benchmark_support?: AiBenchmarkSupportItem[]
 }
 
 export interface AiRefactorCostEstimate {

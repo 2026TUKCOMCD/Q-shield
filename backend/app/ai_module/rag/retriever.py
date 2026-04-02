@@ -4,6 +4,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 from app.ai_module.rag.embeddings import EmbeddingsError, embed_texts
 from app.ai_module.rag.indexer import build_or_load_index
@@ -13,9 +14,98 @@ from app.config import AI_RAG_CORPUS_PATH
 
 logger = logging.getLogger(__name__)
 
+NORMATIVE_CLAIM_TYPES = {"normative", "migration_guidance", "risk_guidance"}
+BENCHMARK_CLAIM_TYPES = {"benchmark", "benchmark_guidance"}
+NORMATIVE_SOURCE_TYPES = {"NIST_STANDARD", "NIST_GUIDE"}
+BENCHMARK_SOURCE_TYPES = {"BENCHMARK", "ACADEMIC_PAPER"}
+
 
 def _tokenize(value: str) -> set[str]:
     return set(token for token in re.findall(r"[a-z0-9\-]+", value.lower()) if len(token) > 1)
+
+
+def _infer_query_mode(query_text: str) -> str:
+    text = query_text.lower()
+    benchmark_tokens = (
+        "benchmark",
+        "performance",
+        "latency",
+        "throughput",
+        "interop",
+        "interoperability",
+        "handshake",
+        "certificate",
+        "cert chain",
+        "hsm",
+        "quic",
+        "keep-alive",
+    )
+    normative_tokens = (
+        "nist",
+        "guidance",
+        "standard",
+        "migration",
+        "transition",
+        "risk",
+        "security category",
+        "readiness",
+        "inventory",
+        "roadmap",
+    )
+
+    has_benchmark = any(token in text for token in benchmark_tokens)
+    has_normative = any(token in text for token in normative_tokens)
+
+    if has_benchmark and not has_normative:
+        return "benchmark"
+    if has_benchmark and has_normative:
+        return "mixed"
+    return "normative"
+
+
+def _claim_preference_score(chunk: dict[str, Any], query_mode: str) -> int:
+    claim_type = str(chunk.get("claim_type") or "").strip()
+    source_type = str(chunk.get("source_type") or "").strip()
+
+    if query_mode == "benchmark":
+        if claim_type in BENCHMARK_CLAIM_TYPES:
+            return 4
+        if source_type in BENCHMARK_SOURCE_TYPES:
+            return 3
+        if claim_type in NORMATIVE_CLAIM_TYPES or source_type in NORMATIVE_SOURCE_TYPES:
+            return 2
+        return 1
+
+    if query_mode == "mixed":
+        if claim_type in NORMATIVE_CLAIM_TYPES or source_type in NORMATIVE_SOURCE_TYPES:
+            return 4
+        if claim_type in BENCHMARK_CLAIM_TYPES or source_type in BENCHMARK_SOURCE_TYPES:
+            return 3
+        return 1
+
+    if claim_type in NORMATIVE_CLAIM_TYPES:
+        return 5
+    if source_type in NORMATIVE_SOURCE_TYPES:
+        return 4
+    if claim_type in BENCHMARK_CLAIM_TYPES:
+        return 2
+    if source_type in BENCHMARK_SOURCE_TYPES:
+        return 1
+    return 0
+
+
+def _sort_chunks_for_query(chunks: list[dict[str, Any]], query_text: str, *, top_k: int) -> list[dict[str, Any]]:
+    query_mode = _infer_query_mode(query_text)
+
+    def sort_key(chunk: dict[str, Any]) -> tuple[int, int, float]:
+        preference = _claim_preference_score(chunk, query_mode)
+        authority_weight = int(chunk.get("authority_weight") or 0)
+        distance = chunk.get("distance")
+        normalized_distance = float(distance) if isinstance(distance, (int, float)) else 9999.0
+        return (preference, authority_weight, -normalized_distance)
+
+    ranked = sorted(chunks, key=sort_key, reverse=True)
+    return ranked[: max(1, int(top_k))]
 
 
 class RetrievalError(RuntimeError):
@@ -148,7 +238,8 @@ def retrieve_relevant_chunks_with_debug(query_text: str, *, top_k: int = 6) -> R
         return result
 
     try:
-        result.chunks = store.query(query_embedding, top_k=top_k)
+        raw_chunks = store.query(query_embedding, top_k=max(int(top_k) * 2, int(top_k)))
+        result.chunks = _sort_chunks_for_query(raw_chunks, query, top_k=top_k)
     except Exception as exc:
         result.failure_reason = f"Vector query failed: {exc}"
         logger.error("ai_rag.retrieve status=%s", result.to_dict())
@@ -180,8 +271,10 @@ def _retrieve_legacy_citations(query: str, *, top_k: int = 3, corpus_path: str |
 
     ranked.sort(key=lambda item: (-item[0], item[1]))
 
+    sorted_chunks = _sort_chunks_for_query([chunk for _, _, chunk in ranked], query, top_k=top_k)
+
     citations: list[Citation] = []
-    for _, _, chunk in ranked[:top_k]:
+    for chunk in sorted_chunks:
         citations.append(
             Citation(
                 doc_id=str(chunk.get("doc_id") or "unknown"),
@@ -190,6 +283,10 @@ def _retrieve_legacy_citations(query: str, *, top_k: int = 3, corpus_path: str |
                 page=int(chunk["page"]) if chunk.get("page") is not None else None,
                 url=chunk.get("url"),
                 snippet=str(chunk.get("snippet") or ""),
+                source_type=chunk.get("source_type"),
+                claim_type=chunk.get("claim_type"),
+                topic=chunk.get("topic"),
+                authority_weight=int(chunk["authority_weight"]) if chunk.get("authority_weight") is not None else None,
             )
         )
     return citations
@@ -208,6 +305,10 @@ def retrieve_citations(query: str, *, top_k: int = 3, corpus_path: str | None = 
                     page=int(chunk["page"]) if chunk.get("page") is not None else None,
                     url=chunk.get("url"),
                     snippet=str(chunk.get("text") or ""),
+                    source_type=chunk.get("source_type"),
+                    claim_type=chunk.get("claim_type"),
+                    topic=chunk.get("topic"),
+                    authority_weight=int(chunk["authority_weight"]) if chunk.get("authority_weight") is not None else None,
                 )
             )
         return citations

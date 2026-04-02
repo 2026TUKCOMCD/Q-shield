@@ -24,6 +24,10 @@ Scope: normalized findings persisted to the DB via `backend/app/models.py` (`Fin
 - SAST: `detected_pattern`, `recommendation`.
 - SCA: `library`, `current_version`, `dependency_type`, `pqc_support`, `pqc_version`, `alternatives`.
 - CONFIG: `recommendation`, `duplicate_count` (added during dedup).
+- Cross-layer correlation:
+  - `algorithm_family`: normalized cryptographic family such as `rsa-public-key`, `weak-hash`
+  - `asset_ref`: stable asset identifier used across findings/inventory/recommendations
+  - `correlation_ref`: higher-level grouping key used for CBOM-style correlation
 
 ## Examples
 
@@ -44,6 +48,9 @@ Scope: normalized findings persisted to the DB via `backend/app/models.py` (`Fin
     "message": "RSA key generation detected",
     "severity_score": 80,
     "usage_type": "code",
+    "algorithm_family": "rsa-public-key",
+    "asset_ref": "code:rsa-public-key:src/app.py",
+    "correlation_ref": "rsa-public-key:general",
     "detected_pattern": "RSA.generate",
     "recommendation": "Use PQC-safe alternatives"
   }
@@ -67,6 +74,9 @@ Scope: normalized findings persisted to the DB via `backend/app/models.py` (`Fin
     "message": "RSA-only library without PQC support.",
     "severity_score": 80,
     "usage_type": "dependency",
+    "algorithm_family": "rsa-public-key",
+    "asset_ref": "dependency:rsa-public-key:package.json#node-rsa",
+    "correlation_ref": "rsa-public-key:general",
     "library": "node-rsa",
     "current_version": "1.1.1",
     "dependency_type": "runtime",
@@ -93,6 +103,9 @@ Scope: normalized findings persisted to the DB via `backend/app/models.py` (`Fin
     "message": "Outdated TLS version",
     "severity_score": 80,
     "usage_type": "config",
+    "algorithm_family": "legacy-crypto",
+    "asset_ref": "config:legacy-crypto:nginx.conf",
+    "correlation_ref": "legacy-crypto:tls-cert",
     "recommendation": "Upgrade to TLS 1.3"
   }
 }
