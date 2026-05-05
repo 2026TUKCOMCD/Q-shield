@@ -48,12 +48,14 @@ def create_access_token(
     expires_minutes: int | None = None,
     email: str | None = None,
     provider: str | None = None,
+    username: str | None = None,
 ) -> str:
     expire_delta = timedelta(minutes=expires_minutes or AUTH_ACCESS_TOKEN_EXPIRES_MINUTES)
     now = datetime.now(timezone.utc)
     payload: dict[str, Any] = {
         "sub": str(user_uuid),
         "user_id": str(user_uuid),
+        "username": username,
         "email": email,
         "provider": provider,
         "type": "access",

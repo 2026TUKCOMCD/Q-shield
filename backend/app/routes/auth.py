@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import re
 from typing import Any
 from urllib.parse import urlencode
 
@@ -39,16 +40,18 @@ GITHUB_AUTH_URL = "https://github.com/login/oauth/authorize"
 GITHUB_TOKEN_URL = "https://github.com/login/oauth/access_token"
 GITHUB_USER_URL = "https://api.github.com/user"
 GITHUB_EMAILS_URL = "https://api.github.com/user/emails"
+EMAIL_PATTERN = re.compile(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{3,}$")
 
 
 class SignupRequest(BaseModel):
+    username: str = Field(min_length=3, max_length=50)
     email: str = Field(min_length=3, max_length=320)
     password: str = Field(min_length=8, max_length=128)
     displayName: str | None = Field(default=None, max_length=120)
 
 
 class LoginRequest(BaseModel):
-    email: str = Field(min_length=3, max_length=320)
+    username: str = Field(min_length=3, max_length=50)
     password: str = Field(min_length=8, max_length=128)
 
 
@@ -71,11 +74,32 @@ def _normalize_email(email: str) -> str:
     return email.strip().lower()
 
 
-def _find_active_user_by_email(db: Session, email: str) -> User | None:
+def _validate_signup_email(email: str) -> str:
     normalized = _normalize_email(email)
+    if not EMAIL_PATTERN.fullmatch(normalized):
+        raise HTTPException(status_code=400, detail="Enter a valid email address like name@example.com.")
+    return normalized
+
+
+def _normalize_username(username: str) -> str:
+    return username.strip().lower()
+
+
+def _validate_username(username: str) -> str:
+    normalized = _normalize_username(username)
+    if not re.fullmatch(r"[a-z0-9_][a-z0-9_.-]{2,49}", normalized):
+        raise HTTPException(
+            status_code=400,
+            detail="Username must be 3-50 characters and use letters, numbers, dot, dash, or underscore",
+        )
+    return normalized
+
+
+def _find_active_user_by_username(db: Session, username: str) -> User | None:
+    normalized = _normalize_username(username)
     return (
         db.query(User)
-        .filter(func.lower(User.email) == normalized)
+        .filter(func.lower(User.username) == normalized)
         .filter(User.deleted_at.is_(None))
         .first()
     )
@@ -84,6 +108,7 @@ def _find_active_user_by_email(db: Session, email: str) -> User | None:
 def _user_payload(user: User, provider: str | None = None) -> dict[str, Any]:
     return {
         "uuid": str(user.uuid),
+        "username": user.username,
         "email": user.email,
         "displayName": user.display_name,
         "avatarUrl": user.avatar_url,
@@ -243,35 +268,16 @@ def _upsert_oauth_user(db: Session, profile: OAuthProfile) -> User:
         if not user or user.deleted_at is not None:
             raise HTTPException(status_code=401, detail="OAuth identity is inactive")
     else:
-        user = None
-        if profile.email:
-            existing_email_user = _find_active_user_by_email(db, profile.email)
-            if existing_email_user:
-                if not profile.email_verified:
-                    raise HTTPException(status_code=409, detail="Email already registered")
-                user = existing_email_user
-                existing_provider_identity = (
-                    db.query(AuthIdentity)
-                    .filter(AuthIdentity.user_uuid == user.uuid)
-                    .filter(AuthIdentity.provider == profile.provider)
-                    .filter(AuthIdentity.deleted_at.is_(None))
-                    .first()
-                )
-                if existing_provider_identity:
-                    raise HTTPException(status_code=409, detail="Account is already linked to this provider")
-                # TODO: In production, require an explicit account-link confirmation screen
-                # before attaching a new OAuth provider to an existing email account.
-
-        if not user:
-            user = User(
-                email=profile.email,
-                display_name=profile.name,
-                avatar_url=profile.avatar_url,
-                status="ACTIVE",
-                is_email_verified=profile.email_verified,
-            )
-            db.add(user)
-            db.flush()
+        user = User(
+            username=None,
+            email=profile.email,
+            display_name=profile.name,
+            avatar_url=profile.avatar_url,
+            status="ACTIVE",
+            is_email_verified=profile.email_verified,
+        )
+        db.add(user)
+        db.flush()
 
         identity = AuthIdentity(
             user_uuid=user.uuid,
@@ -299,7 +305,7 @@ def _complete_oauth_login(db: Session, provider: str, code: str, state: str) -> 
         verify_oauth_state(state, provider)
         profile = _exchange_google_code(code) if provider == "google" else _exchange_github_code(code)
         user = _upsert_oauth_user(db, profile)
-        token = create_access_token(user.uuid, email=user.email, provider=provider)
+        token = create_access_token(user.uuid, email=user.email, provider=provider, username=user.username)
     except httpx.HTTPError:
         return _frontend_error_redirect("OAuth provider request failed")
     except HTTPException as exc:
@@ -312,16 +318,18 @@ def _complete_oauth_login(db: Session, provider: str, code: str, state: str) -> 
 
 @router.post("/signup", response_model=AuthTokenResponse, status_code=201)
 def signup(payload: SignupRequest, db: Session = Depends(get_db)):
-    normalized_email = _normalize_email(payload.email)
+    username = _validate_username(payload.username)
+    normalized_email = _validate_signup_email(payload.email)
 
-    existing = _find_active_user_by_email(db, normalized_email)
+    existing = _find_active_user_by_username(db, username)
     if existing:
-        raise HTTPException(status_code=409, detail="Email already registered")
+        raise HTTPException(status_code=409, detail="Username already registered")
 
     user = User(
+        username=username,
         email=normalized_email,
         password_hash=hash_password(payload.password),
-        display_name=payload.displayName,
+        display_name=payload.displayName or username,
         status="ACTIVE",
         is_email_verified=False,
     )
@@ -331,7 +339,7 @@ def signup(payload: SignupRequest, db: Session = Depends(get_db)):
     identity = AuthIdentity(
         user_uuid=user.uuid,
         provider="local",
-        provider_user_id=normalized_email,
+        provider_user_id=username,
         provider_email=normalized_email,
         is_primary=True,
     )
@@ -341,7 +349,7 @@ def signup(payload: SignupRequest, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(user)
 
-    token = create_access_token(user.uuid, email=user.email, provider="local")
+    token = create_access_token(user.uuid, email=user.email, provider="local", username=user.username)
     return AuthTokenResponse(
         accessToken=token,
         user=_user_payload(user, provider="local"),
@@ -350,15 +358,16 @@ def signup(payload: SignupRequest, db: Session = Depends(get_db)):
 
 @router.post("/login", response_model=AuthTokenResponse)
 def login(payload: LoginRequest, db: Session = Depends(get_db)):
-    user = _find_active_user_by_email(db, payload.email)
+    username = _validate_username(payload.username)
+    user = _find_active_user_by_username(db, username)
     if not user or not user.password_hash or not verify_password(payload.password, user.password_hash):
-        raise HTTPException(status_code=401, detail="Invalid email or password")
+        raise HTTPException(status_code=401, detail="Invalid username or password")
 
     user.last_login_at = datetime.now(timezone.utc)
     user.failed_login_count = 0
     db.commit()
 
-    token = create_access_token(user.uuid, email=user.email, provider="local")
+    token = create_access_token(user.uuid, email=user.email, provider="local", username=user.username)
     return AuthTokenResponse(
         accessToken=token,
         user=_user_payload(user, provider="local"),

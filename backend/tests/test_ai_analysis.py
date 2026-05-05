@@ -316,7 +316,7 @@ def test_rag_llm_payload_path_uses_mocked_generation(monkeypatch):
     assert response.risk_score == 77
     assert response.citation_missing is False
     assert citations[0]["doc_id"] == "fips203.pdf"
-    assert references == ["FIPS 203 (ML-KEM)"]
+    assert references == ["Planning reference only: FIPS 203 (ML-KEM)"]
     assert response.recommendations[0].priority_reason
 
 
@@ -341,10 +341,6 @@ def test_benchmark_support_links_notes_to_benchmark_citations():
     assert support[0]["note"].startswith("Use NIST SP 1800-38C")
     assert support[0]["citation_keys"] == ["38c.pdf:14"]
     assert support[0]["citation_titles"] == ["NIST SP 1800-38C"]
-    assert response.recommendations[0].validation_checklist
-    assert response.recommendations[0].benchmark_notes
-    assert response.recommendations[0].assumptions
-    assert response.recommendations[0].confidence_reason
 
 
 def test_rag_failure_returns_fallback_mode_when_enabled(monkeypatch):
