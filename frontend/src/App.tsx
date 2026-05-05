@@ -9,6 +9,7 @@ import { RepositoryHeatmap } from './pages/RepositoryHeatmap'
 import { InventoryDetail } from './pages/InventoryDetail'
 import { AuthPage } from './pages/AuthPage'
 import { AuthCallback } from './pages/AuthCallback'
+import { SettingsPage } from './pages/SettingsPage'
 import { useAuth } from './auth/AuthContext'
 
 function App() {
@@ -66,6 +67,10 @@ function App() {
           <Route
             path="/scans/:uuid/inventory/:assetId"
             element={isAuthenticated ? <InventoryDetail /> : <Navigate to="/auth/login" replace />}
+          />
+          <Route
+            path="/settings"
+            element={isAuthenticated ? <SettingsPage /> : <Navigate to="/auth/login" replace />}
           />
           <Route
             path="*"

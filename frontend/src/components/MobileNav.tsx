@@ -1,5 +1,5 @@
 ﻿import { Link, useLocation } from 'react-router-dom'
-import { Scan, History, Menu, X, Shield, LogOut } from 'lucide-react'
+import { Scan, History, Menu, X, Shield, LogOut, Settings } from 'lucide-react'
 import { useState } from 'react'
 import { useAuth } from '../auth/AuthContext'
 
@@ -18,6 +18,11 @@ export const MobileNav = () => {
       path: '/scans/history',
       label: 'History',
       icon: History,
+    },
+    {
+      path: '/settings',
+      label: 'Settings',
+      icon: Settings,
     },
   ]
 

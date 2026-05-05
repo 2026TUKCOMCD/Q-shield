@@ -14,6 +14,20 @@ const apiClient: AxiosInstance = axios.create({
   withCredentials: false,
 })
 
+const nonSessionUnauthorizedMessages = new Set([
+  'Current password is incorrect',
+  'Invalid username or password',
+])
+
+const getResponseDetail = (data: unknown): string | undefined => {
+  if (!data || typeof data !== 'object' || !('detail' in data)) {
+    return undefined
+  }
+
+  const detail = (data as { detail?: unknown }).detail
+  return typeof detail === 'string' ? detail : undefined
+}
+
 apiClient.interceptors.request.use(
   (requestConfig: InternalAxiosRequestConfig): InternalAxiosRequestConfig => {
     const accessToken = tokenStore.getAccessToken()
@@ -47,7 +61,8 @@ apiClient.interceptors.response.use(
     return response
   },
   (error) => {
-    if (error?.response?.status === 401) {
+    const detail = getResponseDetail(error?.response?.data)
+    if (error?.response?.status === 401 && !nonSessionUnauthorizedMessages.has(detail || '')) {
       tokenStore.clear()
       window.dispatchEvent(new Event('auth:unauthorized'))
     }

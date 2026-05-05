@@ -9,6 +9,8 @@ export interface AuthUser {
   avatarUrl?: string | null
   status: string
   provider?: string | null
+  canChangePassword?: boolean
+  lastLoginAt?: string | null
 }
 
 export interface AuthTokenResponse {

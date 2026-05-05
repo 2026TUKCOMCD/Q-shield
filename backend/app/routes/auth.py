@@ -4,7 +4,7 @@ from typing import Any
 from urllib.parse import urlencode
 
 import httpx
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, Response
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import func
@@ -53,6 +53,21 @@ class SignupRequest(BaseModel):
 class LoginRequest(BaseModel):
     username: str = Field(min_length=3, max_length=50)
     password: str = Field(min_length=8, max_length=128)
+
+
+class UpdateProfileRequest(BaseModel):
+    username: str | None = Field(default=None, min_length=3, max_length=50)
+    displayName: str | None = Field(default=None, max_length=120)
+
+
+class ChangePasswordRequest(BaseModel):
+    currentPassword: str = Field(min_length=8, max_length=128)
+    newPassword: str = Field(min_length=8, max_length=128)
+
+
+class DeleteAccountRequest(BaseModel):
+    currentPassword: str | None = Field(default=None, min_length=8, max_length=128)
+    confirmation: str = Field(min_length=1, max_length=120)
 
 
 class AuthTokenResponse(BaseModel):
@@ -105,15 +120,51 @@ def _find_active_user_by_username(db: Session, username: str) -> User | None:
     )
 
 
+def _active_identity_for_provider(db: Session, user: User, provider: str) -> AuthIdentity | None:
+    return (
+        db.query(AuthIdentity)
+        .filter(AuthIdentity.user_uuid == user.uuid)
+        .filter(AuthIdentity.provider == provider)
+        .filter(AuthIdentity.deleted_at.is_(None))
+        .first()
+    )
+
+
+def _primary_provider(db: Session, user: User) -> str | None:
+    primary = (
+        db.query(AuthIdentity)
+        .filter(AuthIdentity.user_uuid == user.uuid)
+        .filter(AuthIdentity.deleted_at.is_(None))
+        .order_by(AuthIdentity.is_primary.desc(), AuthIdentity.id.asc())
+        .first()
+    )
+    return primary.provider if primary else None
+
+
+def _get_current_user(
+    db: Session,
+    authorization: str | None,
+) -> User:
+    user_uuid = extract_user_uuid_from_auth_header(authorization)
+    if user_uuid is None:
+        raise HTTPException(status_code=401, detail="Authorization required")
+
+    user = db.query(User).filter(User.uuid == user_uuid).filter(User.deleted_at.is_(None)).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
+
+
 def _user_payload(user: User, provider: str | None = None) -> dict[str, Any]:
     return {
         "uuid": str(user.uuid),
-        "username": user.username,
+        "username": user.username or user.display_name,
         "email": user.email,
         "displayName": user.display_name,
         "avatarUrl": user.avatar_url,
         "status": user.status,
         "provider": provider,
+        "canChangePassword": bool(user.password_hash),
     }
 
 
@@ -374,6 +425,90 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
     )
 
 
+@router.patch("/profile", response_model=AuthTokenResponse)
+def update_profile(
+    payload: UpdateProfileRequest,
+    db: Session = Depends(get_db),
+    authorization: str | None = Header(default=None, alias="Authorization"),
+):
+    user = _get_current_user(db, authorization)
+    provider = _primary_provider(db, user)
+
+    if payload.username is not None:
+        if not user.password_hash:
+            raise HTTPException(
+                status_code=400,
+                detail="Username can only be changed for Username & Password accounts",
+            )
+
+        username = _validate_username(payload.username)
+        existing = _find_active_user_by_username(db, username)
+        if existing and existing.uuid != user.uuid:
+            raise HTTPException(status_code=409, detail="Username already registered")
+
+        user.username = username
+        local_identity = _active_identity_for_provider(db, user, "local")
+        if local_identity:
+            local_identity.provider_user_id = username
+
+    if payload.displayName is not None:
+        display_name = payload.displayName.strip()
+        user.display_name = display_name or user.username or user.display_name
+
+    db.commit()
+    db.refresh(user)
+
+    token = create_access_token(user.uuid, email=user.email, provider=provider, username=user.username)
+    return AuthTokenResponse(
+        accessToken=token,
+        user=_user_payload(user, provider=provider),
+    )
+
+
+@router.patch("/password")
+def change_password(
+    payload: ChangePasswordRequest,
+    db: Session = Depends(get_db),
+    authorization: str | None = Header(default=None, alias="Authorization"),
+):
+    user = _get_current_user(db, authorization)
+    if not user.password_hash:
+        raise HTTPException(status_code=400, detail="Password is managed by your sign-in provider")
+
+    if not verify_password(payload.currentPassword, user.password_hash):
+        raise HTTPException(status_code=401, detail="Current password is incorrect")
+
+    user.password_hash = hash_password(payload.newPassword)
+    db.commit()
+    return {"message": "Password updated"}
+
+
+@router.delete("/account", status_code=204)
+def delete_account(
+    payload: DeleteAccountRequest,
+    db: Session = Depends(get_db),
+    authorization: str | None = Header(default=None, alias="Authorization"),
+):
+    user = _get_current_user(db, authorization)
+
+    if payload.confirmation.strip().upper() != "DELETE":
+        raise HTTPException(status_code=400, detail='Type "DELETE" to confirm account deletion')
+
+    if user.password_hash:
+        if not payload.currentPassword or not verify_password(payload.currentPassword, user.password_hash):
+            raise HTTPException(status_code=401, detail="Current password is incorrect")
+
+    now = datetime.now(timezone.utc)
+    user.status = "DELETED"
+    user.deleted_at = now
+    for identity in user.identities:
+        if identity.deleted_at is None:
+            identity.deleted_at = now
+
+    db.commit()
+    return Response(status_code=204)
+
+
 @router.get("/google/login")
 def google_login():
     try:
@@ -425,14 +560,7 @@ def me(
     db: Session = Depends(get_db),
     authorization: str | None = Header(default=None, alias="Authorization"),
 ):
-    user_uuid = extract_user_uuid_from_auth_header(authorization)
-    if user_uuid is None:
-        raise HTTPException(status_code=401, detail="Authorization required")
-
-    user = db.query(User).filter(User.uuid == user_uuid).filter(User.deleted_at.is_(None)).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    payload = _user_payload(user)
+    user = _get_current_user(db, authorization)
+    payload = _user_payload(user, provider=_primary_provider(db, user))
     payload["lastLoginAt"] = user.last_login_at
     return payload

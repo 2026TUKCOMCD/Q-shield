@@ -1,5 +1,5 @@
 ﻿import { Link, useLocation } from 'react-router-dom'
-import { Scan, History, Shield, LogOut } from 'lucide-react'
+import { Scan, History, Shield, LogOut, Settings } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
 
 export const Sidebar = () => {
@@ -16,6 +16,11 @@ export const Sidebar = () => {
       path: '/scans/history',
       label: 'History',
       icon: History,
+    },
+    {
+      path: '/settings',
+      label: 'Settings',
+      icon: Settings,
     },
   ]
 

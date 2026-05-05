@@ -15,11 +15,36 @@ export interface AppError {
   originalError?: unknown
 }
 
+const getValidationDetailMessage = (detail: unknown): string | undefined => {
+  if (!Array.isArray(detail)) {
+    return undefined
+  }
+
+  const firstMessage = detail
+    .map((item) => {
+      if (typeof item === 'string') {
+        return item
+      }
+      if (item && typeof item === 'object' && 'msg' in item) {
+        return String((item as { msg?: unknown }).msg || '')
+      }
+      return ''
+    })
+    .find(Boolean)
+
+  return firstMessage || undefined
+}
+
 export const handleAxiosError = (error: AxiosError): AppError => {
   if (error.response) {
     const statusCode = error.response.status
+    const data = error.response.data as { message?: string; detail?: unknown }
+    const detail = typeof data?.detail === 'string' ? data.detail : undefined
+    const validationDetail = getValidationDetailMessage(data?.detail)
     const message =
-      (error.response.data as { message?: string })?.message ||
+      data?.message ||
+      detail ||
+      validationDetail ||
       error.message ||
       `API Error: ${statusCode}`
 
