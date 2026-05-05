@@ -80,3 +80,5 @@ VITE_API_BASE_URL=http://localhost:8000/api
 ```
 
 After an OAuth provider callback succeeds, the backend redirects to `FRONTEND_AUTH_CALLBACK_URL` with the existing app access token. The current frontend stores that token in localStorage to match the existing auth flow; production should move this to a secure httpOnly cookie flow.
+
+Local accounts use `username + password` for login. Email is stored only as optional contact/profile metadata and is not used to merge Google/GitHub accounts. OAuth accounts are identified by `(provider, provider_user_id)`, so Google and GitHub accounts remain separate even when they share the same email address.
