@@ -3,6 +3,7 @@ import { config } from '../config'
 
 export interface AuthUser {
   uuid: string
+  username?: string | null
   email?: string | null
   displayName?: string | null
   avatarUrl?: string | null
@@ -17,13 +18,14 @@ export interface AuthTokenResponse {
 }
 
 export interface SignupPayload {
+  username: string
   email: string
   password: string
   displayName?: string
 }
 
 export interface LoginPayload {
-  email: string
+  username: string
   password: string
 }
 

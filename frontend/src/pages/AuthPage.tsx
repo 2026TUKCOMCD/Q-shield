@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
-import { Github, Shield } from 'lucide-react'
+import { Eye, EyeOff, Github, Shield } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
 import { authService } from '../services/authService'
 
 type Mode = 'login' | 'signup'
+
+const USERNAME_PATTERN = /^[a-z0-9_][a-z0-9_.-]{2,49}$/
+const EMAIL_PATTERN = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{3,}$/
 
 const GoogleIcon = () => (
   <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -33,9 +36,10 @@ export const AuthPage = () => {
   const { isAuthenticated, login, signup } = useAuth()
   const initialMode: Mode = location.pathname.includes('/signup') ? 'signup' : 'login'
   const [mode, setMode] = useState<Mode>(initialMode)
+  const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [displayName, setDisplayName] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -47,15 +51,39 @@ export const AuthPage = () => {
     return <Navigate to="/scans/new" replace />
   }
 
+  const validateForm = (): string | null => {
+    const normalizedUsername = username.trim().toLowerCase()
+    if (!USERNAME_PATTERN.test(normalizedUsername)) {
+      return 'Username must be 3-50 characters and use letters, numbers, dot, dash, or underscore.'
+    }
+
+    if (mode === 'signup' && !EMAIL_PATTERN.test(email.trim())) {
+      return 'Enter a valid email address like name@example.com.'
+    }
+
+    if (password.length < 8) {
+      return 'Password must be at least 8 characters.'
+    }
+
+    return null
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsSubmitting(true)
     setError(null)
+
+    const validationError = validateForm()
+    if (validationError) {
+      setError(validationError)
+      return
+    }
+
+    setIsSubmitting(true)
     try {
       if (mode === 'login') {
-        await login(email, password)
+        await login(username.trim().toLowerCase(), password)
       } else {
-        await signup(email, password, displayName || undefined)
+        await signup(username.trim().toLowerCase(), password, email.trim().toLowerCase())
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Authentication failed')
@@ -109,30 +137,66 @@ export const AuthPage = () => {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {mode === 'signup' && (
+          <label className="block space-y-2">
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+              Username
+            </span>
             <input
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              placeholder="Display name (optional)"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              type="text"
+              required
+              autoComplete="username"
               className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white placeholder:text-slate-500 focus:outline-none"
             />
+          </label>
+          {mode === 'signup' && (
+            <p className="-mt-2 text-xs text-slate-500">
+              3-50 characters. Use letters, numbers, dot, dash, or underscore.
+            </p>
           )}
-          <input
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            type="email"
-            required
-            placeholder="Email"
-            className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white placeholder:text-slate-500 focus:outline-none"
-          />
-          <input
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            type="password"
-            required
-            placeholder="Password"
-            className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white placeholder:text-slate-500 focus:outline-none"
-          />
+          {mode === 'signup' && (
+            <label className="block space-y-2">
+              <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                Email
+              </span>
+              <input
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                type="email"
+                required
+                placeholder="name@example.com"
+                className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white placeholder:text-slate-500 focus:outline-none"
+              />
+            </label>
+          )}
+          <label className="block space-y-2">
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+              Password
+            </span>
+            <div className="relative">
+              <input
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                type={showPassword ? 'text' : 'password'}
+                required
+                autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 pr-10 text-white placeholder:text-slate-500 focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((value) => !value)}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                title={showPassword ? 'Hide password' : 'Show password'}
+                className="absolute inset-y-0 right-0 flex items-center px-3 text-slate-400 transition hover:text-white"
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          </label>
+          {mode === 'signup' && (
+            <p className="-mt-2 text-xs text-slate-500">At least 8 characters.</p>
+          )}
 
           {error && <p className="text-sm text-red-400">{error}</p>}
 

@@ -7,8 +7,8 @@ interface AuthContextValue {
   user: AuthUser | null
   isAuthenticated: boolean
   isLoading: boolean
-  login: (email: string, password: string) => Promise<void>
-  signup: (email: string, password: string, displayName?: string) => Promise<void>
+  login: (username: string, password: string) => Promise<void>
+  signup: (username: string, password: string, email: string, displayName?: string) => Promise<void>
   completeOAuthLogin: (accessToken: string) => Promise<void>
   logout: () => void
 }
@@ -51,14 +51,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => window.removeEventListener('auth:unauthorized', onUnauthorized)
   }, [])
 
-  const login = async (email: string, password: string) => {
-    const result = await authService.login({ email, password })
+  const login = async (username: string, password: string) => {
+    const result = await authService.login({ username, password })
     tokenStore.setAccessToken(result.accessToken)
     setUser(result.user)
   }
 
-  const signup = async (email: string, password: string, displayName?: string) => {
-    const result = await authService.signup({ email, password, displayName })
+  const signup = async (username: string, password: string, email: string, displayName?: string) => {
+    const result = await authService.signup({ username, email, password, displayName })
     tokenStore.setAccessToken(result.accessToken)
     setUser(result.user)
   }
