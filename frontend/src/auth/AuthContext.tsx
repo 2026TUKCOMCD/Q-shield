@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { authService, type AuthUser } from '../services/authService'
 import { tokenStore } from './tokenStore'
@@ -8,6 +9,7 @@ interface AuthContextValue {
   isLoading: boolean
   login: (email: string, password: string) => Promise<void>
   signup: (email: string, password: string, displayName?: string) => Promise<void>
+  completeOAuthLogin: (accessToken: string) => Promise<void>
   logout: () => void
 }
 
@@ -61,6 +63,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUser(result.user)
   }
 
+  const completeOAuthLogin = async (accessToken: string) => {
+    // TODO: Prefer a secure httpOnly cookie in production. This follows the
+    // existing localStorage Bearer-token flow used by the current frontend.
+    tokenStore.setAccessToken(accessToken)
+    const me = await authService.me()
+    setUser(me)
+  }
+
   const logout = () => {
     tokenStore.clear()
     setUser(null)
@@ -73,6 +83,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       isLoading,
       login,
       signup,
+      completeOAuthLogin,
       logout,
     }),
     [user, isLoading],
