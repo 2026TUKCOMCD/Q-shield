@@ -97,6 +97,8 @@ export const ScanHistoryList = ({
 }: ScanHistoryListProps) => {
   const [deletingUuids, setDeletingUuids] = useState<Set<string>>(new Set())
   const [copiedUuid, setCopiedUuid] = useState<string | null>(null)
+  const isCurrentPageSelected =
+    scans.length > 0 && scans.every((scan) => selectedUuids.has(scan.uuid))
 
   const copyToClipboard = async (uuid: string) => {
     try {
@@ -154,7 +156,7 @@ export const ScanHistoryList = ({
             <input
               type="checkbox"
               className="h-4 w-4 rounded border-white/20 bg-white/5 text-indigo-500 focus:ring-indigo-500/40"
-              checked={scans.length > 0 && selectedUuids.size === scans.length}
+              checked={isCurrentPageSelected}
               onChange={(e) => onToggleSelectAll(e.target.checked)}
             />
             <span>Select all on page</span>

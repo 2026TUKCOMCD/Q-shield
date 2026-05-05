@@ -3,7 +3,42 @@ import { Link } from 'react-router-dom'
 import { ScanHistoryList } from '../components/ScanHistoryList'
 import { scanService, type ScanHistoryItem } from '../services/scanService'
 import { logError } from '../utils/logger'
-import { History, Plus, RefreshCw, Search, X, Trash2 } from 'lucide-react'
+import {
+  ChevronLeft,
+  ChevronRight,
+  History,
+  Plus,
+  RefreshCw,
+  Search,
+  X,
+  Trash2,
+} from 'lucide-react'
+
+const SCAN_HISTORY_PAGE_SIZE = 20
+
+const buildPagination = (currentPage: number, totalPages: number): Array<number | 'ellipsis'> => {
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1)
+  }
+
+  if (currentPage <= 4) {
+    return [1, 2, 3, 4, 5, 'ellipsis', totalPages]
+  }
+
+  if (currentPage >= totalPages - 3) {
+    return [
+      1,
+      'ellipsis',
+      totalPages - 4,
+      totalPages - 3,
+      totalPages - 2,
+      totalPages - 1,
+      totalPages,
+    ]
+  }
+
+  return [1, 'ellipsis', currentPage - 1, currentPage, currentPage + 1, 'ellipsis', totalPages]
+}
 
 export const ScanHistory = () => {
   const [scans, setScans] = useState<ScanHistoryItem[]>([])
@@ -15,6 +50,7 @@ export const ScanHistory = () => {
   const [selectedUuids, setSelectedUuids] = useState<Set<string>>(new Set())
   const [selectionMode, setSelectionMode] = useState(false)
   const [isBulkDeleting, setIsBulkDeleting] = useState(false)
+  const [page, setPage] = useState(1)
   const scansRef = useRef<ScanHistoryItem[]>([])
   const activeQueryRef = useRef('')
 
@@ -88,12 +124,14 @@ export const ScanHistory = () => {
   const handleSearch = () => {
     const nextQuery = queryInput.trim()
     setActiveQuery(nextQuery)
+    setPage(1)
     loadScanHistory(false, nextQuery)
   }
 
   const handleClearSearch = () => {
     setQueryInput('')
     setActiveQuery('')
+    setPage(1)
     loadScanHistory(false, '')
   }
 
@@ -119,11 +157,33 @@ export const ScanHistory = () => {
     })
   }
 
+  const totalPages = Math.max(1, Math.ceil(scans.length / SCAN_HISTORY_PAGE_SIZE))
+  const safePage = Math.min(page, totalPages)
+  const rowStart = scans.length === 0 ? 0 : (safePage - 1) * SCAN_HISTORY_PAGE_SIZE + 1
+  const rowEnd = Math.min(safePage * SCAN_HISTORY_PAGE_SIZE, scans.length)
+  const pagedScans = scans.slice(
+    (safePage - 1) * SCAN_HISTORY_PAGE_SIZE,
+    safePage * SCAN_HISTORY_PAGE_SIZE,
+  )
+  const paginationItems = buildPagination(safePage, totalPages)
+
+  const setNextPage = (nextPage: number) => {
+    setPage(Math.max(1, Math.min(totalPages, nextPage)))
+  }
+
   const handleToggleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedUuids(new Set(scans.map((scan) => scan.uuid)))
+      setSelectedUuids((prev) => {
+        const next = new Set(prev)
+        pagedScans.forEach((scan) => next.add(scan.uuid))
+        return next
+      })
     } else {
-      setSelectedUuids(new Set())
+      setSelectedUuids((prev) => {
+        const next = new Set(prev)
+        pagedScans.forEach((scan) => next.delete(scan.uuid))
+        return next
+      })
     }
   }
 
@@ -267,14 +327,66 @@ export const ScanHistory = () => {
               <p className="text-slate-300 text-lg">Loading...</p>
             </div>
           ) : (
-            <ScanHistoryList
-              scans={scans}
-              onDelete={handleDelete}
-              selectionMode={selectionMode}
-              selectedUuids={selectedUuids}
-              onToggleSelect={handleToggleSelect}
-              onToggleSelectAll={handleToggleSelectAll}
-            />
+            <div className="space-y-4">
+              <ScanHistoryList
+                scans={pagedScans}
+                onDelete={handleDelete}
+                selectionMode={selectionMode}
+                selectedUuids={selectedUuids}
+                onToggleSelect={handleToggleSelect}
+                onToggleSelectAll={handleToggleSelectAll}
+              />
+
+              {scans.length > 0 && (
+                <div className="flex flex-col gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-4 backdrop-blur-md md:flex-row md:items-center md:justify-between">
+                  <p className="text-sm text-slate-400">
+                    Showing rows {rowStart}-{rowEnd} of {scans.length}
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setNextPage(safePage - 1)}
+                      disabled={safePage === 1}
+                      className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-300 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      Prev
+                    </button>
+
+                    {paginationItems.map((item, index) =>
+                      item === 'ellipsis' ? (
+                        <span key={`ellipsis-${index}`} className="px-2 text-sm text-slate-500">
+                          ...
+                        </span>
+                      ) : (
+                        <button
+                          key={item}
+                          type="button"
+                          onClick={() => setNextPage(item)}
+                          className={`rounded-lg border px-3 py-2 text-sm transition ${
+                            item === safePage
+                              ? 'border-indigo-400/40 bg-indigo-500/15 text-indigo-200'
+                              : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
+                          }`}
+                        >
+                          {item}
+                        </button>
+                      ),
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => setNextPage(safePage + 1)}
+                      disabled={safePage === totalPages}
+                      className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-300 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           )}
         </div>
       </div>
