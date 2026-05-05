@@ -74,7 +74,9 @@ export const MobileNav = () => {
                 })}
               </nav>
               <div className="p-4 border-t border-white/10">
-                <div className="mb-3 text-xs text-slate-400 truncate">{user?.email}</div>
+                <div className="mb-3 text-xs text-slate-400 truncate">
+                  {user?.username || user?.email || user?.displayName}
+                </div>
                 <button
                   onClick={() => {
                     logout()

@@ -1,10 +1,14 @@
 import { apiClient } from '../api'
+import { config } from '../config'
 
 export interface AuthUser {
   uuid: string
-  email: string
+  username?: string | null
+  email?: string | null
   displayName?: string | null
+  avatarUrl?: string | null
   status: string
+  provider?: string | null
 }
 
 export interface AuthTokenResponse {
@@ -14,17 +18,22 @@ export interface AuthTokenResponse {
 }
 
 export interface SignupPayload {
+  username: string
   email: string
   password: string
   displayName?: string
 }
 
 export interface LoginPayload {
-  email: string
+  username: string
   password: string
 }
 
 export const authService = {
+  getOAuthLoginUrl(provider: 'google' | 'github'): string {
+    return `${config.apiBaseURL}/auth/${provider}/login`
+  },
+
   async signup(payload: SignupPayload): Promise<AuthTokenResponse> {
     const response = await apiClient.post<AuthTokenResponse>('/auth/signup', payload)
     return response.data

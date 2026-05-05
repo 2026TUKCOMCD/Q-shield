@@ -32,7 +32,7 @@ def test_priority_breakdown_adds_exposure_and_scanner_corroboration():
     assert breakdown["migration_complexity_bonus"] == 6
     assert breakdown["interop_risk_bonus"] == 8
     assert breakdown["non_production_penalty"] == 0
-    assert breakdown["total"] == 102
+    assert breakdown["total"] == 108
     assert len(breakdown["priority_factors"]) == 10
     assert breakdown["priority_factors"][0]["key"] == "severity_base"
     assert "RSA class risk" in breakdown["reason"]

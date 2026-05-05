@@ -57,3 +57,28 @@
 | **Dashboard** | • 히트맵 시각화 및 리포트 PDF 다운로드 구현 | 경건웅 |
 | **Frontend** | • React와 TypeScript를 기반으로 대시보드 설계 및 구현 | 경건웅, 허준영 |
 
+## OAuth Social Login
+
+The backend exposes these OAuth endpoints under the existing `/api/auth` prefix:
+
+- `GET /api/auth/google/login`
+- `GET /api/auth/google/callback`
+- `GET /api/auth/github/login`
+- `GET /api/auth/github/callback`
+
+Development redirect URIs to register:
+
+- Google Cloud Console: `http://localhost:8000/api/auth/google/callback`
+- GitHub OAuth App: `http://localhost:8000/api/auth/github/callback`
+
+Backend environment variables are documented in `backend/.env.example`. Keep real client secrets only in `backend/.env`; `.env` files are ignored by git.
+
+Frontend development uses:
+
+```env
+VITE_API_BASE_URL=http://localhost:8000/api
+```
+
+After an OAuth provider callback succeeds, the backend redirects to `FRONTEND_AUTH_CALLBACK_URL` with the existing app access token. The current frontend stores that token in localStorage to match the existing auth flow; production should move this to a secure httpOnly cookie flow.
+
+Local accounts use `username + password` for login. Email is stored only as optional contact/profile metadata and is not used to merge Google/GitHub accounts. OAuth accounts are identified by `(provider, provider_user_id)`, so Google and GitHub accounts remain separate even when they share the same email address.

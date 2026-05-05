@@ -8,6 +8,7 @@ import { Recommendations } from './pages/Recommendations'
 import { RepositoryHeatmap } from './pages/RepositoryHeatmap'
 import { InventoryDetail } from './pages/InventoryDetail'
 import { AuthPage } from './pages/AuthPage'
+import { AuthCallback } from './pages/AuthCallback'
 import { useAuth } from './auth/AuthContext'
 
 function App() {
@@ -41,6 +42,7 @@ function App() {
             path="/auth/signup"
             element={isAuthenticated ? <Navigate to="/scans/new" replace /> : <AuthPage />}
           />
+          <Route path="/auth/callback" element={<AuthCallback />} />
           <Route
             path="/scans/new"
             element={isAuthenticated ? <ScanInput /> : <Navigate to="/auth/login" replace />}

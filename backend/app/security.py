@@ -43,16 +43,50 @@ def verify_password(password: str, password_hash: str) -> bool:
     return hmac.compare_digest(computed, expected)
 
 
-def create_access_token(user_uuid: uuid_lib.UUID, expires_minutes: int | None = None) -> str:
+def create_access_token(
+    user_uuid: uuid_lib.UUID,
+    expires_minutes: int | None = None,
+    email: str | None = None,
+    provider: str | None = None,
+    username: str | None = None,
+) -> str:
     expire_delta = timedelta(minutes=expires_minutes or AUTH_ACCESS_TOKEN_EXPIRES_MINUTES)
     now = datetime.now(timezone.utc)
     payload: dict[str, Any] = {
         "sub": str(user_uuid),
+        "user_id": str(user_uuid),
+        "username": username,
+        "email": email,
+        "provider": provider,
         "type": "access",
         "iat": int(now.timestamp()),
         "exp": int((now + expire_delta).timestamp()),
     }
     return jwt.encode(payload, AUTH_SECRET_KEY, algorithm=AUTH_ALGORITHM)
+
+
+def create_oauth_state(provider: str, expires_minutes: int = 10) -> str:
+    now = datetime.now(timezone.utc)
+    payload: dict[str, Any] = {
+        "type": "oauth_state",
+        "provider": provider,
+        "nonce": _b64e(os.urandom(16)),
+        "iat": int(now.timestamp()),
+        "exp": int((now + timedelta(minutes=expires_minutes)).timestamp()),
+    }
+    return jwt.encode(payload, AUTH_SECRET_KEY, algorithm=AUTH_ALGORITHM)
+
+
+def verify_oauth_state(state: str, provider: str) -> None:
+    try:
+        payload = jwt.decode(state, AUTH_SECRET_KEY, algorithms=[AUTH_ALGORITHM])
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=400, detail="OAuth state expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=400, detail="Invalid OAuth state")
+
+    if payload.get("type") != "oauth_state" or payload.get("provider") != provider:
+        raise HTTPException(status_code=400, detail="Invalid OAuth state")
 
 
 def extract_user_uuid_from_auth_header(authorization: str | None) -> uuid_lib.UUID | None:
