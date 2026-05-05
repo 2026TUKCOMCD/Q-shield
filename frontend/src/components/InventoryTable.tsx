@@ -19,7 +19,7 @@ interface InventoryTableProps {
   scanUuid?: string
 }
 
-const PAGE_SIZE = 25
+const PAGE_SIZE = 20
 
 const getRiskColor = (riskScore: number) => {
   if (riskScore >= 8.0)
@@ -96,6 +96,8 @@ export const InventoryTable = ({ inventory, scanUuid }: InventoryTableProps) => 
 
   const totalPages = Math.max(1, Math.ceil(filteredInventory.length / PAGE_SIZE))
   const safePage = Math.min(page, totalPages)
+  const rowStart = (safePage - 1) * PAGE_SIZE + 1
+  const rowEnd = Math.min(safePage * PAGE_SIZE, filteredInventory.length)
   const pagedInventory = filteredInventory.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
   const paginationItems = buildPagination(safePage, totalPages)
 
@@ -302,7 +304,7 @@ export const InventoryTable = ({ inventory, scanUuid }: InventoryTableProps) => 
       {filteredInventory.length > 0 && (
         <div className="flex flex-col gap-3 border-t border-white/10 px-4 py-4 md:flex-row md:items-center md:justify-between">
           <p className="text-sm text-slate-400">
-            Showing rows {(safePage - 1) * PAGE_SIZE + 1}-{Math.min(safePage * PAGE_SIZE, filteredInventory.length)}
+            Showing rows {rowStart}-{rowEnd} of {filteredInventory.length}
           </p>
           <div className="flex flex-wrap items-center gap-2">
             <button
