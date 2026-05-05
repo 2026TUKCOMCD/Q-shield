@@ -123,8 +123,12 @@ export const SettingsPage = () => {
     setProfileError(null)
     setProfileMessage(null)
 
+    if (!canChangePassword) {
+      return
+    }
+
     const normalizedUsername = username.trim().toLowerCase()
-    if (canChangePassword && !USERNAME_PATTERN.test(normalizedUsername)) {
+    if (!USERNAME_PATTERN.test(normalizedUsername)) {
       setProfileError(
         'Username must be 3-50 characters and use letters, numbers, dot, dash, or underscore.',
       )
@@ -134,7 +138,7 @@ export const SettingsPage = () => {
     setIsSavingProfile(true)
     try {
       const result = await settingsService.updateProfile({
-        username: canChangePassword ? normalizedUsername : undefined,
+        username: normalizedUsername,
       })
       updateSession(result)
       setProfileMessage('Profile updated.')
@@ -280,8 +284,8 @@ export const SettingsPage = () => {
               <div className="md:col-span-2 flex flex-col gap-3 sm:flex-row sm:items-center">
                 <button
                   type="submit"
-                  disabled={isSavingProfile}
-                  className="rounded-lg bg-gradient-to-r from-indigo-500 to-purple-600 px-4 py-2 text-sm font-medium text-white hover:from-indigo-600 hover:to-purple-700 disabled:opacity-50"
+                  disabled={!canChangePassword || isSavingProfile}
+                  className="rounded-lg bg-gradient-to-r from-indigo-500 to-purple-600 px-4 py-2 text-sm font-medium text-white hover:from-indigo-600 hover:to-purple-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {isSavingProfile ? 'Saving...' : 'Save Profile'}
                 </button>
