@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { authService, type AuthUser } from '../services/authService'
+import { authService, type AuthTokenResponse, type AuthUser } from '../services/authService'
 import { tokenStore } from './tokenStore'
 
 interface AuthContextValue {
@@ -10,6 +10,8 @@ interface AuthContextValue {
   login: (username: string, password: string) => Promise<void>
   signup: (username: string, password: string, email: string, displayName?: string) => Promise<void>
   completeOAuthLogin: (accessToken: string) => Promise<void>
+  updateSession: (result: AuthTokenResponse) => void
+  refreshUser: () => Promise<AuthUser>
   logout: () => void
 }
 
@@ -71,6 +73,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUser(me)
   }
 
+  const updateSession = (result: AuthTokenResponse) => {
+    tokenStore.setAccessToken(result.accessToken)
+    setUser(result.user)
+  }
+
+  const refreshUser = async () => {
+    const me = await authService.me()
+    setUser(me)
+    return me
+  }
+
   const logout = () => {
     tokenStore.clear()
     setUser(null)
@@ -84,6 +97,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       login,
       signup,
       completeOAuthLogin,
+      updateSession,
+      refreshUser,
       logout,
     }),
     [user, isLoading],
