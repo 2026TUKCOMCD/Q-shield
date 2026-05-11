@@ -96,28 +96,39 @@ const renderSummaryBadges = (recommendation: Recommendation) => {
   )
 }
 
-const renderTopPriorityFactors = (recommendation: Recommendation) => {
-  const factors = (recommendation.evidence?.priorityFactors ?? [])
-    .filter((factor) => factor.score > 0)
-    .sort((left, right) => right.score - left.score)
-    .slice(0, 2)
+const getPrioritySignalTags = (recommendation: Recommendation) => {
+  const tags: { label: string; className: string }[] = []
 
-  if (factors.length === 0) {
-    return null
+  const priority = recommendation.priority
+  const severityClass =
+    priority === 'CRITICAL'
+      ? 'border-red-500/30 bg-red-500/10 text-red-300'
+      : priority === 'HIGH'
+        ? 'border-orange-500/30 bg-orange-500/10 text-orange-300'
+        : priority === 'MEDIUM'
+          ? 'border-yellow-500/30 bg-yellow-500/10 text-yellow-300'
+          : 'border-blue-500/30 bg-blue-500/10 text-blue-300'
+  tags.push({ label: priority, className: severityClass })
+
+  const hits = recommendation.evidenceCount
+  if (hits !== undefined) {
+    tags.push({ label: `${hits} hits`, className: 'border-white/10 bg-white/5 text-slate-300' })
   }
 
-  return (
-    <div className="mt-3 flex flex-wrap gap-2">
-      {factors.map((factor) => (
-        <span
-          key={`${recommendation.id}-${factor.key}`}
-          className="inline-flex rounded-full border border-indigo-400/20 bg-indigo-500/10 px-2.5 py-1 text-[11px] text-indigo-300"
-        >
-          {factor.label} +{factor.score}
-        </span>
-      ))}
-    </div>
-  )
+  const files = recommendation.affectedFilesCount ?? recommendation.evidence?.affectedFilesCount
+  if (files !== undefined) {
+    tags.push({ label: `${files} files`, className: 'border-white/10 bg-white/5 text-slate-300' })
+  }
+
+  const scanners = recommendation.scannerTypes ?? recommendation.evidence?.scannerTypes ?? []
+  scanners.forEach((s) => {
+    tags.push({
+      label: s.toUpperCase(),
+      className: 'border-indigo-400/20 bg-indigo-500/10 text-indigo-300',
+    })
+  })
+
+  return tags
 }
 
 const getAnalysisModeBadge = (mode?: Recommendation['analysisMode']) => {
@@ -268,13 +279,16 @@ export const RecommendationTable = ({
                   </td>
                   <td className="px-6 py-4 align-top">{renderSummaryBadges(recommendation)}</td>
                   <td className="px-6 py-4 align-top">
-                    <p className="max-w-[24rem] text-sm leading-relaxed text-slate-300">
-                      {getDisplayValue(
-                        recommendation.priorityReason || recommendation.analysisSummary || recommendation.context,
-                        'Priority rationale not available',
-                      )}
-                    </p>
-                    {renderTopPriorityFactors(recommendation)}
+                    <div className="flex flex-wrap gap-1.5">
+                      {getPrioritySignalTags(recommendation).map((tag) => (
+                        <span
+                          key={`${recommendation.id}-tag-${tag.label}`}
+                          className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-medium ${tag.className}`}
+                        >
+                          {tag.label}
+                        </span>
+                      ))}
+                    </div>
                   </td>
                   <td className="whitespace-nowrap px-6 py-4 align-top">
                     <span className="text-sm text-slate-300">{recommendation.estimatedEffort}</span>
