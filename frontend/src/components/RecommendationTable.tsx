@@ -190,16 +190,13 @@ export const RecommendationTable = ({
                 Migration Target
               </th>
               <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
-                Algorithms
+                현재 → 권장 알고리즘
               </th>
               <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
-                Evidence
+                Risk Signals
               </th>
               <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
-                Priority Reason
-              </th>
-              <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
-                Effort
+                예상 공수
               </th>
             </tr>
           </thead>
@@ -277,7 +274,6 @@ export const RecommendationTable = ({
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 align-top">{renderSummaryBadges(recommendation)}</td>
                   <td className="px-6 py-4 align-top">
                     <div className="flex flex-wrap gap-1.5">
                       {getPrioritySignalTags(recommendation).map((tag) => (
