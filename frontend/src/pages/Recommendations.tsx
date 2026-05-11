@@ -17,7 +17,52 @@ import {
   ArrowLeft,
   Sparkles,
   XCircle,
+  Clock,
 } from 'lucide-react'
+
+const NIST_DEADLINE_YEAR = 2030
+const currentYear = new Date().getFullYear()
+const yearsLeft = NIST_DEADLINE_YEAR - currentYear
+
+const NistTimelineBanner = ({ recommendations }: { recommendations: { priority: string }[] }) => {
+  const criticalCount = recommendations.filter((r) => r.priority === 'CRITICAL').length
+  const highCount = recommendations.filter((r) => r.priority === 'HIGH').length
+  const urgentCount = criticalCount + highCount
+
+  return (
+    <div className="flex flex-col gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex items-center gap-3">
+        <div className="flex-shrink-0 rounded-lg border border-amber-500/30 bg-amber-500/10 p-2">
+          <Clock className="h-4 w-4 text-amber-400" />
+        </div>
+        <div>
+          <p className="text-sm font-semibold text-amber-200">
+            NIST 권고: RSA · ECC · DH는 {NIST_DEADLINE_YEAR}년까지 사용 중단
+          </p>
+          <p className="mt-0.5 text-xs text-amber-300/70">
+            NIST FIPS 140-3 / SP 800-131A Rev.3 기준 &mdash; {yearsLeft}년 남음
+          </p>
+        </div>
+      </div>
+      {urgentCount > 0 && (
+        <div className="flex flex-shrink-0 flex-wrap gap-2">
+          {criticalCount > 0 && (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1 text-xs font-semibold text-red-300">
+              <span className="h-1.5 w-1.5 rounded-full bg-red-400" />
+              Critical {criticalCount}건 미해결
+            </span>
+          )}
+          {highCount > 0 && (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-orange-500/30 bg-orange-500/10 px-3 py-1 text-xs font-semibold text-orange-300">
+              <span className="h-1.5 w-1.5 rounded-full bg-orange-400" />
+              High {highCount}건 미해결
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
 
 export const Recommendations = () => {
   const { uuid } = useParams<{ uuid: string }>()
@@ -231,6 +276,8 @@ export const Recommendations = () => {
               </div>
             )}
           </div>
+
+          <NistTimelineBanner recommendations={recommendations} />
 
           {error && (
             <div
