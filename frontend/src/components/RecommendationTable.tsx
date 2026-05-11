@@ -65,36 +65,6 @@ const getPriorityConfig = (priority: Priority) => {
   }
 }
 
-const renderSummaryBadges = (recommendation: Recommendation) => {
-  const items: string[] = []
-
-  if (recommendation.evidenceCount !== undefined) {
-    items.push(`Evidence ${recommendation.evidenceCount}`)
-  }
-  if (recommendation.affectedFilesCount !== undefined) {
-    items.push(`Files ${recommendation.affectedFilesCount}`)
-  }
-  if ((recommendation.scannerTypes?.length ?? 0) > 0) {
-    items.push(recommendation.scannerTypes!.join(', '))
-  }
-
-  if (items.length === 0) {
-    return <span className="text-xs text-slate-500">Planner summary not available</span>
-  }
-
-  return (
-    <div className="flex flex-wrap gap-2">
-      {items.map((item) => (
-        <span
-          key={`${recommendation.id}-${item}`}
-          className="inline-flex rounded-md bg-white/5 px-2 py-1 text-xs text-slate-300"
-        >
-          {item}
-        </span>
-      ))}
-    </div>
-  )
-}
 
 const getPrioritySignalTags = (recommendation: Recommendation) => {
   const tags: { label: string; className: string }[] = []
