@@ -601,6 +601,99 @@ export const AIDetailView = ({
 
               <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
                 <div className="mb-4 flex items-center gap-2">
+                  <FileCode className="h-5 w-5 text-indigo-300" />
+                  <h3 className="text-lg font-semibold text-white">Affected Code Locations</h3>
+                </div>
+                {affectedLocations.length > 0 ? (
+                  <div className="space-y-3">
+                    {affectedLocations.slice(0, 8).map((location, index) => (
+                      <div
+                        key={`${recommendation.id}-loc-${index}`}
+                        className="rounded-lg border border-white/10 bg-white/5 p-3"
+                      >
+                        <p className="font-mono text-sm text-slate-100">{location.file_path}</p>
+                        <p className="mt-1 text-xs text-slate-400">
+                          line {location.line_start ?? '?'}
+                          {location.line_end && location.line_end !== location.line_start
+                            ? `-${location.line_end}`
+                            : ''}
+                          {location.rule_id ? ` | rule=${location.rule_id}` : ''}
+                          {location.scanner_type ? ` | scanner=${location.scanner_type}` : ''}
+                        </p>
+                        {location.evidence_excerpt && (
+                          <pre className="mt-2 overflow-x-auto whitespace-pre-wrap rounded border border-white/10 bg-slate-900/40 p-2 text-xs text-slate-300">
+                            <code>{location.evidence_excerpt}</code>
+                          </pre>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : affectedFilePaths.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {affectedFilePaths.map((path) => (
+                      <code
+                        key={`${recommendation.id}-${path}`}
+                        className="rounded-md border border-white/10 bg-white/5 px-2 py-1 text-xs text-slate-300"
+                      >
+                        {path}
+                      </code>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-400">
+                    No concrete affected locations were returned by the current payload.
+                  </p>
+                )}
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+                <div className="mb-4 flex items-center gap-2">
+                  <Code className="h-5 w-5 text-indigo-300" />
+                  <h3 className="text-lg font-semibold text-white">Suggested Code Fixes</h3>
+                </div>
+                {codeFixExamples.length > 0 && !suppressCodeFixExamples ? (
+                  <div className="space-y-4">
+                    {codeFixExamples.slice(0, 6).map((fix, index) => (
+                      <div
+                        key={`${recommendation.id}-fix-${index}`}
+                        className="space-y-3 rounded-lg border border-white/10 bg-white/5 p-4"
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="font-mono text-sm text-slate-100">{fix.file_path}</p>
+                          <p className="text-xs text-slate-400">
+                            {fix.language ? `${fix.language} | ` : ''}
+                            confidence {Math.round(Math.max(0, Math.min(1, fix.confidence ?? 0)) * 100)}%
+                          </p>
+                        </div>
+                        <p className="text-sm text-slate-300">{fix.rationale}</p>
+                        <div className="grid gap-3 xl:grid-cols-2">
+                          <div>
+                            <p className="mb-2 text-xs uppercase tracking-[0.15em] text-rose-300">Before</p>
+                            <pre className="overflow-x-auto whitespace-pre-wrap rounded border border-rose-400/20 bg-slate-900/60 p-3 text-xs text-slate-200">
+                              <code>{fix.before_code}</code>
+                            </pre>
+                          </div>
+                          <div>
+                            <p className="mb-2 text-xs uppercase tracking-[0.15em] text-emerald-300">After</p>
+                            <pre className="overflow-x-auto whitespace-pre-wrap rounded border border-emerald-400/20 bg-slate-900/60 p-3 text-xs text-slate-200">
+                              <code>{fix.after_code}</code>
+                            </pre>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-400">
+                    {suppressCodeFixExamples
+                      ? 'Conceptual code patches are intentionally hidden for certificate/config assets. Use the validation checklist and benchmark notes for migration planning.'
+                      : 'No concrete before/after patch examples were returned by the AI response.'}
+                  </p>
+                )}
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+                <div className="mb-4 flex items-center gap-2">
                   <ShieldCheck className="h-5 w-5 text-indigo-300" />
                   <h3 className="text-lg font-semibold text-white">Priority Basis</h3>
                 </div>
@@ -815,99 +908,6 @@ export const AIDetailView = ({
                   </div>
                 </div>
               )}
-
-              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-                <div className="mb-4 flex items-center gap-2">
-                  <FileCode className="h-5 w-5 text-indigo-300" />
-                  <h3 className="text-lg font-semibold text-white">Affected Code Locations</h3>
-                </div>
-                {affectedLocations.length > 0 ? (
-                  <div className="space-y-3">
-                    {affectedLocations.slice(0, 8).map((location, index) => (
-                      <div
-                        key={`${recommendation.id}-loc-${index}`}
-                        className="rounded-lg border border-white/10 bg-white/5 p-3"
-                      >
-                        <p className="font-mono text-sm text-slate-100">{location.file_path}</p>
-                        <p className="mt-1 text-xs text-slate-400">
-                          line {location.line_start ?? '?'}
-                          {location.line_end && location.line_end !== location.line_start
-                            ? `-${location.line_end}`
-                            : ''}
-                          {location.rule_id ? ` | rule=${location.rule_id}` : ''}
-                          {location.scanner_type ? ` | scanner=${location.scanner_type}` : ''}
-                        </p>
-                        {location.evidence_excerpt && (
-                          <pre className="mt-2 overflow-x-auto whitespace-pre-wrap rounded border border-white/10 bg-slate-900/40 p-2 text-xs text-slate-300">
-                            <code>{location.evidence_excerpt}</code>
-                          </pre>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                ) : affectedFilePaths.length > 0 ? (
-                  <div className="flex flex-wrap gap-2">
-                    {affectedFilePaths.map((path) => (
-                      <code
-                        key={`${recommendation.id}-${path}`}
-                        className="rounded-md border border-white/10 bg-white/5 px-2 py-1 text-xs text-slate-300"
-                      >
-                        {path}
-                      </code>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-slate-400">
-                    No concrete affected locations were returned by the current payload.
-                  </p>
-                )}
-              </div>
-
-              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-                <div className="mb-4 flex items-center gap-2">
-                  <Code className="h-5 w-5 text-indigo-300" />
-                  <h3 className="text-lg font-semibold text-white">Suggested Code Fixes</h3>
-                </div>
-                {codeFixExamples.length > 0 && !suppressCodeFixExamples ? (
-                  <div className="space-y-4">
-                    {codeFixExamples.slice(0, 6).map((fix, index) => (
-                      <div
-                        key={`${recommendation.id}-fix-${index}`}
-                        className="space-y-3 rounded-lg border border-white/10 bg-white/5 p-4"
-                      >
-                        <div className="flex items-center justify-between gap-3">
-                          <p className="font-mono text-sm text-slate-100">{fix.file_path}</p>
-                          <p className="text-xs text-slate-400">
-                            {fix.language ? `${fix.language} | ` : ''}
-                            confidence {Math.round(Math.max(0, Math.min(1, fix.confidence ?? 0)) * 100)}%
-                          </p>
-                        </div>
-                        <p className="text-sm text-slate-300">{fix.rationale}</p>
-                        <div className="grid gap-3 xl:grid-cols-2">
-                          <div>
-                            <p className="mb-2 text-xs uppercase tracking-[0.15em] text-rose-300">Before</p>
-                            <pre className="overflow-x-auto whitespace-pre-wrap rounded border border-rose-400/20 bg-slate-900/60 p-3 text-xs text-slate-200">
-                              <code>{fix.before_code}</code>
-                            </pre>
-                          </div>
-                          <div>
-                            <p className="mb-2 text-xs uppercase tracking-[0.15em] text-emerald-300">After</p>
-                            <pre className="overflow-x-auto whitespace-pre-wrap rounded border border-emerald-400/20 bg-slate-900/60 p-3 text-xs text-slate-200">
-                              <code>{fix.after_code}</code>
-                            </pre>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-slate-400">
-                    {suppressCodeFixExamples
-                      ? 'Conceptual code patches are intentionally hidden for certificate/config assets. Use the validation checklist and benchmark notes for migration planning.'
-                      : 'No concrete before/after patch examples were returned by the AI response.'}
-                  </p>
-                )}
-              </div>
 
               <div className="space-y-4 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
                 <div className="flex items-center gap-2">
