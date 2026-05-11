@@ -12,11 +12,11 @@ interface RecommendationFiltersProps {
 }
 
 const priorityOptions: Array<{ label: string; value: Priority | '' }> = [
-  { label: 'All Priorities', value: '' },
-  { label: 'Critical', value: 'CRITICAL' },
-  { label: 'High', value: 'HIGH' },
-  { label: 'Medium', value: 'MEDIUM' },
-  { label: 'Low', value: 'LOW' },
+  { label: '전체 우선순위', value: '' },
+  { label: '긴급', value: 'CRITICAL' },
+  { label: '높음', value: 'HIGH' },
+  { label: '보통', value: 'MEDIUM' },
+  { label: '낮음', value: 'LOW' },
 ]
 
 export const RecommendationFilters = ({
@@ -30,7 +30,7 @@ export const RecommendationFilters = ({
   const priorityMenuRef = useRef<HTMLDivElement | null>(null)
   const hasActiveFilters = algorithmType !== '' || priority !== ''
   const selectedPriorityLabel = useMemo(
-    () => priorityOptions.find((option) => option.value === priority)?.label ?? 'All Priorities',
+    () => priorityOptions.find((option) => option.value === priority)?.label ?? '전체 우선순위',
     [priority],
   )
 
@@ -66,31 +66,31 @@ export const RecommendationFilters = ({
         <div className="p-2 bg-gradient-to-br from-indigo-500/20 to-purple-600/20 rounded-lg border border-indigo-500/30">
           <Filter className="w-5 h-5 text-indigo-400" />
         </div>
-        <h2 className="text-xl font-semibold text-white">Filters</h2>
+        <h2 className="text-xl font-semibold text-white">필터</h2>
         {hasActiveFilters && (
           <button
             onClick={onReset}
             className="ml-auto px-3 py-1.5 text-xs text-slate-400 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg transition-colors flex items-center gap-2"
           >
             <X className="w-3 h-3" />
-            Reset
+            초기화
           </button>
         )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-slate-300 mb-2">Algorithm Type</label>
+          <label className="block text-sm font-medium text-slate-300 mb-2">알고리즘 유형</label>
           <input
             type="text"
             value={algorithmType}
             onChange={(event) => onAlgorithmTypeChange(event.target.value)}
-            placeholder="e.g., RSA, SHA, AES"
+            placeholder="예: RSA, SHA, AES"
             className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-all"
           />
         </div>
         <div ref={priorityMenuRef} className="relative z-30">
-          <label className="block text-sm font-medium text-slate-300 mb-2">Priority</label>
+          <label className="block text-sm font-medium text-slate-300 mb-2">우선순위</label>
           <button
             type="button"
             onClick={() => setIsPriorityMenuOpen((current) => !current)}

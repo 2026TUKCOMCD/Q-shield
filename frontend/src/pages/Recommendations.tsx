@@ -105,7 +105,7 @@ export const Recommendations = () => {
           if (appError.type === ErrorType.API_ERROR && appError.statusCode === 202) {
             setError(appError.message)
           } else {
-            setError('Failed to load AI recommendations.')
+            setError('AI 권고를 불러오지 못했습니다.')
           }
         }
       } finally {
@@ -199,9 +199,9 @@ export const Recommendations = () => {
       <div className="min-h-screen bg-[#020617] text-white flex items-center justify-center">
         <div className="text-center">
           <AlertCircle className="w-12 h-12 mx-auto mb-4 text-red-400" />
-          <p className="text-lg text-slate-300">Invalid scan UUID</p>
+          <p className="text-lg text-slate-300">유효하지 않은 스캔 UUID입니다</p>
           <Link to="/scans/history" className="mt-4 text-indigo-400 hover:text-indigo-300">
-            Go back to History
+            기록으로 돌아가기
           </Link>
         </div>
       </div>
@@ -213,7 +213,7 @@ export const Recommendations = () => {
       <div className="min-h-screen bg-[#020617] text-white flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-12 h-12 mx-auto mb-4 text-indigo-400 animate-spin" />
-          <p className="text-lg text-slate-300">Generating AI recommendations...</p>
+          <p className="text-lg text-slate-300">AI 권고 생성 중...</p>
         </div>
       </div>
     )
@@ -226,7 +226,7 @@ export const Recommendations = () => {
           <XCircle className="w-12 h-12 mx-auto mb-4 text-red-400" />
           <p className="text-lg text-slate-300 mb-4">{error}</p>
           <Link to="/scans/history" className="text-indigo-400 hover:text-indigo-300">
-            Go back to History
+            기록으로 돌아가기
           </Link>
         </div>
       </div>
@@ -252,7 +252,7 @@ export const Recommendations = () => {
               </div>
               <div>
                 <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-400 via-purple-400 to-indigo-400 bg-clip-text text-transparent">
-                  PQC Recommendations
+                  PQC 마이그레이션 권고
                 </h1>
                 {scanGithubUrl ? (
                   <a
@@ -272,7 +272,7 @@ export const Recommendations = () => {
             </div>
             {filteredRecommendations.length > 0 && (
               <div className="px-4 py-2 bg-indigo-500/10 border border-indigo-500/30 rounded-full text-sm text-indigo-400">
-                {filteredRecommendations.length} recommendation{filteredRecommendations.length !== 1 ? 's' : ''}
+                {filteredRecommendations.length}개 권고사항
               </div>
             )}
           </div>

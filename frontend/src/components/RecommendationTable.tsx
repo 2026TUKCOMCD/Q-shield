@@ -25,7 +25,7 @@ const hasDisplayValue = (value?: string | null): value is string => {
 
 const getDisplayValue = (
   value?: string | null,
-  fallback = 'Not available',
+  fallback = '정보 없음',
 ) => (hasDisplayValue(value) ? value.trim() : fallback)
 
 const getPriorityConfig = (priority: Priority) => {
@@ -35,7 +35,7 @@ const getPriorityConfig = (priority: Priority) => {
         color: 'text-red-400',
         bg: 'bg-red-500/10',
         border: 'border-red-500/30',
-        label: 'Critical',
+        label: '긴급',
         icon: AlertCircle,
       }
     case 'HIGH':
@@ -43,7 +43,7 @@ const getPriorityConfig = (priority: Priority) => {
         color: 'text-orange-400',
         bg: 'bg-orange-500/10',
         border: 'border-orange-500/30',
-        label: 'High',
+        label: '높음',
         icon: AlertTriangle,
       }
     case 'MEDIUM':
@@ -51,7 +51,7 @@ const getPriorityConfig = (priority: Priority) => {
         color: 'text-yellow-400',
         bg: 'bg-yellow-500/10',
         border: 'border-yellow-500/30',
-        label: 'Medium',
+        label: '보통',
         icon: Info,
       }
     case 'LOW':
@@ -59,7 +59,7 @@ const getPriorityConfig = (priority: Priority) => {
         color: 'text-blue-400',
         bg: 'bg-blue-500/10',
         border: 'border-blue-500/30',
-        label: 'Low',
+        label: '낮음',
         icon: CheckCircle2,
       }
   }
@@ -82,12 +82,12 @@ const getPrioritySignalTags = (recommendation: Recommendation) => {
 
   const hits = recommendation.evidenceCount
   if (hits !== undefined) {
-    tags.push({ label: `${hits} hits`, className: 'border-white/10 bg-white/5 text-slate-300' })
+    tags.push({ label: `${hits}건`, className: 'border-white/10 bg-white/5 text-slate-300' })
   }
 
   const files = recommendation.affectedFilesCount ?? recommendation.evidence?.affectedFilesCount
   if (files !== undefined) {
-    tags.push({ label: `${files} files`, className: 'border-white/10 bg-white/5 text-slate-300' })
+    tags.push({ label: `${files}개 파일`, className: 'border-white/10 bg-white/5 text-slate-300' })
   }
 
   const scanners = recommendation.scannerTypes ?? recommendation.evidence?.scannerTypes ?? []
@@ -105,27 +105,27 @@ const getAnalysisModeBadge = (mode?: Recommendation['analysisMode']) => {
   switch (mode) {
     case 'real':
       return {
-        label: 'AI Guided',
+        label: 'AI 분석',
         className: 'border-emerald-400/20 bg-emerald-500/10 text-emerald-300',
       }
     case 'fallback':
       return {
-        label: 'AI Fallback',
+        label: 'AI 대체',
         className: 'border-amber-400/20 bg-amber-500/10 text-amber-300',
       }
     case 'mock':
       return {
-        label: 'Mock AI',
+        label: 'AI 모의',
         className: 'border-sky-400/20 bg-sky-500/10 text-sky-300',
       }
     case 'error':
       return {
-        label: 'AI Error',
+        label: 'AI 오류',
         className: 'border-rose-400/20 bg-rose-500/10 text-rose-300',
       }
     default:
       return {
-        label: 'Rule-based',
+        label: '규칙 기반',
         className: 'border-white/10 bg-white/5 text-slate-300',
       }
   }
@@ -139,9 +139,9 @@ export const RecommendationTable = ({
     return (
       <div className="rounded-xl border border-white/10 bg-white/5 p-12 text-center backdrop-blur-md">
         <Sparkles className="mx-auto mb-4 h-12 w-12 text-slate-400" />
-        <p className="mb-2 text-lg font-medium text-slate-300">No recommendations found</p>
+        <p className="mb-2 text-lg font-medium text-slate-300">추천 항목이 없습니다</p>
         <p className="text-sm text-slate-500">
-          Try adjusting your filters to see more recommendations.
+          필터를 조정해 더 많은 추천을 확인해 보세요.
         </p>
       </div>
     )
@@ -154,16 +154,16 @@ export const RecommendationTable = ({
           <thead>
             <tr className="border-b border-white/10">
               <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
-                Priority
+                우선순위
               </th>
               <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
-                Migration Target
+                마이그레이션 대상
               </th>
               <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
                 현재 → 권장 알고리즘
               </th>
               <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
-                Risk Signals
+                위험 신호
               </th>
               <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
                 예상 공수
@@ -191,7 +191,7 @@ export const RecommendationTable = ({
                         {priorityConfig.label}
                       </span>
                     </div>
-                    <p className="mt-2 text-xs text-slate-500">Rank #{recommendation.priorityRank}</p>
+                    <p className="mt-2 text-xs text-slate-500">순위 #{recommendation.priorityRank}</p>
                     <span
                       className={`mt-2 inline-flex rounded-full border px-2.5 py-1 text-[11px] ${analysisModeBadge.className}`}
                     >
@@ -226,20 +226,20 @@ export const RecommendationTable = ({
                   <td className="px-6 py-4 align-top">
                     <div className="space-y-2">
                       <div>
-                        <p className="text-[11px] uppercase tracking-[0.12em] text-slate-500">Current</p>
+                        <p className="text-[11px] uppercase tracking-[0.12em] text-slate-500">현재</p>
                         <span className="font-mono text-sm text-red-300">{recommendation.targetAlgorithm}</span>
                       </div>
                       <div>
-                        <p className="text-[11px] uppercase tracking-[0.12em] text-slate-500">Recommended</p>
+                        <p className="text-[11px] uppercase tracking-[0.12em] text-slate-500">권장</p>
                         <span
                           className="font-mono text-sm text-green-300"
                           title={
                             hasDisplayValue(recommendation.recommendedPQCAlgorithm)
                               ? undefined
-                              : 'A specific PQC replacement was not returned by the analysis.'
+                              : '분석에서 PQC 대체 알고리즘이 반환되지 않았습니다.'
                           }
                         >
-                          {getDisplayValue(recommendation.recommendedPQCAlgorithm, 'Not specified')}
+                          {getDisplayValue(recommendation.recommendedPQCAlgorithm, '미지정')}
                         </span>
                       </div>
                     </div>
