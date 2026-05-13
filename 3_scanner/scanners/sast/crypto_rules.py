@@ -84,9 +84,20 @@ CRYPTO_PATTERNS = {
             "algorithm": "ECC/ECDSA",
             "description": "ECDSA-based JWT/JOSE signing algorithm detected.",
             "recommendation": "Plan migration away from ECDSA signatures and introduce PQC-ready signing architecture."
+        },
+        "dh_keygen": {
+            "patterns": [
+                r"generate_parameters\s*\(.*key_size\s*=",
+                r"from\s+cryptography\.hazmat\.primitives\.asymmetric\.dh\s+import",
+                r"dh\.generate_parameters\s*\(",
+            ],
+            "severity": "HIGH",
+            "algorithm": "DH",
+            "description": "Diffie-Hellman key exchange detected - Shor-breakable.",
+            "recommendation": "Replace with ML-KEM (FIPS 203)."
         }
     },
-    
+
     "javascript": {
         "rsa_generation": {
             "patterns": [
@@ -214,6 +225,80 @@ CRYPTO_PATTERNS = {
             "algorithm": "ECC/ECDSA",
             "description": "ECDSA-based JWT/JOSE signing algorithm detected.",
             "recommendation": "Plan migration away from ECDSA signatures and introduce PQC-ready signing architecture."
+        },
+        "rsa_key_factory": {
+            "patterns": [
+                r'KeyFactory\.getInstance\s*\(\s*["\']RSA["\']\s*\)',
+            ],
+            "severity": "HIGH",
+            "algorithm": "RSA",
+            "description": "RSA KeyFactory usage detected - constructs RSA keys from raw material.",
+            "recommendation": "Replace with ML-KEM (FIPS 203) key encapsulation."
+        },
+        "dsa_keygen": {
+            "patterns": [
+                r'KeyPairGenerator\.getInstance\s*\(\s*["\']DSA["\']\s*\)',
+                r'Signature\.getInstance\s*\(\s*["\'].*DSA.*["\']\s*\)',
+            ],
+            "severity": "HIGH",
+            "algorithm": "DSA",
+            "description": "DSA key generation or signature detected - Shor-breakable.",
+            "recommendation": "Replace with ML-DSA (FIPS 204)."
+        },
+        "dh_keygen": {
+            "patterns": [
+                r'KeyPairGenerator\.getInstance\s*\(\s*["\']DH["\']\s*\)',
+                r'KeyAgreement\.getInstance\s*\(\s*["\']DH["\']\s*\)',
+            ],
+            "severity": "HIGH",
+            "algorithm": "DH",
+            "description": "Diffie-Hellman key exchange detected - Shor-breakable.",
+            "recommendation": "Replace with ML-KEM (FIPS 203)."
+        },
+        "ecc_curve25519": {
+            "patterns": [
+                r'KeyPairGenerator\.getInstance\s*\(\s*["\']Ed25519["\']\s*\)',
+                r'KeyPairGenerator\.getInstance\s*\(\s*["\']X25519["\']\s*\)',
+                r'KeyPairGenerator\.getInstance\s*\(\s*["\']Ed448["\']\s*\)',
+            ],
+            "severity": "HIGH",
+            "algorithm": "ECC/Ed25519",
+            "description": "Curve25519/Ed25519 usage detected - Shor-breakable elliptic curve.",
+            "recommendation": "Replace with ML-DSA (FIPS 204) for signatures."
+        },
+        "weak_hash_java": {
+            "patterns": [
+                r'MessageDigest\.getInstance\s*\(\s*["\']MD5["\']\s*\)',
+                r'MessageDigest\.getInstance\s*\(\s*["\']SHA-1["\']\s*\)',
+                r'MessageDigest\.getInstance\s*\(\s*["\']SHA1["\']\s*\)',
+            ],
+            "severity": "MEDIUM",
+            "algorithm": "MD5/SHA-1",
+            "description": "Weak hash function (MD5/SHA-1) detected - Grover-weakened.",
+            "recommendation": "Replace with SHA-3 or SHA-256 (minimum)."
+        },
+        "weak_symmetric_java": {
+            "patterns": [
+                r'KeyGenerator\.getInstance\s*\(\s*["\']DESede["\']\s*\)',
+                r'KeyGenerator\.getInstance\s*\(\s*["\']DES["\']\s*\)',
+                r'Cipher\.getInstance\s*\(\s*["\']DESede',
+                r'Cipher\.getInstance\s*\(\s*["\']DES/',
+            ],
+            "severity": "HIGH",
+            "algorithm": "3DES/DES",
+            "description": "3DES/DES symmetric cipher detected - critically weakened by Grover.",
+            "recommendation": "Replace with AES-256-GCM."
+        },
+        "hardcoded_key": {
+            "patterns": [
+                r'new\s+SecretKeySpec\s*\(\s*["\'][^"\']{8,}["\']\s*\.getBytes',
+                r'private\s+static\s+final\s+byte\[\]\s+\w*[Kk][Ee][Yy]\w*\s*=',
+                r'private\s+static\s+final\s+String\s+\w*[Kk][Ee][Yy]\w*\s*=\s*["\']',
+            ],
+            "severity": "HIGH",
+            "algorithm": "HARDCODED_KEY",
+            "description": "Hardcoded cryptographic key material detected.",
+            "recommendation": "Use a key management system (KMS). Never hardcode key material."
         }
     },
     

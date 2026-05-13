@@ -1,4 +1,5 @@
 import os
+import sys
 
 from celery import Celery
 
@@ -6,6 +7,9 @@ from app.config import REDIS_URL
 
 BROKER_URL = os.getenv("CELERY_BROKER_URL", REDIS_URL)
 RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", REDIS_URL)
+
+# macOS prefork + ObjC fork() crash → solo pool. Windows/Linux use default (prefork).
+_worker_pool = os.getenv("CELERY_POOL", "solo" if sys.platform == "darwin" else "prefork")
 
 celery_app = Celery(
     "qshield",
@@ -21,4 +25,5 @@ celery_app.conf.update(
     accept_content=["json"],
     timezone="Asia/Seoul",
     enable_utc=True,
+    worker_pool=_worker_pool,
 )
