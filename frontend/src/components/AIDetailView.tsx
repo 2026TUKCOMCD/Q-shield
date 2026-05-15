@@ -46,7 +46,7 @@ const hasMeaningfulValue = (value?: string | null): value is string => {
   return normalizedValue !== '' && normalizedValue.toUpperCase() !== 'N/A'
 }
 
-const getDisplayValue = (value?: string | null, fallback = '정보 없음') =>
+const getDisplayValue = (value?: string | null, fallback = 'Not available') =>
   hasMeaningfulValue(value) ? value.trim() : fallback
 
 const renderMarkdown = (text: string) => {
@@ -251,27 +251,27 @@ const getSourceBadgeConfig = (sourceType?: string | null) => {
   switch ((sourceType || '').toUpperCase()) {
     case 'NIST_STANDARD':
       return {
-        label: 'NIST 표준',
+        label: 'NIST Standard',
         className: 'border-emerald-400/20 bg-emerald-500/10 text-emerald-300',
       }
     case 'NIST_GUIDE':
       return {
-        label: 'NIST 가이드',
+        label: 'NIST Guide',
         className: 'border-indigo-400/20 bg-indigo-500/10 text-indigo-300',
       }
     case 'BENCHMARK':
       return {
-        label: '벤치마크',
+        label: 'Benchmark',
         className: 'border-amber-400/20 bg-amber-500/10 text-amber-300',
       }
     case 'ACADEMIC_PAPER':
       return {
-        label: '논문',
+        label: 'Paper',
         className: 'border-fuchsia-400/20 bg-fuchsia-500/10 text-fuchsia-300',
       }
     default:
       return {
-        label: sourceType || '출처',
+        label: sourceType || 'Source',
         className: 'border-white/10 bg-white/5 text-slate-300',
       }
   }
@@ -291,15 +291,15 @@ const normalizeCitationGroup = (sourceType?: string | null) => {
 const getAnalysisModeConfig = (mode?: 'real' | 'fallback' | 'mock' | 'error') => {
   switch (mode) {
     case 'real':
-      return { label: 'AI 분석', className: 'border-emerald-400/20 bg-emerald-500/10 text-emerald-300' }
+      return { label: 'AI Guided', className: 'border-emerald-400/20 bg-emerald-500/10 text-emerald-300' }
     case 'fallback':
-      return { label: 'AI 대체', className: 'border-amber-400/20 bg-amber-500/10 text-amber-300' }
+      return { label: 'AI Fallback', className: 'border-amber-400/20 bg-amber-500/10 text-amber-300' }
     case 'mock':
-      return { label: 'AI 모의', className: 'border-sky-400/20 bg-sky-500/10 text-sky-300' }
+      return { label: 'Mock AI', className: 'border-sky-400/20 bg-sky-500/10 text-sky-300' }
     case 'error':
-      return { label: 'AI 오류', className: 'border-rose-400/20 bg-rose-500/10 text-rose-300' }
+      return { label: 'AI Error', className: 'border-rose-400/20 bg-rose-500/10 text-rose-300' }
     default:
-      return { label: '규칙 기반', className: 'border-white/10 bg-white/5 text-slate-300' }
+      return { label: 'Rule-based', className: 'border-white/10 bg-white/5 text-slate-300' }
   }
 }
 
@@ -435,9 +435,9 @@ export const AIDetailView = ({
 
     try {
       await onRetryCitations()
-      setRetryMessage('인용 새로고침이 요청되었습니다. 새로운 증거가 반환되면 패널이 업데이트됩니다.')
+      setRetryMessage('Citation refresh requested. This panel updates when new evidence is returned.')
     } catch {
-      setRetryMessage('지금은 인용 새로고침을 완료할 수 없습니다.')
+      setRetryMessage('Citation refresh could not be completed right now.')
     } finally {
       setIsRetrying(false)
     }
@@ -568,41 +568,41 @@ export const AIDetailView = ({
           <div className="flex-1 overflow-y-auto p-6">
             <div className="space-y-6">
               <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
-                <SummaryCard label="현재 알고리즘" value={recommendation.targetAlgorithm} className="text-red-300" />
+                <SummaryCard label="Target Algorithm" value={recommendation.targetAlgorithm} className="text-red-300" />
                 <SummaryCard
-                  label="권장 PQC"
-                  value={getDisplayValue(recommendation.recommendedPQCAlgorithm, '미지정')}
+                  label="Recommended PQC"
+                  value={getDisplayValue(recommendation.recommendedPQCAlgorithm, 'Not specified')}
                   className="text-green-300"
                 />
                 <SummaryCard
-                  label="증거 건수"
+                  label="Evidence Count"
                   value={String(evidenceTotal || 0)}
                 />
-                <SummaryCard label="영향 파일" value={String(affectedFilesCount || 0)} />
+                <SummaryCard label="Affected Files" value={String(affectedFilesCount || 0)} />
                 <SummaryCard
-                  label="스캐너"
-                  value={scannerTypes.length > 0 ? scannerTypes.join(', ') : '정보 없음'}
+                  label="Scanner Sources"
+                  value={scannerTypes.length > 0 ? scannerTypes.join(', ') : 'Not available'}
                 />
                 <SummaryCard
-                  label="신뢰도"
-                  value={confidencePercent === null ? '정보 없음' : `${confidencePercent}%`}
+                  label="Confidence"
+                  value={confidencePercent === null ? 'Not available' : `${confidencePercent}%`}
                   className="text-slate-100"
                 />
               </div>
 
               <div className="rounded-r-lg border-l-4 border-indigo-500/50 bg-gradient-to-r from-indigo-500/5 to-purple-600/5 p-4">
                 <p className="text-sm leading-relaxed text-slate-200">
-                  <strong className="text-white">마이그레이션 계획 모드</strong>
+                  <strong className="text-white">Migration planning mode</strong>
                   <br />
-                  이 권고는 결정론적 계획 증거와 AI 가이드를 결합합니다.
-                  영향받는 파일과 코드 예시를 먼저 확인하고, 이후 세부 근거와 인용을 검토하세요.
+                  This recommendation combines deterministic planner evidence with AI-generated guidance.
+                  Use the priority rationale and affected assets first, then validate example code and citations.
                 </p>
               </div>
 
               <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
                 <div className="mb-4 flex items-center gap-2">
                   <FileCode className="h-5 w-5 text-indigo-300" />
-                  <h3 className="text-lg font-semibold text-white">영향받는 코드 위치</h3>
+                  <h3 className="text-lg font-semibold text-white">Affected Code Locations</h3>
                 </div>
                 {affectedLocations.length > 0 ? (
                   <div className="space-y-3">
@@ -613,12 +613,12 @@ export const AIDetailView = ({
                       >
                         <p className="font-mono text-sm text-slate-100">{location.file_path}</p>
                         <p className="mt-1 text-xs text-slate-400">
-                          {location.line_start ?? '?'}번째 줄
+                          line {location.line_start ?? '?'}
                           {location.line_end && location.line_end !== location.line_start
                             ? `-${location.line_end}`
                             : ''}
-                          {location.rule_id ? ` | 규칙=${location.rule_id}` : ''}
-                          {location.scanner_type ? ` | 스캐너=${location.scanner_type}` : ''}
+                          {location.rule_id ? ` | rule=${location.rule_id}` : ''}
+                          {location.scanner_type ? ` | scanner=${location.scanner_type}` : ''}
                         </p>
                         {location.evidence_excerpt && (
                           <pre className="mt-2 overflow-x-auto whitespace-pre-wrap rounded border border-white/10 bg-slate-900/40 p-2 text-xs text-slate-300">
@@ -641,7 +641,7 @@ export const AIDetailView = ({
                   </div>
                 ) : (
                   <p className="text-sm text-slate-400">
-                    구체적인 영향 위치가 반환되지 않았습니다.
+                    No concrete affected locations were returned by the current payload.
                   </p>
                 )}
               </div>
@@ -649,7 +649,7 @@ export const AIDetailView = ({
               <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
                 <div className="mb-4 flex items-center gap-2">
                   <Code className="h-5 w-5 text-indigo-300" />
-                  <h3 className="text-lg font-semibold text-white">코드 수정 예시</h3>
+                  <h3 className="text-lg font-semibold text-white">Suggested Code Fixes</h3>
                 </div>
                 {codeFixExamples.length > 0 && !suppressCodeFixExamples ? (
                   <div className="space-y-4">
@@ -662,19 +662,19 @@ export const AIDetailView = ({
                           <p className="font-mono text-sm text-slate-100">{fix.file_path}</p>
                           <p className="text-xs text-slate-400">
                             {fix.language ? `${fix.language} | ` : ''}
-                            신뢰도 {Math.round(Math.max(0, Math.min(1, fix.confidence ?? 0)) * 100)}%
+                            confidence {Math.round(Math.max(0, Math.min(1, fix.confidence ?? 0)) * 100)}%
                           </p>
                         </div>
                         <p className="text-sm text-slate-300">{fix.rationale}</p>
                         <div className="grid gap-3 xl:grid-cols-2">
                           <div>
-                            <p className="mb-2 text-xs uppercase tracking-[0.15em] text-rose-300">수정 전</p>
+                            <p className="mb-2 text-xs uppercase tracking-[0.15em] text-rose-300">Before</p>
                             <pre className="overflow-x-auto whitespace-pre-wrap rounded border border-rose-400/20 bg-slate-900/60 p-3 text-xs text-slate-200">
                               <code>{fix.before_code}</code>
                             </pre>
                           </div>
                           <div>
-                            <p className="mb-2 text-xs uppercase tracking-[0.15em] text-emerald-300">수정 후</p>
+                            <p className="mb-2 text-xs uppercase tracking-[0.15em] text-emerald-300">After</p>
                             <pre className="overflow-x-auto whitespace-pre-wrap rounded border border-emerald-400/20 bg-slate-900/60 p-3 text-xs text-slate-200">
                               <code>{fix.after_code}</code>
                             </pre>
@@ -686,8 +686,8 @@ export const AIDetailView = ({
                 ) : (
                   <p className="text-sm text-slate-400">
                     {suppressCodeFixExamples
-                      ? '인증서/설정 파일 자산에 대해서는 코드 패치가 표시되지 않습니다. 검증 체크리스트와 벤치마크 노트를 참고하세요.'
-                      : 'AI 응답에서 수정 전/후 코드 예시가 반환되지 않았습니다.'}
+                      ? 'Conceptual code patches are intentionally hidden for certificate/config assets. Use the validation checklist and benchmark notes for migration planning.'
+                      : 'No concrete before/after patch examples were returned by the AI response.'}
                   </p>
                 )}
               </div>
@@ -695,18 +695,18 @@ export const AIDetailView = ({
               <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
                 <div className="mb-4 flex items-center gap-2">
                   <ShieldCheck className="h-5 w-5 text-indigo-300" />
-                  <h3 className="text-lg font-semibold text-white">우선순위 근거</h3>
+                  <h3 className="text-lg font-semibold text-white">Priority Basis</h3>
                 </div>
                 <div className="space-y-4">
                   <div>
-                    <p className="mb-2 text-xs uppercase tracking-[0.15em] text-slate-500">우선순위 이유</p>
+                    <p className="mb-2 text-xs uppercase tracking-[0.15em] text-slate-500">Priority Reason</p>
                     <p className="text-sm leading-relaxed text-slate-300">{priorityReason}</p>
                   </div>
                   <div className="grid gap-4 md:grid-cols-2">
                     <div>
                       <div className="mb-2 flex items-center gap-2">
                         <Database className="h-4 w-4 text-indigo-300" />
-                        <p className="text-xs uppercase tracking-[0.15em] text-slate-500">증거 신호</p>
+                        <p className="text-xs uppercase tracking-[0.15em] text-slate-500">Evidence Signals</p>
                       </div>
                       <div className="flex flex-wrap gap-2">
                         {evidenceCounts.length > 0 ? (
@@ -719,14 +719,14 @@ export const AIDetailView = ({
                             </span>
                           ))
                         ) : (
-                          <span className="text-sm text-slate-500">신호 수치 없음</span>
+                          <span className="text-sm text-slate-500">Signal counts not available</span>
                         )}
                       </div>
                     </div>
                     <div>
                       <div className="mb-2 flex items-center gap-2">
                         <FolderTree className="h-4 w-4 text-indigo-300" />
-                        <p className="text-xs uppercase tracking-[0.15em] text-slate-500">영향 자산 범위</p>
+                        <p className="text-xs uppercase tracking-[0.15em] text-slate-500">Affected Asset Scope</p>
                       </div>
                       <div className="flex flex-wrap gap-2">
                         {affectedFilePaths.length > 0 ? (
@@ -739,7 +739,7 @@ export const AIDetailView = ({
                             </code>
                           ))
                         ) : (
-                          <span className="text-sm text-slate-500">영향받는 파일 목록 없음</span>
+                          <span className="text-sm text-slate-500">Affected files were not returned</span>
                         )}
                       </div>
                       {(relatedAssetRefs.length > 0 || correlationRefs.length > 0) && (
@@ -747,7 +747,7 @@ export const AIDetailView = ({
                           {relatedAssetRefs.length > 0 && (
                             <div>
                               <p className="mb-2 text-[11px] uppercase tracking-[0.15em] text-slate-500">
-                                관련 자산 참조
+                                Related Asset Refs
                               </p>
                               <div className="flex flex-wrap gap-2">
                                 {relatedAssetRefs.map((assetRef) => (
@@ -764,7 +764,7 @@ export const AIDetailView = ({
                           {correlationRefs.length > 0 && (
                             <div>
                               <p className="mb-2 text-[11px] uppercase tracking-[0.15em] text-slate-500">
-                                상관 참조
+                                Correlation Refs
                               </p>
                               <div className="flex flex-wrap gap-2">
                                 {correlationRefs.map((correlationRef) => (
@@ -786,7 +786,7 @@ export const AIDetailView = ({
                     <div>
                       <div className="mb-2 flex items-center gap-2">
                         <Sparkles className="h-4 w-4 text-indigo-300" />
-                        <p className="text-xs uppercase tracking-[0.15em] text-slate-500">우선순위 요소</p>
+                        <p className="text-xs uppercase tracking-[0.15em] text-slate-500">Priority Factors</p>
                       </div>
                       <div className="grid gap-3 xl:grid-cols-2">
                         {priorityFactors.map((factor) => (
@@ -822,13 +822,14 @@ export const AIDetailView = ({
               <div className="text-slate-300">
                 <div className="mb-3 flex items-center gap-2">
                   <Sparkles className="h-5 w-5 text-indigo-300" />
-                  <h3 className="text-lg font-semibold text-white">AI 마이그레이션 가이드</h3>
+                  <h3 className="text-lg font-semibold text-white">AI Migration Guide</h3>
                 </div>
                 {primaryGuide ? (
                   renderMarkdown(primaryGuide)
                 ) : (
                   <p className="leading-relaxed text-slate-300">
-                    상세 마이그레이션 가이드가 반환되지 않았습니다. 위의 영향 위치와 우선순위 근거를 참고하여 전환 계획을 수립하세요.
+                    Detailed migration guidance was not returned. Use the deterministic priority basis
+                    and affected locations below to plan the transition.
                   </p>
                 )}
               </div>
@@ -837,7 +838,7 @@ export const AIDetailView = ({
                 <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
                   <div className="mb-4 flex items-center gap-2">
                     <CheckCircle2 className="h-5 w-5 text-indigo-300" />
-                    <h3 className="text-lg font-semibold text-white">검증 체크리스트</h3>
+                    <h3 className="text-lg font-semibold text-white">Validation Checklist</h3>
                   </div>
                   <ul className="space-y-2 text-sm text-slate-300">
                     {validationChecklist.map((item) => (
@@ -855,7 +856,7 @@ export const AIDetailView = ({
                   <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
                     <div className="mb-4 flex items-center gap-2">
                       <Database className="h-5 w-5 text-indigo-300" />
-                      <h3 className="text-lg font-semibold text-white">벤치마크 노트</h3>
+                      <h3 className="text-lg font-semibold text-white">Benchmark Notes</h3>
                     </div>
                     {benchmarkNotes.length > 0 ? (
                       <ul className="space-y-2 text-sm text-slate-300">
@@ -884,13 +885,13 @@ export const AIDetailView = ({
                         })}
                       </ul>
                     ) : (
-                      <p className="text-sm text-slate-500">벤치마크 가이드가 반환되지 않았습니다.</p>
+                      <p className="text-sm text-slate-500">Benchmark guidance was not returned.</p>
                     )}
                   </div>
                   <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
                     <div className="mb-4 flex items-center gap-2">
                       <AlertTriangle className="h-5 w-5 text-indigo-300" />
-                      <h3 className="text-lg font-semibold text-white">가정 사항</h3>
+                      <h3 className="text-lg font-semibold text-white">Assumptions</h3>
                     </div>
                     {assumptions.length > 0 ? (
                       <ul className="space-y-2 text-sm text-slate-300">
@@ -902,7 +903,7 @@ export const AIDetailView = ({
                         ))}
                       </ul>
                     ) : (
-                      <p className="text-sm text-slate-500">가정 사항이 반환되지 않았습니다.</p>
+                      <p className="text-sm text-slate-500">Assumptions were not returned.</p>
                     )}
                   </div>
                 </div>
@@ -911,7 +912,7 @@ export const AIDetailView = ({
               <div className="space-y-4 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
                 <div className="flex items-center gap-2">
                   <Sparkles className="h-5 w-5 text-indigo-300" />
-                  <h3 className="text-lg font-semibold text-white">근거 자료</h3>
+                  <h3 className="text-lg font-semibold text-white">Evidence</h3>
                 </div>
 
                 {!hasAttachedCitations && (
@@ -920,15 +921,15 @@ export const AIDetailView = ({
                       <div className="flex items-start gap-3">
                         <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-300" />
                         <div>
-                          <p className="text-sm font-semibold text-amber-200">인용 정보 없음</p>
+                          <p className="text-sm font-semibold text-amber-200">Citation unavailable</p>
                           <p className="mt-1 text-sm leading-relaxed text-amber-100/90">
                             {hasNistReference
-                              ? '계획 참조가 연결되어 있지만, 아직 지원 발췌문이 첨부되지 않았습니다.'
-                              : 'RAG 코퍼스가 로드되지 않았거나 일치하는 섹션을 찾을 수 없습니다. 신뢰도가 낮아집니다.'}
+                              ? 'A planning reference is linked, but no supporting excerpt is attached to this recommendation yet.'
+                              : 'RAG corpus is not loaded or no matching section was retrieved. Confidence is reduced.'}
                           </p>
                           {hasNistReference && (
                             <p className="mt-2 text-xs uppercase tracking-[0.2em] text-amber-100/70">
-                              참조: {getDisplayValue(recommendation.nistStandardReference)}
+                              Reference: {getDisplayValue(recommendation.nistStandardReference)}
                             </p>
                           )}
                         </div>
@@ -937,7 +938,7 @@ export const AIDetailView = ({
                         type="button"
                         onClick={handleRetryCitations}
                         disabled={!canRetryCitations || isRetrying}
-                        title={canRetryCitations ? undefined : '백엔드 재실행을 아직 사용할 수 없습니다'}
+                        title={canRetryCitations ? undefined : 'Backend re-run not available yet'}
                         className="inline-flex items-center justify-center gap-2 rounded-lg border border-amber-300/20 bg-white/5 px-3 py-2 text-sm font-medium text-amber-100 transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         {isRetrying ? (
@@ -945,7 +946,7 @@ export const AIDetailView = ({
                         ) : (
                           <RefreshCw className="h-4 w-4" />
                         )}
-                        인용 재시도
+                        Retry citations
                       </button>
                     </div>
                     {retryMessage && <p className="mt-3 text-xs text-amber-100/80">{retryMessage}</p>}
@@ -955,27 +956,27 @@ export const AIDetailView = ({
                 {hasAttachedCitations && hasNistReference && (
                   <div className="rounded-xl border border-white/10 bg-white/5 p-4">
                     <p className="mb-2 text-xs uppercase tracking-[0.2em] text-slate-500">
-                      {isPlanningReferenceOnly ? '인용 첨부됨' : 'NIST 인용 첨부됨'}
+                      {isPlanningReferenceOnly ? 'Citation Attached' : 'NIST Citation Attached'}
                     </p>
                     <p className="text-sm font-medium text-slate-100">
                       {getDisplayValue(recommendation.nistStandardReference)}
                     </p>
                     <div className="mt-3 flex flex-wrap gap-2">
                       <span className="rounded-full border border-indigo-400/20 bg-indigo-500/10 px-2.5 py-1 text-xs text-indigo-300">
-                        규범적 근거 {normativeCitationRows.length}
+                        Normative evidence {normativeCitationRows.length}
                       </span>
                       <span className="rounded-full border border-amber-400/20 bg-amber-500/10 px-2.5 py-1 text-xs text-amber-300">
-                        벤치마크 근거 {benchmarkCitationRows.length}
+                        Benchmark evidence {benchmarkCitationRows.length}
                       </span>
                       {otherCitationRows.length > 0 && (
                         <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-slate-300">
-                          기타 근거 {otherCitationRows.length}
+                          Other evidence {otherCitationRows.length}
                         </span>
                       )}
                     </div>
                     {isPlanningReferenceOnly && (
                       <p className="mt-3 text-xs text-amber-300">
-                        인용 발췌문이 첨부되었지만 아직 규범적 근거로 분류되지 않았습니다.
+                        Citation excerpt is attached, but it is not classified as normative evidence yet.
                       </p>
                     )}
                   </div>
@@ -984,24 +985,24 @@ export const AIDetailView = ({
                 {hasAttachedCitations ? (
                   <div className="space-y-4">
                     {renderCitationGroup(
-                      '규범적 근거',
-                      '마이그레이션 요건, 위험 프레임, 표준 적합성 주장에 사용하세요.',
+                      'Normative Evidence',
+                      'Use this group for migration requirements, risk framing, and standard conformance claims.',
                       normativeCitationRows,
                     )}
                     {renderCitationGroup(
-                      '벤치마크 근거',
-                      '지연 시간, 상호운용성, 인증서 크기, 배포 트레이드오프 노트에 사용하세요.',
+                      'Benchmark Evidence',
+                      'Use this group for latency, interoperability, certificate size, and deployment tradeoff notes.',
                       benchmarkCitationRows,
                     )}
                     {renderCitationGroup(
-                      '기타 근거',
-                      '규범적 또는 벤치마크 가이드에 명확히 매핑되지 않는 보조 근거입니다.',
+                      'Other Evidence',
+                      'Auxiliary evidence that does not clearly map to normative or benchmark guidance.',
                       otherCitationRows,
                     )}
                   </div>
                 ) : (
                   <p className="text-xs text-slate-400">
-                    지원 발췌문이 이 결과에 첨부되지 않았습니다.
+                    Supporting excerpts were not attached to this result.
                   </p>
                 )}
               </div>
@@ -1009,12 +1010,12 @@ export const AIDetailView = ({
               <div className="space-y-4 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
                 <div className="flex items-center gap-2">
                   <Info className="h-5 w-5 text-indigo-300" />
-                  <h3 className="text-lg font-semibold text-white">신뢰도</h3>
+                  <h3 className="text-lg font-semibold text-white">Confidence</h3>
                 </div>
 
                 <div className="space-y-2">
                   <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-                    <p className="mb-2 text-xs uppercase tracking-[0.2em] text-slate-500">분석 상태</p>
+                    <p className="mb-2 text-xs uppercase tracking-[0.2em] text-slate-500">Analysis Status</p>
                     <div className="flex flex-wrap gap-2">
                       {analysisModeConfig ? (
                         <span className={`rounded-full border px-2.5 py-1 text-xs ${analysisModeConfig.className}`}>
@@ -1022,21 +1023,21 @@ export const AIDetailView = ({
                         </span>
                       ) : (
                         <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-slate-300">
-                          분석 모드 알 수 없음
+                          Analysis mode unknown
                         </span>
                       )}
                       <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-slate-300">
-                        RAG 코퍼스 {ragCorpusLoaded ? '로드됨' : '미로드'}
+                        RAG corpus {ragCorpusLoaded ? 'loaded' : 'not loaded'}
                       </span>
                       <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-slate-300">
-                        인용 {citationsAvailable ? '있음' : '없음'}
+                        Citations {citationsAvailable ? 'available' : 'missing'}
                       </span>
                     </div>
                   </div>
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-slate-300">권고 신뢰도</span>
+                    <span className="text-slate-300">Recommendation confidence</span>
                     <span className="font-semibold text-white">
-                      {confidencePercent === null ? '정보 없음' : `${confidencePercent}%`}
+                      {confidencePercent === null ? 'Not available' : `${confidencePercent}%`}
                     </span>
                   </div>
                   <div className="h-2.5 overflow-hidden rounded-full bg-white/5">
@@ -1055,8 +1056,8 @@ export const AIDetailView = ({
                       <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-300" />
                     )}
                     <span>
-                      증거 강도:{' '}
-                      {evidenceTotal > 0 ? `${evidenceTotal}개 증거로 지원됨` : '알 수 없음'}
+                      Evidence strength:{' '}
+                      {evidenceTotal > 0 ? `supported by ${evidenceTotal} evidence points` : 'unknown'}
                     </span>
                   </li>
                   <li className="flex items-start gap-2">
@@ -1066,10 +1067,10 @@ export const AIDetailView = ({
                       <Info className="mt-0.5 h-4 w-4 flex-shrink-0 text-slate-400" />
                     )}
                     <span>
-                      일관성 및 중복:{' '}
+                      Consistency and duplicates:{' '}
                       {duplicateState === 'confirmed'
-                        ? '분석에서 중복 처리가 확인되었습니다'
-                        : '현재 페이로드에서 알 수 없음'}
+                        ? 'duplicate handling was noted in the analysis'
+                        : 'unknown from current payload'}
                     </span>
                   </li>
                   <li className="flex items-start gap-2">
@@ -1079,10 +1080,10 @@ export const AIDetailView = ({
                       <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-rose-300" />
                     )}
                     <span>
-                      인용:{' '}
+                      Citations present:{' '}
                       {hasCitations
-                        ? '지원 발췌문이 첨부되었습니다'
-                        : '없음 (신뢰도 감소)'}
+                        ? 'supporting excerpts are attached'
+                        : 'missing, which reduced confidence'}
                     </span>
                   </li>
                   <li className="flex items-start gap-2">
@@ -1092,19 +1093,19 @@ export const AIDetailView = ({
                       <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-300" />
                     )}
                     <span>
-                      표준 근거:{' '}
+                      Standards evidence:{' '}
                       {hasNormativeEvidence
-                        ? 'NIST 규범적 근거가 첨부되었습니다'
+                        ? 'normative NIST evidence is attached'
                         : hasNistReference
-                          ? '계획 참조만 있음, 규범적 발췌문 미첨부'
-                          : '없음'}
+                          ? 'planning reference only, normative excerpt not attached'
+                          : 'not available'}
                     </span>
                   </li>
                 </ul>
 
                 {confidenceReason && (
                   <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-                    <p className="mb-2 text-xs uppercase tracking-[0.2em] text-slate-500">신뢰도 이유</p>
+                    <p className="mb-2 text-xs uppercase tracking-[0.2em] text-slate-500">Confidence Reason</p>
                     <p className="text-sm text-slate-300">{confidenceReason}</p>
                   </div>
                 )}
@@ -1113,7 +1114,7 @@ export const AIDetailView = ({
               <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
                 <div className="mb-3 flex items-center gap-2">
                   <Info className="h-5 w-5 text-indigo-300" />
-                  <h3 className="text-lg font-semibold text-white">분석 요약</h3>
+                  <h3 className="text-lg font-semibold text-white">Analysis Summary</h3>
                 </div>
                 <p className="text-sm leading-relaxed text-slate-300">{findingsSummary}</p>
               </div>
@@ -1122,13 +1123,13 @@ export const AIDetailView = ({
 
           <div className="flex items-center justify-between gap-4 border-t border-white/10 bg-white/5 p-4">
             <p className="text-xs text-slate-500">
-              AI-PQC 스캐너 생성 | 분석 요약: {findingsSummary}
+              Generated by AI-PQC Scanner | Findings summary: {findingsSummary}
             </p>
             <button
               onClick={onClose}
               className="rounded-lg bg-gradient-to-r from-indigo-500 to-purple-600 px-6 py-2 font-semibold text-white transition-all duration-300 hover:from-indigo-600 hover:to-purple-700"
             >
-              닫기
+              Close
             </button>
           </div>
         </div>
