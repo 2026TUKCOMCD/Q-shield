@@ -33,3 +33,7 @@ SAST 분석이 지원하는 언어는 Python, JavaScript/TypeScript, Java, Go다
 스캔을 요청하려면 `POST /api/scan`에 `{"github_url": "<저장소 URL 또는 로컬 경로>"}` 형태의 본문을 보낸다.
 
 서버 상태는 `GET /health`로 확인할 수 있다.
+
+## 탐지 규칙 추가
+
+새로운 SAST 탐지 규칙은 `scanners/sast/crypto_rules.py`의 `CRYPTO_PATTERNS`에 언어별로 추가한다.
