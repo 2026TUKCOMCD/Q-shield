@@ -26,6 +26,8 @@ CRYPTO_PATTERNS = {
         "weak_hash": {
             "patterns": [
                 r"hashlib\.(md5|sha1)\s*\(",
+                r"hashlib\.new\s*\(\s*['\"](md5|sha1)['\"]",
+                r"from\s+hashlib\s+import\s+(?:[\w,\s]*\b)?(md5|sha1)\b",
             ],
             "severity": "MEDIUM",
             "algorithm": "Weak Hash",

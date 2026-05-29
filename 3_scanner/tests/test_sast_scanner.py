@@ -56,6 +56,21 @@ def test_python_analyzer_does_not_double_count_overlapping_findings():
     assert per_line.get(3) == 1, "jwt import reported more than once"
 
 
+def test_python_weak_hash_detection_covers_common_forms():
+    from scanners.sast.python_analyzer import analyze_python_file
+
+    def weak_hash_count(source):
+        return sum(
+            1 for v in analyze_python_file("x.py", source) if v["type"] == "weak_hash"
+        )
+
+    assert weak_hash_count('import hashlib\nhashlib.md5(b"x")\n') == 1
+    assert weak_hash_count('import hashlib\nh = hashlib.new("sha1")\n') == 1
+    assert weak_hash_count("from hashlib import md5\n") == 1
+    # Strong hashes must not be flagged.
+    assert weak_hash_count('import hashlib\nhashlib.sha256(b"x")\n') == 0
+
+
 def test_sast_scanner_detects_go_patterns():
     with tempfile.TemporaryDirectory() as tmp_dir:
         repo = Path(tmp_dir)
