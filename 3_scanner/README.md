@@ -37,3 +37,7 @@ SAST 분석이 지원하는 언어는 Python, JavaScript/TypeScript, Java, Go다
 ## 탐지 규칙 추가
 
 새로운 SAST 탐지 규칙은 `scanners/sast/crypto_rules.py`의 `CRYPTO_PATTERNS`에 언어별로 추가한다.
+
+## 테스트
+
+테스트는 `3_scanner` 디렉터리에서 `python -m pytest`로 실행한다.
