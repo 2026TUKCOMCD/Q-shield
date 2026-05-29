@@ -27,3 +27,5 @@ SAST 분석이 지원하는 언어는 Python, JavaScript/TypeScript, Java, Go다
 ## 실행 방법
 
 의존성을 설치하려면 `pip install -r requirements.txt`를 실행한다.
+
+서버는 `python main.py`로 기동하며 기본 포트는 8000이다.
