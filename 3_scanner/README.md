@@ -41,3 +41,7 @@ SAST 분석이 지원하는 언어는 Python, JavaScript/TypeScript, Java, Go다
 ## 테스트
 
 테스트는 `3_scanner` 디렉터리에서 `python -m pytest`로 실행한다.
+
+## 디렉터리 구조
+
+`scanners/`에는 세 스캐너(`sast`, `sca`, `config`)가, `language_detector/`에는 언어 분석기가, `models/`에는 결과 데이터 모델이 들어 있다.
