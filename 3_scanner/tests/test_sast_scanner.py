@@ -56,6 +56,39 @@ def test_python_analyzer_does_not_double_count_overlapping_findings():
     assert per_line.get(3) == 1, "jwt import reported more than once"
 
 
+def test_sast_scanner_detects_go_patterns():
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        repo = Path(tmp_dir)
+        (repo / "main.go").write_text(
+            """
+package main
+
+import (
+    "crypto/rsa"
+    "crypto/ecdsa"
+    "crypto/rand"
+)
+
+func main() {
+    rsa.GenerateKey(rand.Reader, 2048)
+    ecdsa.GenerateKey(nil, rand.Reader)
+}
+""".strip(),
+            encoding="utf-8",
+        )
+
+        analysis = RepositoryAnalyzer().analyze(str(repo))
+        report = SASTScanner().scan_repository(analysis.scanner_targets.sast_targets)
+
+        go_result = next(
+            r for r in report.detailed_results if r.file_path == "main.go"
+        )
+        assert not go_result.skipped, "Go files should no longer be skipped"
+        go_types = {v.get("type") for v in go_result.vulnerabilities}
+        assert "rsa_generation" in go_types
+        assert "ecdsa_generation" in go_types
+
+
 def test_sast_scanner_detects_python_jwt_signing_patterns():
     with tempfile.TemporaryDirectory() as tmp_dir:
         repo = Path(tmp_dir)

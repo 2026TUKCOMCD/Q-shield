@@ -5,6 +5,7 @@ from models.scan_result import SASTResult, SASTScanReport
 from .python_analyzer import analyze_python_file
 from .javascript_analyzer import analyze_javascript_file
 from .java_analyzer import analyze_java_file
+from .go_analyzer import analyze_go_file
 
 class SASTScanner:
     """SAST scanner."""
@@ -15,6 +16,7 @@ class SASTScanner:
             "javascript": analyze_javascript_file,
             "typescript": analyze_javascript_file,  # Same as JavaScript
             "java": analyze_java_file,
+            "go": analyze_go_file,
             # Add more languages as needed
         }
     
