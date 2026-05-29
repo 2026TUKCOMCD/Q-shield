@@ -17,3 +17,7 @@ SAST 스캐너는 소스코드에서 취약한 암호 함수 호출 패턴을 �
 SCA 스캐너는 의존성 매니페스트(`requirements.txt`, `package.json`, `pom.xml`, `go.mod` 등)를 분석해 PQC 미지원 라이브러리를 탐지한다.
 
 Config 스캐너는 설정 파일과 인증서(`.pem`, `.crt`, `.conf`, `.yaml`, `.xml` 등)에서 취약한 TLS·암호 설정을 진단한다.
+
+## 지원 언어
+
+SAST 분석이 지원하는 언어는 Python, JavaScript/TypeScript, Java, Go다.
