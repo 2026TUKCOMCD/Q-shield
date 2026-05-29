@@ -45,3 +45,5 @@ SAST 분석이 지원하는 언어는 Python, JavaScript/TypeScript, Java, Go다
 ## 디렉터리 구조
 
 `scanners/`에는 세 스캐너(`sast`, `sca`, `config`)가, `language_detector/`에는 언어 분석기가, `models/`에는 결과 데이터 모델이 들어 있다.
+
+진입점 `main.py`가 API와 스캔 오케스트레이션을 담당하고, `utils/`에는 저장소 클론·파일 입출력 같은 보조 기능이 들어 있다.
