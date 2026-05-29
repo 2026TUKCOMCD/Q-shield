@@ -44,9 +44,14 @@ def test_config_scanner_detects_tls_issues():
     assert "ecdsa_cipher" in types
 
 
-def test_config_scanner_skips_encrypted_private_key(monkeypatch):
-    fixture_root = _fixture_root()
-    key_path = fixture_root / "encrypted_private_key.pem"
+def test_config_scanner_skips_encrypted_private_key(tmp_path, monkeypatch):
+    key_path = tmp_path / "encrypted_private_key.pem"
+    key_path.write_text(
+        "-----BEGIN ENCRYPTED PRIVATE KEY-----\n"
+        "MIIFHzBJBgkqhkiG9w0BBQ0wPDExampleEncryptedKeyMaterial\n"
+        "-----END ENCRYPTED PRIVATE KEY-----\n",
+        encoding="utf-8",
+    )
 
     def _fail_run(*args, **kwargs):
         raise AssertionError("OpenSSL should not be invoked for encrypted keys")
@@ -63,9 +68,14 @@ def test_config_scanner_skips_encrypted_private_key(monkeypatch):
     )
 
 
-def test_config_scanner_analyzes_certificate_non_interactive(monkeypatch):
-    fixture_root = _fixture_root()
-    cert_path = fixture_root / "cert.pem"
+def test_config_scanner_analyzes_certificate_non_interactive(tmp_path, monkeypatch):
+    cert_path = tmp_path / "cert.pem"
+    cert_path.write_text(
+        "-----BEGIN CERTIFICATE-----\n"
+        "MIIDazCCAlOgAwIBAgIUExampleCertificateMaterialForTesting\n"
+        "-----END CERTIFICATE-----\n",
+        encoding="utf-8",
+    )
 
     def _mock_run(*args, **kwargs):
         assert kwargs.get("stdin") is subprocess.DEVNULL
