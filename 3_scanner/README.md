@@ -21,3 +21,5 @@ Config 스캐너는 설정 파일과 인증서(`.pem`, `.crt`, `.conf`, `.yaml`,
 ## 지원 언어
 
 SAST 분석이 지원하는 언어는 Python, JavaScript/TypeScript, Java, Go다.
+
+각 발견 항목은 `severity`(HIGH/MEDIUM/LOW), `algorithm` 분류, 해당 위치(파일·라인)와 권고(recommendation)를 포함한다.
