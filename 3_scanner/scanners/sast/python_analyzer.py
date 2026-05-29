@@ -101,16 +101,14 @@ class PythonASTAnalyzer(ast.NodeVisitor):
 
 def analyze_python_file(file_path: str, source_code: str) -> List[Dict]:
     """Analyze Python source using AST and regex patterns."""
-    vulnerabilities = []
-    
-    # 1) AST analysis
+    # 1) AST analysis (precise, structural)
     ast_analyzer = PythonASTAnalyzer(file_path, source_code)
     ast_vulnerabilities = ast_analyzer.analyze()
-    vulnerabilities.extend(ast_vulnerabilities)
-    
+
     # 2) Regex pattern matching (cases not caught by AST)
     #    re.MULTILINE so that line-anchored rules (e.g. "^import jwt") match on
     #    every line, not just the first line of the file.
+    regex_vulnerabilities = []
     seen = set()
     patterns = CRYPTO_PATTERNS.get("python", {})
 
@@ -125,7 +123,7 @@ def analyze_python_file(file_path: str, source_code: str) -> List[Dict]:
                     continue
                 seen.add(dedupe_key)
 
-                vulnerabilities.append({
+                regex_vulnerabilities.append({
                     "type": rule_name,
                     "line": line_num,
                     "code": match.group(0),
@@ -135,4 +133,15 @@ def analyze_python_file(file_path: str, source_code: str) -> List[Dict]:
                     "recommendation": rule["recommendation"]
                 })
 
-    return vulnerabilities
+    # 3) Drop AST findings already reported by a regex rule on the same line and
+    #    algorithm. The AST visitor and the regex rules overlap (e.g. both flag
+    #    "RSA.generate(...)" or "import jwt"), which previously reported a single
+    #    crypto usage twice. Keep the regex finding because its rule name is more
+    #    specific (e.g. "rsa_generation" vs the AST "rsa_key_generation").
+    regex_line_algos = {(v["line"], v["algorithm"]) for v in regex_vulnerabilities}
+    deduped_ast = [
+        v for v in ast_vulnerabilities
+        if (v["line"], v["algorithm"]) not in regex_line_algos
+    ]
+
+    return deduped_ast + regex_vulnerabilities

@@ -35,6 +35,27 @@ def test_sast_scanner_detects_known_patterns():
     assert "crypto_require" in js_types
 
 
+def test_python_analyzer_does_not_double_count_overlapping_findings():
+    from scanners.sast.python_analyzer import analyze_python_file
+
+    source = (
+        "from Crypto.PublicKey import RSA\n"
+        "key = RSA.generate(2048)\n"
+        "import jwt\n"
+    )
+    vulns = analyze_python_file("x.py", source)
+
+    # Each crypto usage should be reported exactly once per source line, even
+    # though the AST visitor and the regex rules both recognise it.
+    per_line = {}
+    for v in vulns:
+        per_line[v["line"]] = per_line.get(v["line"], 0) + 1
+
+    assert per_line.get(1) == 1, "RSA import reported more than once"
+    assert per_line.get(2) == 1, "RSA.generate reported more than once"
+    assert per_line.get(3) == 1, "jwt import reported more than once"
+
+
 def test_sast_scanner_detects_python_jwt_signing_patterns():
     with tempfile.TemporaryDirectory() as tmp_dir:
         repo = Path(tmp_dir)
