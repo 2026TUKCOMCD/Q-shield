@@ -13,3 +13,5 @@ FastAPI 기반 HTTP API로 동작하며, 저장소 URL이나 로컬 경로를 �
 ## 세 가지 스캐너
 
 SAST 스캐너는 소스코드에서 취약한 암호 함수 호출 패턴을 정규식과 (Python의 경우) AST로 탐지한다.
+
+SCA 스캐너는 의존성 매니페스트(`requirements.txt`, `package.json`, `pom.xml`, `go.mod` 등)를 분석해 PQC 미지원 라이브러리를 탐지한다.
