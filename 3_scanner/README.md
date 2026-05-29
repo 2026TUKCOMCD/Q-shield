@@ -31,3 +31,5 @@ SAST 분석이 지원하는 언어는 Python, JavaScript/TypeScript, Java, Go다
 서버는 `python main.py`로 기동하며 기본 포트는 8000이다.
 
 스캔을 요청하려면 `POST /api/scan`에 `{"github_url": "<저장소 URL 또는 로컬 경로>"}` 형태의 본문을 보낸다.
+
+서버 상태는 `GET /health`로 확인할 수 있다.
