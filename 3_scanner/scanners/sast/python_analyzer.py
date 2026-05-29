@@ -109,23 +109,30 @@ def analyze_python_file(file_path: str, source_code: str) -> List[Dict]:
     vulnerabilities.extend(ast_vulnerabilities)
     
     # 2) Regex pattern matching (cases not caught by AST)
+    #    re.MULTILINE so that line-anchored rules (e.g. "^import jwt") match on
+    #    every line, not just the first line of the file.
+    seen = set()
     patterns = CRYPTO_PATTERNS.get("python", {})
-    
+
     for rule_name, rule in patterns.items():
         for pattern_str in rule["patterns"]:
-            for match in re.finditer(pattern_str, source_code):
+            for match in re.finditer(pattern_str, source_code, re.MULTILINE):
                 line_num = source_code[:match.start()].count('\n') + 1
-                
-                # De-duplicate by line number
-                if not any(v["line"] == line_num and v["type"] == rule_name for v in vulnerabilities):
-                    vulnerabilities.append({
-                        "type": rule_name,
-                        "line": line_num,
-                        "code": match.group(0),
-                        "severity": rule["severity"],
-                        "algorithm": rule["algorithm"],
-                        "description": rule["description"],
-                        "recommendation": rule["recommendation"]
-                    })
-    
+
+                # De-duplicate by (rule, line) number
+                dedupe_key = (rule_name, line_num)
+                if dedupe_key in seen:
+                    continue
+                seen.add(dedupe_key)
+
+                vulnerabilities.append({
+                    "type": rule_name,
+                    "line": line_num,
+                    "code": match.group(0),
+                    "severity": rule["severity"],
+                    "algorithm": rule["algorithm"],
+                    "description": rule["description"],
+                    "recommendation": rule["recommendation"]
+                })
+
     return vulnerabilities
